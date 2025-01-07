@@ -14,6 +14,7 @@ export async function POST(req: Request) {
     }
 
     const { channelId, content } = await req.json()
+    console.log('Messages: Creating new message:', { channelId, senderId: userId })
     if (!channelId || !content) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
@@ -34,6 +35,13 @@ export async function POST(req: Request) {
         workspace: true,
       },
     })
+
+    console.log('Messages: Found channel:', regularChannel ? {
+      id: regularChannel.id,
+      name: regularChannel.name,
+      slug: regularChannel.slug,
+      workspaceId: regularChannel.workspaceId
+    } : null)
 
     const dmChannel = await db.query.directMessageChannels.findFirst({
       where: eq(directMessageChannels.id, channelId),
@@ -77,8 +85,10 @@ export async function POST(req: Request) {
 
     // Update unread counts for all users in the channel except the sender
     if (regularChannel) {
-      console.log('Processing regular channel message:', {
+      console.log('Messages: Processing regular channel message:', {
         channelId,
+        channelName: regularChannel.name,
+        channelSlug: regularChannel.slug,
         workspaceId: regularChannel.workspace.id,
         senderId: userId,
       })
@@ -88,7 +98,7 @@ export async function POST(req: Request) {
         where: eq(workspaceMemberships.workspaceId, regularChannel.workspace.id),
       })
 
-      console.log('Found workspace members:', workspaceMembers.map(m => m.userId))
+      console.log('Messages: Found workspace members:', workspaceMembers.map(m => m.userId))
 
       // Check for mentions in the message
       const mentions = content.match(/@[\w-]+/g) || []
@@ -98,13 +108,17 @@ export async function POST(req: Request) {
       for (const member of workspaceMembers) {
         if (member.userId !== userId) {
           const hasMention = mentionedUsers.includes(member.userId)
-          console.log('Updating unread count for member:', {
-            memberId: member.userId,
+          console.log('Messages: Processing unread count for member:', {
+            senderId: userId,
+            recipientId: member.userId,
             channelId,
+            channelName: regularChannel.name,
+            channelSlug: regularChannel.slug,
             hasMention,
           })
 
-          await db.insert(unreadMessages).values({
+          // Update unread count
+          const [updatedUnread] = await db.insert(unreadMessages).values({
             id: `unread_${uuidv4()}`,
             userId: member.userId,
             channelId,
@@ -117,19 +131,28 @@ export async function POST(req: Request) {
               hasMention: sql`${unreadMessages.hasMention} OR ${hasMention}`,
               updatedAt: new Date(),
             },
+          }).returning()
+
+          console.log('Messages: Updated unread count:', {
+            recipientId: member.userId,
+            channelId,
+            unreadCount: updatedUnread.unreadCount,
+            hasMention: updatedUnread.hasMention
           })
 
           // Trigger user-specific event for unread count
           const eventData = {
-            channelId,
+            channelId: regularChannel.id,
             messageId: message.id,
             senderId: userId,
             hasMention,
             isChannel: true,
+            channelSlug: regularChannel.slug
           }
-          console.log('Triggering new-message event for user:', {
-            userId: member.userId,
-            eventData,
+          console.log('Messages: Sending Pusher event:', {
+            eventType: 'new-message',
+            recipientChannel: `user-${member.userId}`,
+            eventData
           })
           await pusherServer.trigger(`user-${member.userId}`, 'new-message', eventData)
         }

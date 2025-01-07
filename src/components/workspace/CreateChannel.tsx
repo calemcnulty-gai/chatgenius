@@ -29,6 +29,7 @@ export function CreateChannel({ workspaceId, onComplete }: CreateChannelProps) {
         body: JSON.stringify({
           name,
           workspaceId,
+          type: 'public', // Default to public channels for MVP
         }),
       })
 

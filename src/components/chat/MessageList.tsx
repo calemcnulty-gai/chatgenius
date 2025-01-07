@@ -40,23 +40,30 @@ export function MessageList({ channelId }: MessageListProps) {
   }
 
   useEffect(() => {
+    setIsLoading(true)
     fetchMessages()
   }, [channelId])
 
   // Set up Pusher subscription
   useEffect(() => {
-    // Subscribe to the channel
-    const channel = pusherClient.subscribe(`channel-${channelId}`)
+    const channelName = `channel-${channelId}`
+
+    // Subscribe if not already subscribed
+    if (!pusherClient.channel(channelName)) {
+      pusherClient.subscribe(channelName)
+    }
 
     // Listen for new messages
-    channel.bind('new-message', (newMessage: MessageData) => {
+    const handleNewMessage = (newMessage: MessageData) => {
       setMessages((currentMessages) => [...currentMessages, newMessage])
-    })
+    }
 
-    // Cleanup on unmount
+    const channel = pusherClient.channel(channelName)
+    channel.bind('new-message', handleNewMessage)
+
+    // Cleanup only unbinds the event handler, doesn't unsubscribe
     return () => {
-      channel.unbind_all()
-      channel.unsubscribe()
+      channel?.unbind('new-message', handleNewMessage)
     }
   }, [channelId])
 

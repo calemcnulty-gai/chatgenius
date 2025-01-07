@@ -39,7 +39,34 @@ export function NotificationBell() {
   useEffect(() => {
     if (!userId) return
 
-    const channel = pusherClient.subscribe(`user-${userId}`)
+    // Wait for connection to be established
+    if (pusherClient.connection.state !== 'connected') {
+      pusherClient.connect()
+    }
+
+    const channelName = `user-${userId}`
+    const channel = pusherClient.subscribe(channelName)
+
+    // Handle connection state
+    const handleConnectionStateChange = (state: string) => {
+      console.log('Pusher connection state changed:', state)
+      if (state === 'connected') {
+        console.log('Successfully connected to Pusher')
+      }
+    }
+
+    pusherClient.connection.bind('state_change', handleConnectionStateChange)
+
+    // Listen for subscription success
+    channel.bind('pusher:subscription_succeeded', () => {
+      console.log('Successfully subscribed to notifications channel:', channelName)
+    })
+
+    // Listen for subscription error
+    channel.bind('pusher:subscription_error', (error: any) => {
+      console.error('Error subscribing to notifications channel:', error)
+    })
+
     channel.bind('new-notification', (notification: Notification) => {
       setNotifications(prev => [notification, ...prev])
     })
@@ -56,6 +83,7 @@ export function NotificationBell() {
     return () => {
       channel.unbind_all()
       channel.unsubscribe()
+      pusherClient.connection.unbind('state_change', handleConnectionStateChange)
     }
   }, [userId])
 
@@ -91,7 +119,7 @@ export function NotificationBell() {
             ) : (
               notifications.map(notification => (
                 <button
-                  key={notification.id}
+                  key={`${notification.id}-${notification.createdAt}`}
                   onClick={() => handleNotificationClick(notification)}
                   className={`group relative w-full rounded-md p-2 text-left hover:bg-gray-700`}
                 >

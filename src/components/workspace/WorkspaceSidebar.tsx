@@ -1,17 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { UserButton } from '@clerk/nextjs'
 import { UserList } from './UserList'
 import { DirectMessageList } from './DirectMessageList'
-import { PlusIcon } from '@heroicons/react/24/outline'
+import ChannelList from './ChannelList'
+import { Channel as BaseChannel } from '@/types'
 
-type Channel = {
-  id: string
-  name: string
-  slug: string
+console.log('🔥 WorkspaceSidebar: File loaded')
+
+type Channel = BaseChannel & {
+  unreadCount?: number
+  hasMention?: boolean
 }
 
 type User = {
@@ -38,8 +39,13 @@ type WorkspaceSidebarProps = {
 }
 
 export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: WorkspaceSidebarProps) {
-  const params = useParams()
-  const [isChannelsExpanded, setIsChannelsExpanded] = useState(true)
+  console.log('🔄 WorkspaceSidebar: Rendering with channels:', channels.map(c => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    unreadCount: c.unreadCount,
+    hasMention: c.hasMention
+  })))
 
   return (
     <div className="flex h-full flex-col">
@@ -52,32 +58,7 @@ export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: Wor
       {/* Sidebar sections */}
       <div className="flex-1 space-y-4 overflow-y-auto p-2">
         {/* Channels section */}
-        <div>
-          <button
-            onClick={() => setIsChannelsExpanded(!isChannelsExpanded)}
-            className="mb-1 flex w-full items-center justify-between px-2 text-sm font-semibold uppercase text-gray-400 hover:text-gray-300"
-          >
-            <span>Channels</span>
-            <PlusIcon className="h-4 w-4" />
-          </button>
-          {isChannelsExpanded && (
-            <div className="space-y-1">
-              {channels.map((channel) => (
-                <Link
-                  key={channel.id}
-                  href={`/workspace/${workspace.slug}/channel/${channel.slug}`}
-                  className={`block rounded-md px-2 py-1 text-sm ${
-                    params.channelSlug === channel.slug
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
-                  }`}
-                >
-                  # {channel.name}
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
+        <ChannelList channels={channels} />
 
         {/* Direct Messages section */}
         <DirectMessageList

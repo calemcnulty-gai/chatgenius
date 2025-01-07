@@ -18,6 +18,8 @@ export default async function WorkspaceLayout({
     redirect('/sign-in')
   }
 
+  console.log('WorkspaceLayout: Loading workspace data for user:', userId)
+
   // Get workspace by slug
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, params.workspaceSlug),
@@ -49,6 +51,38 @@ export default async function WorkspaceLayout({
     }
   })
 
+  console.log('WorkspaceLayout: Raw channel data:', workspaceChannels.map(channel => ({
+    id: channel.id,
+    name: channel.name,
+    unreadMessages: channel.unreadMessages
+  })))
+
+  // Transform channels to include unread counts
+  const formattedChannels = workspaceChannels.map(channel => {
+    const unreadMessage = channel.unreadMessages?.[0]
+    console.log('WorkspaceLayout: Processing channel:', {
+      channelId: channel.id,
+      channelName: channel.name,
+      channelSlug: channel.slug,
+      unreadMessage,
+      unreadCount: unreadMessage?.unreadCount ?? 0,
+      hasMention: unreadMessage?.hasMention ?? false
+    })
+    return {
+      ...channel,
+      unreadCount: unreadMessage?.unreadCount ?? 0,
+      hasMention: unreadMessage?.hasMention ?? false,
+    }
+  })
+
+  console.log('WorkspaceLayout: Formatted channels:', formattedChannels.map(channel => ({
+    id: channel.id,
+    name: channel.name,
+    slug: channel.slug,
+    unreadCount: channel.unreadCount,
+    hasMention: channel.hasMention
+  })))
+
   // Get workspace members
   const workspaceUsers = await db.query.workspaceMemberships.findMany({
     where: eq(workspaceMemberships.workspaceId, workspace.id),
@@ -72,18 +106,12 @@ export default async function WorkspaceLayout({
     },
   })
 
-  // Transform channels to include unread counts
-  const formattedChannels = workspaceChannels.map(channel => ({
-    ...channel,
-    unreadCount: channel.unreadMessages?.[0]?.unreadCount || 0,
-    hasMention: channel.unreadMessages?.[0]?.hasMention || false,
-  }))
-
   // Transform DM channels to include only the other user and unread counts
   const formattedDMChannels = dmChannels
     .filter(channel => channel.members.some(member => member.userId === userId))
     .map(channel => {
       const otherUser = channel.members.find(member => member.userId !== userId)!.user
+      const unreadMessage = channel.unreadMessages?.[0]
       return {
         id: channel.id,
         otherUser: {
@@ -92,8 +120,8 @@ export default async function WorkspaceLayout({
           profileImage: otherUser.profileImage,
           status: (otherUser.status as 'active' | 'away' | 'offline') || 'offline'
         },
-        unreadCount: channel.unreadMessages?.[0]?.unreadCount || 0,
-        hasMention: channel.unreadMessages?.[0]?.hasMention || false,
+        unreadCount: unreadMessage?.unreadCount ?? 0,
+        hasMention: unreadMessage?.hasMention ?? false,
       }
     })
 
