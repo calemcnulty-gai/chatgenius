@@ -7,11 +7,13 @@ import {
   boolean,
   integer,
   jsonb,
+  type PgTableWithColumns,
 } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  email: text('email').notNull(),
   profileImage: text('profile_image'),
   status: text('status').default('active'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -22,6 +24,7 @@ export const workspaces = pgTable('workspaces', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  ownerId: text('owner_id').notNull().references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -63,19 +66,27 @@ export const workspaceMemberships = pgTable('workspace_memberships', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
-export const messages = pgTable('messages', {
+// Declare messages type to avoid circular reference
+let messages: PgTableWithColumns<any>
+
+// Initialize messages table
+messages = pgTable('messages', {
   id: text('id').primaryKey(),
+  channelId: text('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
+  dmChannelId: text('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
+  senderId: text('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   content: text('content').notNull(),
-  channelId: text('channel_id').references(() => channels.id),
-  dmChannelId: text('dm_channel_id').references(() => directMessageChannels.id),
-  senderId: text('sender_id')
-    .notNull()
-    .references(() => users.id),
   aiGenerated: boolean('ai_generated').default(false),
   attachments: jsonb('attachments'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   editedAt: timestamp('edited_at'),
+  // New columns for threading
+  parentMessageId: text('parent_message_id'),
+  replyCount: integer('reply_count').default(0).notNull(),
+  latestReplyAt: timestamp('latest_reply_at'),
 })
+
+export { messages }
 
 export const directMessageChannels = pgTable('direct_message_channels', {
   id: text('id').primaryKey(),
@@ -152,7 +163,7 @@ export const directMessageMembersRelations = relations(directMessageMembers, ({ 
   }),
 }))
 
-export const messagesRelations = relations(messages, ({ one }) => ({
+export const messagesRelations = relations(messages, ({ one, many }) => ({
   sender: one(users, {
     fields: [messages.senderId],
     references: [users.id],
@@ -165,6 +176,12 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     fields: [messages.dmChannelId],
     references: [directMessageChannels.id],
   }),
+  // Add thread relations with correct field mappings
+  parentMessage: one(messages, {
+    fields: [messages.parentMessageId],
+    references: [messages.id],
+  }),
+  replies: many(messages),
 }))
 
 export const unreadMessagesRelations = relations(unreadMessages, ({ one }) => ({

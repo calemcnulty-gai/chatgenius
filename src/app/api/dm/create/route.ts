@@ -5,31 +5,56 @@ import { directMessageChannels, directMessageMembers } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 
+type DMChannel = {
+  id: string
+  workspaceId: string
+  createdAt: Date
+  updatedAt: Date
+  members: {
+    userId: string
+    channelId: string
+    id: string
+    createdAt: Date
+  }[]
+}
+
 export async function POST(req: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const { userId: currentUserId } = auth()
+    if (!currentUserId) {
+      return NextResponse.json({ 
+        message: 'Unauthorized',
+        status: 'error'
+      }, { status: 401 })
     }
 
-    const { workspaceId, otherUserId } = await req.json()
+    const { workspaceId, userId: otherUserId } = await req.json()
     if (!workspaceId || !otherUserId) {
-      return new NextResponse('Missing required fields', { status: 400 })
+      return NextResponse.json({ 
+        message: 'Missing required fields',
+        status: 'error'
+      }, { status: 400 })
     }
 
     // Check if DM channel already exists between these users
-    const existingChannel = await db.query.directMessageChannels.findFirst({
+    const existingChannels = await db.query.directMessageChannels.findMany({
       where: eq(directMessageChannels.workspaceId, workspaceId),
       with: {
         members: true,
       },
+    }) as DMChannel[]
+
+    const existingChannel = existingChannels.find(channel => {
+      const hasOtherUser = channel.members.some(m => m.userId === otherUserId)
+      const hasCurrentUser = channel.members.some(m => m.userId === currentUserId)
+      return hasOtherUser && hasCurrentUser
     })
 
-    const hasOtherUser = existingChannel?.members.some(m => m.userId === otherUserId)
-    const hasCurrentUser = existingChannel?.members.some(m => m.userId === userId)
-
-    if (existingChannel && hasOtherUser && hasCurrentUser) {
-      return NextResponse.json({ channelId: existingChannel.id })
+    if (existingChannel) {
+      return NextResponse.json({ 
+        channelId: existingChannel.id,
+        status: 'success'
+      })
     }
 
     // Create new DM channel
@@ -43,7 +68,7 @@ export async function POST(req: Request) {
       {
         id: uuidv4(),
         channelId: channel.id,
-        userId,
+        userId: currentUserId,
       },
       {
         id: uuidv4(),
@@ -52,9 +77,16 @@ export async function POST(req: Request) {
       },
     ])
 
-    return NextResponse.json({ channelId: channel.id })
+    return NextResponse.json({ 
+      channelId: channel.id,
+      status: 'success'
+    })
   } catch (error) {
     console.error('Error creating DM channel:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json({ 
+      message: 'Failed to create DM channel',
+      status: 'error',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 })
   }
 } 

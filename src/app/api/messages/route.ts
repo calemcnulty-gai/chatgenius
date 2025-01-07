@@ -5,6 +5,7 @@ import { messages, users, channels, directMessageChannels, directMessageMembers,
 import { and, eq, or, ne, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { pusherServer } from '@/lib/pusher'
+import type { ChannelWithWorkspace, DirectMessageChannelWithMembers, MessageWithSender } from '@/types/db'
 
 export async function POST(req: Request) {
   try {
@@ -13,10 +14,31 @@ export async function POST(req: Request) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const { channelId, content } = await req.json()
-    console.log('Messages: Creating new message:', { channelId, senderId: userId })
+    const { channelId, content, parentMessageId } = await req.json()
+    console.log('Messages: Creating new message:', { channelId, senderId: userId, parentMessageId })
     if (!channelId || !content) {
       return new NextResponse('Missing required fields', { status: 400 })
+    }
+
+    // If this is a reply, verify parent message exists and belongs to the same channel
+    if (parentMessageId) {
+      const parentMessage = await db.query.messages.findFirst({
+        where: eq(messages.id, parentMessageId),
+      })
+
+      if (!parentMessage) {
+        return new NextResponse('Parent message not found', { status: 404 })
+      }
+
+      // Verify parent message belongs to the same channel
+      if (parentMessage.channelId !== channelId && parentMessage.dmChannelId !== channelId) {
+        return new NextResponse('Parent message must be in the same channel', { status: 400 })
+      }
+
+      // Prevent nested threads (replies to replies)
+      if (parentMessage.parentMessageId) {
+        return new NextResponse('Nested threads are not allowed', { status: 400 })
+      }
     }
 
     // Get user details for the message
@@ -34,14 +56,7 @@ export async function POST(req: Request) {
       with: {
         workspace: true,
       },
-    })
-
-    console.log('Messages: Found channel:', regularChannel ? {
-      id: regularChannel.id,
-      name: regularChannel.name,
-      slug: regularChannel.slug,
-      workspaceId: regularChannel.workspaceId
-    } : null)
+    }) as ChannelWithWorkspace | null
 
     const dmChannel = await db.query.directMessageChannels.findFirst({
       where: eq(directMessageChannels.id, channelId),
@@ -52,7 +67,7 @@ export async function POST(req: Request) {
           },
         },
       },
-    })
+    }) as DirectMessageChannelWithMembers | null
 
     if (!regularChannel && !dmChannel) {
       return new NextResponse('Channel not found', { status: 404 })
@@ -66,39 +81,97 @@ export async function POST(req: Request) {
       dmChannelId: dmChannel ? channelId : null,
       senderId: userId,
       content,
+      parentMessageId: parentMessageId || null,
     }).returning();
+
+    // If this is a reply, update the parent message's metadata
+    let updatedParentMessage
+    if (parentMessageId) {
+      [updatedParentMessage] = await db.update(messages)
+        .set({
+          replyCount: sql`${messages.replyCount} + 1`,
+          latestReplyAt: new Date(),
+        })
+        .where(eq(messages.id, parentMessageId))
+        .returning()
+    }
 
     // Construct message object for response and Pusher
     const messageData = {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
+      parentMessageId: message.parentMessageId,
       sender: {
         id: user.id,
         name: user.name,
         profileImage: user.profileImage,
       },
+      // Include parent message metadata if this is a reply
+      parentMessage: updatedParentMessage ? {
+        id: updatedParentMessage.id,
+        replyCount: updatedParentMessage.replyCount,
+        latestReplyAt: updatedParentMessage.latestReplyAt,
+      } : undefined,
     }
 
-    // Trigger message event for the channel itself
+    // Trigger message events
     await pusherServer.trigger(`channel-${channelId}`, 'new-message', messageData)
+    
+    // If this is a reply, also trigger a thread-specific event
+    if (parentMessageId) {
+      await pusherServer.trigger(`thread-${parentMessageId}`, 'new-reply', messageData)
+
+      // Get all users who have participated in this thread
+      const threadParticipants = await db.query.messages.findMany({
+        where: or(
+          eq(messages.id, parentMessageId),
+          eq(messages.parentMessageId, parentMessageId)
+        ),
+        with: {
+          sender: true
+        }
+      })
+
+      // Get unique participant IDs (excluding the current sender)
+      const participantIds = [...new Set(
+        threadParticipants
+          .map(m => m.sender.id)
+          .filter(id => id !== userId)
+      )]
+
+      // Send notifications to all participants
+      for (const participantId of participantIds) {
+        await pusherServer.trigger(`user-${participantId}`, 'new-notification', {
+          id: `notification_${uuidv4()}`,
+          type: 'thread_reply',
+          title: `New reply from ${user.name}`,
+          body: content.length > 50 ? content.substring(0, 47) + '...' : content,
+          read: false,
+          createdAt: new Date().toISOString(),
+          data: {
+            channelId,
+            messageId: message.id,
+            senderId: userId,
+            parentMessageId
+          }
+        })
+      }
+
+      // Also update the channel message list to show updated reply count
+      await pusherServer.trigger(`channel-${channelId}`, 'thread-update', {
+        messageId: parentMessageId,
+        replyCount: updatedParentMessage?.replyCount || 0,
+        latestReplyAt: updatedParentMessage?.latestReplyAt || new Date().toISOString()
+      })
+    }
 
     // Update unread counts for all users in the channel except the sender
     if (regularChannel) {
-      console.log('Messages: Processing regular channel message:', {
-        channelId,
-        channelName: regularChannel.name,
-        channelSlug: regularChannel.slug,
-        workspaceId: regularChannel.workspace.id,
-        senderId: userId,
-      })
-
       // Get all workspace members
       const workspaceMembers = await db.query.workspaceMemberships.findMany({
-        where: eq(workspaceMemberships.workspaceId, regularChannel.workspace.id),
+        where: eq(workspaceMemberships.workspaceId, regularChannel.workspaceId),
       })
-
-      console.log('Messages: Found workspace members:', workspaceMembers.map(m => m.userId))
 
       // Check for mentions in the message
       const mentions = content.match(/@[\w-]+/g) || []
@@ -108,14 +181,6 @@ export async function POST(req: Request) {
       for (const member of workspaceMembers) {
         if (member.userId !== userId) {
           const hasMention = mentionedUsers.includes(member.userId)
-          console.log('Messages: Processing unread count for member:', {
-            senderId: userId,
-            recipientId: member.userId,
-            channelId,
-            channelName: regularChannel.name,
-            channelSlug: regularChannel.slug,
-            hasMention,
-          })
 
           // Update unread count
           const [updatedUnread] = await db.insert(unreadMessages).values({
@@ -133,13 +198,6 @@ export async function POST(req: Request) {
             },
           }).returning()
 
-          console.log('Messages: Updated unread count:', {
-            recipientId: member.userId,
-            channelId,
-            unreadCount: updatedUnread.unreadCount,
-            hasMention: updatedUnread.hasMention
-          })
-
           // Trigger user-specific event for unread count
           const eventData = {
             channelId: regularChannel.id,
@@ -147,13 +205,9 @@ export async function POST(req: Request) {
             senderId: userId,
             hasMention,
             isChannel: true,
-            channelSlug: regularChannel.slug
+            channelSlug: regularChannel.slug,
+            isThreadReply: !!parentMessageId,
           }
-          console.log('Messages: Sending Pusher event:', {
-            eventType: 'new-message',
-            recipientChannel: `user-${member.userId}`,
-            eventData
-          })
           await pusherServer.trigger(`user-${member.userId}`, 'new-message', eventData)
         }
       }
@@ -181,25 +235,27 @@ export async function POST(req: Request) {
         await db.insert(notifications).values({
           id: `notif_${uuidv4()}`,
           userId: otherMember.userId,
-          type: 'dm',
-          title: `New message from ${user.name}`,
+          type: parentMessageId ? 'thread_reply' : 'dm',
+          title: `New ${parentMessageId ? 'thread reply' : 'message'} from ${user.name}`,
           body: content.length > 50 ? content.substring(0, 47) + '...' : content,
           data: {
             channelId,
             messageId: message.id,
             senderId: userId,
+            parentMessageId,
           },
         })
 
         // Trigger notification event
         await pusherServer.trigger(`user-${otherMember.userId}`, 'new-notification', {
-          type: 'dm',
-          title: `New message from ${user.name}`,
+          type: parentMessageId ? 'thread_reply' : 'dm',
+          title: `New ${parentMessageId ? 'thread reply' : 'message'} from ${user.name}`,
           body: content.length > 50 ? content.substring(0, 47) + '...' : content,
           data: {
             channelId,
             messageId: message.id,
             senderId: userId,
+            parentMessageId,
           },
         })
 
@@ -210,18 +266,7 @@ export async function POST(req: Request) {
           senderId: userId,
           hasMention: true,
           isDM: true,
-        })
-      }
-    }
-
-    // Also trigger an event for the recipient's unread count
-    if (dmChannel) {
-      const otherMember = dmChannel.members.find(member => member.userId !== userId)
-      if (otherMember) {
-        await pusherServer.trigger(`user-${otherMember.userId}`, 'new-message', {
-          channelId,
-          messageId: message.id,
-          senderId: userId,
+          isThreadReply: !!parentMessageId,
         })
       }
     }
@@ -241,23 +286,75 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const channelId = searchParams.get('channelId')
+  const cursor = searchParams.get('cursor') // For pagination
+  const limit = Number(searchParams.get('limit')) || 50
+  const includeReplies = searchParams.get('includeReplies') === 'true'
 
   if (!channelId) {
     return new Response('Channel ID is required', { status: 400 })
   }
 
   try {
-    // Check if this is a regular channel or DM channel
-    const channelMessages = await db.query.messages.findMany({
-      where: or(
-        eq(messages.channelId, channelId),
-        eq(messages.dmChannelId, channelId)
-      ),
-      with: {
-        sender: true
-      },
-      orderBy: (messages, { asc }) => [asc(messages.createdAt)]
+    console.log('Fetching messages for channel:', channelId)
+    console.log('Include replies:', includeReplies)
+
+    // Build the base query
+    const baseWhere = or(
+      eq(messages.channelId, channelId),
+      eq(messages.dmChannelId, channelId)
+    )
+
+    // If we don't want replies, only get parent messages or messages without parents
+    const threadWhere = includeReplies 
+      ? undefined 
+      : sql`${messages.parentMessageId} IS NULL`
+
+    // Combine the conditions
+    const where = threadWhere 
+      ? and(baseWhere, threadWhere)
+      : baseWhere
+
+    // Add cursor-based pagination
+    const cursorCondition = cursor
+      ? and(where, sql`${messages.createdAt} < ${new Date(cursor)}`)
+      : where
+
+    // Log the query conditions
+    console.log('Query conditions:', {
+      baseWhere,
+      threadWhere,
+      where,
+      cursorCondition
     })
+
+    // Fetch messages with sender info and reply counts
+    const query = db.query.messages.findMany({
+      where: cursorCondition,
+      with: {
+        sender: true,
+      },
+      orderBy: (messages, { desc }) => [desc(messages.createdAt)],
+      limit: limit + 1, // Get one extra to check if there are more
+    })
+
+    // Log the SQL query
+    const sqlQuery = query.toSQL()
+    const parameterizedSql = sqlQuery.sql.replace(/\$(\d+)/g, (_: string, index: number): string => {
+      const param = sqlQuery.params[index - 1]
+      return typeof param === 'string' ? `'${param}'` : String(param)
+    })
+    console.log('Parameterized SQL Query:', parameterizedSql)
+
+    const channelMessages = await query
+
+    // Log the results
+    console.log('Found messages:', channelMessages.length)
+    console.log('First message:', channelMessages[0])
+
+    // Check if there are more messages
+    const hasMore = channelMessages.length > limit
+    const resultMessages = hasMore ? channelMessages.slice(0, -1) : channelMessages
+    const nextCursor = hasMore ? resultMessages[resultMessages.length - 1].createdAt.toISOString() : undefined
 
     // Reset unread count when fetching messages
     await db.update(unreadMessages)
@@ -291,7 +388,23 @@ export async function GET(request: Request) {
       channelId,
     })
 
-    return NextResponse.json(channelMessages)
+    return NextResponse.json({
+      messages: resultMessages.map(message => ({
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        sender: {
+          id: message.sender.id,
+          name: message.sender.name,
+          profileImage: message.sender.profileImage,
+        },
+        replyCount: message.replyCount,
+        latestReplyAt: message.latestReplyAt,
+        parentMessageId: message.parentMessageId,
+      })),
+      hasMore,
+      nextCursor,
+    })
   } catch (error) {
     console.error('Error fetching messages:', error)
     return new Response('Error fetching messages', { status: 500 })

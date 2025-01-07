@@ -17,6 +17,11 @@ export const pusherServer = new PusherServer({
 export const pusherClient = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
   cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
   authEndpoint: '/api/pusher/auth',
+  auth: {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+  },
 })
 
 console.log('Pusher: Initializing client with:', {
@@ -42,4 +47,17 @@ pusherClient.connection.bind('error', (error: any) => {
 })
 
 // Log the current connection state
-console.log('Current Pusher connection state:', pusherClient.connection.state) 
+console.log('Current Pusher connection state:', pusherClient.connection.state)
+
+// Utility function to disconnect and cleanup Pusher
+export function disconnectPusher() {
+  // Unsubscribe from all channels
+  Object.keys(pusherClient.channels.channels).forEach(channelName => {
+    pusherClient.unsubscribe(channelName)
+  })
+  
+  // Disconnect the client
+  pusherClient.disconnect()
+  
+  console.log('Pusher: Disconnected and cleaned up all channels')
+} 

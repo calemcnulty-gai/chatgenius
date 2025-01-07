@@ -4,16 +4,23 @@ import { useState } from 'react'
 
 type MessageInputProps = {
   channelId: string
-  onMessageSent?: () => void
+  parentMessageId?: string
+  onMessageSent: () => void
+  placeholder?: string
 }
 
-export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
-  const [message, setMessage] = useState('')
+export function MessageInput({ 
+  channelId, 
+  parentMessageId,
+  onMessageSent,
+  placeholder = 'Type a message...',
+}: MessageInputProps) {
+  const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!message.trim() || isSubmitting) return
+    if (!content.trim() || isSubmitting) return
 
     setIsSubmitting(true)
     try {
@@ -24,7 +31,8 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
         },
         body: JSON.stringify({
           channelId,
-          content: message.trim(),
+          content: content.trim(),
+          parentMessageId,
         }),
       })
 
@@ -32,8 +40,8 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
         throw new Error('Failed to send message')
       }
 
-      setMessage('')
-      onMessageSent?.()
+      setContent('')
+      onMessageSent()
     } catch (error) {
       console.error('Error sending message:', error)
     } finally {
@@ -42,23 +50,16 @@ export function MessageInput({ channelId, onMessageSent }: MessageInputProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="border-t border-gray-700 bg-gray-800 p-4">
-      <div className="flex items-center gap-4">
+    <form onSubmit={handleSubmit} className="p-4">
+      <div className="relative">
         <input
           type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Type a message..."
-          className="flex-1 rounded-lg bg-gray-700 px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder={placeholder}
+          className="w-full rounded-lg bg-gray-700 px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           disabled={isSubmitting}
         />
-        <button
-          type="submit"
-          disabled={!message.trim() || isSubmitting}
-          className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          Send
-        </button>
       </div>
     </form>
   )

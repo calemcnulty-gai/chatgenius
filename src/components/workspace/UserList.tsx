@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { PlusIcon } from '@heroicons/react/24/outline'
+import { InviteModal } from './InviteModal'
 
 type User = {
   id: string
@@ -16,12 +18,15 @@ type UserListProps = {
   workspace: {
     id: string
     name: string
+    slug: string
   }
 }
 
 export function UserList({ users, workspace }: UserListProps) {
   const router = useRouter()
+  const params = useParams()
   const [isLoading, setIsLoading] = useState(false)
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
 
   const handleUserClick = async (user: User) => {
     if (isLoading) return
@@ -44,8 +49,12 @@ export function UserList({ users, workspace }: UserListProps) {
         throw new Error('Failed to create/get DM channel')
       }
 
-      const { channelId } = await response.json()
-      router.push(`/workspace/${workspace.id}/dm/${channelId}`)
+      const data = await response.json()
+      if (data.status === 'success' && data.channelId) {
+        router.push(`/workspace/${workspace.slug}/dm/${data.channelId}`)
+      } else {
+        throw new Error(data.message || 'Failed to create DM channel')
+      }
     } catch (error) {
       console.error('Error handling user click:', error)
     } finally {
@@ -54,38 +63,56 @@ export function UserList({ users, workspace }: UserListProps) {
   }
 
   return (
-    <div className="flex flex-col">
-      <h2 className="mb-2 px-2 text-sm font-semibold uppercase text-gray-400">Users</h2>
-      <div className="space-y-1">
-        {users.map((user) => (
+    <>
+      <div className="flex flex-col">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <h2 className="text-sm font-semibold uppercase text-gray-400">Users</h2>
           <button
-            key={user.id}
-            onClick={() => handleUserClick(user)}
-            disabled={isLoading}
-            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 ${
-              isLoading ? 'cursor-wait opacity-50' : ''
-            }`}
+            onClick={() => setIsInviteModalOpen(true)}
+            className="text-gray-400 hover:text-gray-300"
+            title="Invite users"
           >
-            <div className="relative">
-              <UserAvatar
-                name={user.name}
-                image={user.profileImage}
-                className="h-4 w-4"
-              />
-              <div
-                className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
-                  user.status === 'active'
-                    ? 'bg-green-500'
-                    : user.status === 'away'
-                    ? 'bg-yellow-500'
-                    : 'bg-gray-500'
-                }`}
-              />
-            </div>
-            <span className="truncate text-sm">{user.name}</span>
+            <PlusIcon className="h-4 w-4" />
           </button>
-        ))}
+        </div>
+        <div className="space-y-1">
+          {users.map((user) => (
+            <button
+              key={user.id}
+              onClick={() => handleUserClick(user)}
+              disabled={isLoading}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 ${
+                isLoading ? 'cursor-wait opacity-50' : ''
+              }`}
+            >
+              <div className="relative">
+                <UserAvatar
+                  name={user.name}
+                  image={user.profileImage}
+                  className="h-4 w-4"
+                />
+                <div
+                  className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
+                    user.status === 'active'
+                      ? 'bg-green-500'
+                      : user.status === 'away'
+                      ? 'bg-yellow-500'
+                      : 'bg-gray-500'
+                  }`}
+                />
+              </div>
+              <span className="truncate text-sm">{user.name}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+
+      <InviteModal
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+        workspaceId={workspace.id}
+        workspaceName={workspace.name}
+      />
+    </>
   )
 } 

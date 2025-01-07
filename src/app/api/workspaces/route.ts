@@ -30,6 +30,7 @@ export async function POST(req: Request) {
       id: uuidv4(),
       name,
       slug,
+      ownerId: userId,
     }).returning()
 
     // Create workspace membership

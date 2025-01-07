@@ -54,7 +54,7 @@ export default function CreateWorkspace({ onComplete }: CreateWorkspaceProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="name" className="block text-sm font-medium leading-6 text-gray-900">
+        <label htmlFor="name" className="block text-sm font-medium leading-6 text-gray-200">
           Workspace Name
         </label>
         <input
@@ -62,19 +62,19 @@ export default function CreateWorkspace({ onComplete }: CreateWorkspaceProps) {
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+          className="block w-full rounded-md border-0 bg-gray-900 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           required
         />
       </div>
       <div>
-        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-900">
+        <label htmlFor="description" className="block text-sm font-medium leading-6 text-gray-200">
           Description
         </label>
         <textarea
           id="description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+          className="block w-full rounded-md border-0 bg-gray-900 py-1.5 text-white shadow-sm ring-1 ring-inset ring-gray-700 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-500 sm:text-sm sm:leading-6"
           rows={3}
         />
       </div>
@@ -82,14 +82,14 @@ export default function CreateWorkspace({ onComplete }: CreateWorkspaceProps) {
         <button
           type="submit"
           disabled={isLoading}
-          className="inline-flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 sm:ml-3 sm:w-auto"
+          className="inline-flex w-full justify-center rounded-md bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed sm:ml-3 sm:w-auto"
         >
           {isLoading ? 'Creating...' : 'Create Workspace'}
         </button>
         <button
           type="button"
           onClick={() => onComplete?.()}
-          className="mt-3 inline-flex w-full justify-center rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto"
+          className="mt-3 inline-flex w-full justify-center rounded-md bg-gray-800 px-3 py-2 text-sm font-semibold text-gray-200 shadow-sm ring-1 ring-inset ring-gray-700 hover:bg-gray-700 sm:mt-0 sm:w-auto"
         >
           Cancel
         </button>

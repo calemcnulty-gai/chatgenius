@@ -8,16 +8,17 @@ import { pusherClient } from '@/lib/pusher'
 
 type Notification = {
   id: string
-  type: string
+  type: 'thread_reply' | 'dm'
   title: string
-  body: string | null
+  body?: string
   read: boolean
+  createdAt: string
   data: {
     channelId: string
     messageId: string
     senderId: string
+    parentMessageId?: string
   }
-  createdAt: string
 }
 
 export function NotificationBell() {
@@ -30,9 +31,21 @@ export function NotificationBell() {
   useEffect(() => {
     if (!userId) return
 
-    fetch('/api/notifications')
-      .then(res => res.json())
-      .then(data => setNotifications(data))
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch('/api/notifications')
+        if (!res.ok) {
+          throw new Error('Failed to fetch notifications')
+        }
+        const data = await res.json()
+        setNotifications(data || [])
+      } catch (error) {
+        console.error('Error fetching notifications:', error)
+        setNotifications([])
+      }
+    }
+
+    fetchNotifications()
   }, [userId])
 
   // Subscribe to notifications
@@ -87,7 +100,7 @@ export function NotificationBell() {
     }
   }, [userId])
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  const unreadCount = notifications?.filter(n => !n.read)?.length || 0
 
   const handleNotificationClick = async (notification: Notification) => {
     // Navigate to the channel

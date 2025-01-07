@@ -1,10 +1,16 @@
 import { db } from '@/db'
-import { workspaces, directMessageChannels, directMessageMembers } from '@/db/schema'
+import { workspaces, directMessageChannels, directMessageMembers, users } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { MessageList } from '@/components/chat/MessageList'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+
+type DMChannel = typeof directMessageChannels.$inferSelect & {
+  members: (typeof directMessageMembers.$inferSelect & {
+    user: typeof users.$inferSelect
+  })[]
+}
 
 export default async function DMChannelPage({
   params,
@@ -35,7 +41,7 @@ export default async function DMChannelPage({
         }
       }
     }
-  })
+  }) as DMChannel | null
 
   if (!channel) {
     redirect(`/workspace/${params.workspaceSlug}`)
@@ -54,7 +60,7 @@ export default async function DMChannelPage({
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gray-800">
+    <div className="flex h-full flex-col bg-gray-800">
       {/* Channel header */}
       <div className="flex items-center gap-3 border-b border-gray-700 bg-gray-800 px-4 py-3">
         <UserAvatar
