@@ -115,8 +115,10 @@ export async function POST(req: Request) {
       } : undefined,
     }
 
-    // Trigger message events
-    await pusherServer.trigger(`channel-${channelId}`, 'new-message', messageData)
+    // Trigger message events - for regular channels only
+    if (regularChannel) {
+      await pusherServer.trigger(`channel-${channelId}`, 'new-message', messageData)
+    }
     
     // If this is a reply, also trigger a thread-specific event
     if (parentMessageId) {
@@ -259,7 +261,15 @@ export async function POST(req: Request) {
           },
         })
 
-        // Trigger DM-specific event for unread count
+        // Trigger DM-specific event for unread count and message
+        await pusherServer.trigger(`channel-${channelId}`, 'new-message', {
+          ...messageData,
+          isDM: true,
+          hasMention: true,
+          isThreadReply: !!parentMessageId,
+        })
+
+        // Also trigger user-specific event for the DM list
         await pusherServer.trigger(`user-${otherMember.userId}`, 'new-message', {
           channelId,
           messageId: message.id,

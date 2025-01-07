@@ -39,23 +39,48 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
   useEffect(() => {
     if (!userId) return
 
-    // Subscribe to user's channel for updates
-    const channel = pusherClient.subscribe(`user-${userId}`)
+    const channelName = `user-${userId}`
+    console.log(`[DirectMessageList] Subscribing to channel: ${channelName}`)
 
-    // Listen for new messages
-    channel.bind('new-message', (data: { channelId: string }) => {
-      setChannels(currentChannels => 
-        currentChannels.map(channel => {
-          if (channel.id === data.channelId) {
-            return {
-              ...channel,
-              unreadCount: (channel.unreadCount || 0) + 1,
-              hasMention: true, // DMs are always mentions
-            }
-          }
-          return channel
-        })
-      )
+    // Subscribe to user's channel for updates
+    const channel = pusherClient.subscribe(channelName)
+
+    // Wait for subscription to be ready before binding events
+    const handleSubscriptionSucceeded = () => {
+      console.log(`[DirectMessageList] Successfully subscribed to ${channelName}`)
+      
+      // Listen for new messages
+      channel.bind('new-message', (data: { 
+        channelId: string, 
+        messageId: string,
+        senderId: string,
+        hasMention: boolean,
+        isDM: boolean,
+        isThreadReply: boolean 
+      }) => {
+        console.log(`[DirectMessageList] Received new-message event:`, data)
+        if (data.isDM) {  // Only update for DM messages
+          setChannels(currentChannels => 
+            currentChannels.map(channel => {
+              if (channel.id === data.channelId) {
+                return {
+                  ...channel,
+                  unreadCount: (channel.unreadCount || 0) + 1,
+                  hasMention: data.hasMention,
+                }
+              }
+              return channel
+            })
+          )
+        }
+      })
+    }
+
+    channel.bind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
+
+    // Handle subscription errors
+    channel.bind('pusher:subscription_error', (error: any) => {
+      console.error(`[DirectMessageList] Subscription error for ${channelName}:`, error)
     })
 
     // Reset counts when viewing a channel
@@ -76,8 +101,10 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
     }
 
     return () => {
+      console.log(`[DirectMessageList] Cleaning up subscription to ${channelName}`)
+      channel.unbind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
       channel.unbind_all()
-      channel.unsubscribe()
+      pusherClient.unsubscribe(channelName)
     }
   }, [userId, params.channelId])
 

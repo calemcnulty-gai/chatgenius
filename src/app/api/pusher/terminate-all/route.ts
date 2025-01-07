@@ -1,7 +1,6 @@
 import { pusherServer } from '@/lib/pusher'
 import { auth } from '@clerk/nextjs'
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
 
 export async function POST() {
   console.log('Terminate-all endpoint called')
@@ -12,59 +11,44 @@ export async function POST() {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    console.log('Attempting to terminate all app connections via REST API')
+    console.log('Attempting to terminate all app connections via Admin API')
     
     try {
-      // Use the REST API directly
+      // Use the Admin API directly
       const appId = process.env.PUSHER_APP_ID!
       const key = process.env.NEXT_PUBLIC_PUSHER_KEY!
       const secret = process.env.PUSHER_SECRET!
-      const cluster = process.env.NEXT_PUBLIC_PUSHER_CLUSTER!
       
-      const timestamp = Math.floor(Date.now() / 1000).toString()
-      const method = 'POST'
-      const path = `/apps/${appId}/events`
+      const timestamp = Math.floor(Date.now() / 1000)
+      const method = 'DELETE'
+      const path = `/apps/${appId}/channels`
       
-      // Create query string with sorted parameters
-      const queryParams = [
-        ['auth_key', key],
-        ['auth_timestamp', timestamp],
-        ['auth_version', '1.0'],
-        ['channels', JSON.stringify(['*'])],
-        ['data', '{}'],
-        ['name', 'pusher:kill']
-      ]
-      
-      const queryString = queryParams
-        .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
-        .join('&')
-
       // Create signature
-      const signatureString = [method, path, queryString].join('\n')
+      const signatureString = `${method}\n${path}\nauth_key=${key}&auth_timestamp=${timestamp}&auth_version=1.0`
+      const crypto = require('crypto')
       const signature = crypto
         .createHmac('sha256', secret)
         .update(signatureString)
         .digest('hex')
-
-      // Make the request to Pusher's REST API
-      const url = `https://api-${cluster}.pusher.com${path}?${queryString}&auth_signature=${signature}`
-      console.log('Making request to:', url)
       
-      const response = await fetch(url, {
+      // Make the request to Pusher's Admin API
+      const response = await fetch(`https://api-${process.env.NEXT_PUBLIC_PUSHER_CLUSTER}.pusher.com${path}`, {
         method,
         headers: {
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'X-Pusher-Key': key,
+          'X-Pusher-Signature': signature,
+          'X-Pusher-Timestamp': timestamp.toString(),
+        },
       })
       
       if (!response.ok) {
         const error = await response.text()
-        console.error('Pusher REST API error:', error)
-        throw new Error(`Pusher REST API returned ${response.status}: ${error}`)
+        console.error('Pusher Admin API error:', error)
+        throw new Error(`Pusher Admin API returned ${response.status}: ${error}`)
       }
       
-      const result = await response.json()
-      console.log('Successfully called Pusher REST API:', result)
+      console.log('Successfully called Pusher Admin API to terminate all connections')
     } catch (pusherError) {
       console.error('Pusher termination error:', pusherError)
       throw pusherError
