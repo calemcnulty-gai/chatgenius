@@ -6,4 +6,16 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
-export const db = drizzle(pool, { schema }); 
+// Test the connection
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('Database connection error:', err);
+  } else {
+    console.log('Database connected successfully');
+  }
+});
+
+export const db = drizzle(pool, { 
+  schema,
+  mode: 'default',
+}); 
