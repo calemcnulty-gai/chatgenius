@@ -43,7 +43,7 @@ export default function CreateWorkspace({ onComplete }: CreateWorkspaceProps) {
 
       const workspace = JSON.parse(text)
       onComplete?.()
-      router.push(`/workspace/${workspace.id}`)
+      router.push(`/workspace/${workspace.slug}`)
     } catch (error) {
       console.error('Error creating workspace:', error)
     } finally {

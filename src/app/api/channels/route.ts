@@ -47,7 +47,10 @@ export async function POST(req: Request) {
       where: eq(channels.id, channelId),
     })
 
-    return NextResponse.json(channel)
+    return NextResponse.json({
+      ...channel,
+      slug: channel?.slug
+    })
   } catch (error) {
     console.error('Error creating channel:', error)
     return new NextResponse('Internal Server Error', { status: 500 })

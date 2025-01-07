@@ -4,7 +4,13 @@ import { db } from '@/db'
 import { workspaces, workspaceMemberships, channels } from '@/db/schema'
 import { v4 as uuidv4 } from 'uuid'
 import { eq } from 'drizzle-orm'
-import { generateSlug } from '@/lib/utils'
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
 
 export async function POST(req: Request) {
   try {
@@ -13,49 +19,40 @@ export async function POST(req: Request) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    const { name, description } = await req.json()
-    const workspaceId = uuidv4()
-    
-    console.log('Creating workspace:', { workspaceId, userId, name, description })
+    const { name } = await req.json()
+    if (!name) {
+      return new NextResponse('Name is required', { status: 400 })
+    }
 
     // Create workspace
     const slug = generateSlug(name)
-    await db.insert(workspaces).values({
-      id: workspaceId,
+    const [workspace] = await db.insert(workspaces).values({
+      id: uuidv4(),
       name,
       slug,
-      description,
-      ownerId: userId,
-    })
-    console.log('Workspace created')
+    }).returning()
 
-    // Create default general channel
-    const channelId = uuidv4()
-    await db.insert(channels).values({
-      id: channelId,
-      workspaceId,
-      name: 'general',
-      type: 'public',
-    })
-    console.log('Channel created')
-
-    // Add creator as admin member
-    const membershipId = uuidv4()
+    // Create workspace membership
     await db.insert(workspaceMemberships).values({
-      id: membershipId,
-      workspaceId,
+      id: uuidv4(),
+      workspaceId: workspace.id,
       userId,
       role: 'admin',
     })
-    console.log('Membership created:', { membershipId, workspaceId, userId })
 
-    return NextResponse.json({ 
-      id: workspaceId,
-      defaultChannelId: channelId 
+    // Create default channel
+    await db.insert(channels).values({
+      id: uuidv4(),
+      workspaceId: workspace.id,
+      name: 'general',
+      slug: 'general',
+      type: 'public',
     })
+
+    return NextResponse.json(workspace)
   } catch (error) {
     console.error('Error creating workspace:', error)
-    return new NextResponse(`Internal Server Error: ${error.message}`, { status: 500 })
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 }
 
@@ -79,7 +76,7 @@ export async function GET() {
       memberships.map(({ workspace, role }) => ({
         id: workspace.id,
         name: workspace.name,
-        description: workspace.description,
+        slug: workspace.slug,
         role,
       }))
     )

@@ -72,7 +72,7 @@ export default function Home() {
               {workspaces.map((workspace) => (
                 <Link
                   key={workspace.id}
-                  href={`/workspace/${workspace.id}`}
+                  href={`/workspace/${workspace.slug}`}
                   className="block rounded-lg border border-gray-200 bg-white p-6 hover:border-blue-500 hover:ring-1 hover:ring-blue-500"
                 >
                   <h3 className="text-lg font-semibold text-gray-900">{workspace.name}</h3>

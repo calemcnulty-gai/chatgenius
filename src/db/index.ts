@@ -1,6 +1,10 @@
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import * as schema from './schema';
+import * as dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -17,5 +21,4 @@ pool.query('SELECT NOW()', (err, res) => {
 
 export const db = drizzle(pool, { 
   schema,
-  mode: 'default',
 }); 

@@ -3,7 +3,6 @@ import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
 
 export async function POST(req: Request) {
   // Get the headers
@@ -24,11 +23,11 @@ export async function POST(req: Request) {
   const body = JSON.stringify(payload);
 
   // Create a new Svix instance with your webhook secret
-  const wh = new Webhook(process.env.CLERK_WEBHOOK_SECRET || '');
+  const wh = new Webhook(process.env.WEBHOOK_SECRET || '');
 
   let evt: WebhookEvent
 
-  // Verify the webhook
+  // Verify the payload with the headers
   try {
     evt = wh.verify(body, {
       "svix-id": svix_id,
@@ -42,35 +41,17 @@ export async function POST(req: Request) {
     })
   }
 
-  // Handle the webhook
+  // Get the ID and type
+  const { id } = evt.data;
   const eventType = evt.type;
-  console.log('Received webhook event:', eventType);
+
+  console.log(`Webhook with ID ${id} and type ${eventType}`)
+  console.log('Webhook body:', body)
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id, first_name, last_name, image_url, username, email_addresses } = evt.data;
+    const { id, first_name, last_name, image_url } = evt.data
 
-    console.log('User data from Clerk:', {
-      id,
-      first_name,
-      last_name,
-      image_url,
-      username,
-      email_addresses
-    });
-
-    const name = first_name && last_name 
-      ? `${first_name} ${last_name}`.trim()
-      : username || 'Anonymous'
-
-    const primaryEmail = email_addresses?.find(email => email.id === evt.data.primary_email_address_id)
-    const email = primaryEmail?.email_address
-
-    console.log('Processed user data:', { id, name, email });
-
-    if (!email) {
-      console.error('No email found for user:', id)
-      return new Response('Email required', { status: 400 })
-    }
+    const name = [first_name, last_name].filter(Boolean).join(' ')
 
     // Upsert user
     await db
@@ -78,20 +59,16 @@ export async function POST(req: Request) {
       .values({
         id,
         name,
-        email,
         profileImage: image_url,
       })
       .onConflictDoUpdate({
         target: users.id,
         set: {
           name,
-          email,
           profileImage: image_url,
           updatedAt: new Date(),
         },
-      });
-
-    console.log('User data synced successfully');
+      })
   }
 
   return new Response('', { status: 200 })

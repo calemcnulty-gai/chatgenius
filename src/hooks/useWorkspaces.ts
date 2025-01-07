@@ -7,6 +7,7 @@ type Workspace = {
   id: string
   name: string
   description: string | null
+  slug: string
   role: string
 }
 

@@ -2,30 +2,33 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/Button'
 
 type CreateChannelProps = {
   workspaceId: string
   onComplete: () => void
 }
 
-export default function CreateChannel({ workspaceId, onComplete }: CreateChannelProps) {
+export function CreateChannel({ workspaceId, onComplete }: CreateChannelProps) {
   const router = useRouter()
   const [name, setName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
-
     setIsLoading(true)
+    setError(null)
+
     try {
       const response = await fetch('/api/channels', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
+          name,
           workspaceId,
-          name: name.trim(),
-          type: 'public',
         }),
       })
 
@@ -33,10 +36,11 @@ export default function CreateChannel({ workspaceId, onComplete }: CreateChannel
         throw new Error('Failed to create channel')
       }
 
+      const channel = await response.json()
       router.refresh()
       onComplete()
     } catch (error) {
-      console.error('Error creating channel:', error)
+      setError('Failed to create channel. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -53,21 +57,33 @@ export default function CreateChannel({ workspaceId, onComplete }: CreateChannel
           id="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          className="mt-1 block w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
           placeholder="e.g. announcements"
           required
         />
       </div>
 
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={isLoading}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50"
+      {error && (
+        <p className="text-sm text-red-500">{error}</p>
+      )}
+
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={onComplete}
         >
-          {isLoading ? 'Creating...' : 'Create Channel'}
-        </button>
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          isLoading={isLoading}
+        >
+          Create Channel
+        </Button>
       </div>
     </form>
   )
-} 
+}
+
+export default CreateChannel 

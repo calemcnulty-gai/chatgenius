@@ -3,9 +3,7 @@ import { workspaces, channels, workspaceMemberships } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
-import WorkspaceLayout from '@/components/layout/WorkspaceLayout'
-import WorkspaceSidebar from '@/components/workspace/WorkspaceSidebar'
-import { Message } from '@/components/chat/Message'
+import { MessageList } from '@/components/chat/MessageList'
 
 export default async function ChannelPage({
   params,
@@ -50,30 +48,17 @@ export default async function ChannelPage({
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
-  // Fetch channels for sidebar
-  const workspaceChannels = await db.query.channels.findMany({
-    where: eq(channels.workspaceId, workspace.id),
-    orderBy: (channels, { asc }) => [asc(channels.name)],
-  })
-
   return (
-    <WorkspaceLayout
-      sidebarContent={
-        <WorkspaceSidebar
-          workspace={workspace}
-          channels={workspaceChannels}
-        />
-      }
-    >
-      <div className="flex h-full flex-col bg-gray-900">
-        {/* Channel header */}
-        <div className="flex items-center gap-2 border-b border-gray-800 bg-gray-900 px-4 py-3">
-          <h1 className="text-lg font-medium text-white">#{channel.name}</h1>
-        </div>
-
-        {/* Messages area */}
-        <Message channelId={channel.id} />
+    <div className="flex h-full flex-col bg-gray-800">
+      {/* Channel header */}
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-700 bg-gray-800 px-4 py-3">
+        <h1 className="text-lg font-medium text-white">#{channel.name}</h1>
       </div>
-    </WorkspaceLayout>
+
+      {/* Messages area */}
+      <div className="flex-1 overflow-hidden">
+        <MessageList channelId={channel.id} />
+      </div>
+    </div>
   )
 } 

@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '..'
 import { workspaces, channels } from '../schema'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
+import { generateSlug } from '@/lib/utils'
 
 export async function addGeneralChannels() {
   // Get all workspaces
@@ -23,6 +24,7 @@ export async function addGeneralChannels() {
         id: uuidv4(),
         workspaceId: workspace.id,
         name: 'general',
+        slug: 'general',
         type: 'public',
       })
     }

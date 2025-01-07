@@ -3,6 +3,10 @@ import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 import { addGeneralChannels } from './migrations/0003_add_general_channels';
 import { addSlugs } from './migrations/0004_add_slugs';
+import { addMessages } from './migrations/0005_add_messages';
+import { addDirectMessages } from './migrations/0006_add_direct_messages';
+import { addNotifications } from './migrations/0007_add_notifications';
+import { addUnreadMessages } from './migrations/0008_add_unread_messages';
 import * as dotenv from 'dotenv';
 
 // Load environment variables before anything else
@@ -26,13 +30,25 @@ async function main() {
     console.log('Running migrations...');
     await migrate(db, { migrationsFolder: 'drizzle' });
 
-    console.log('Adding general channels...');
-    await addGeneralChannels();
-
     console.log('Adding slugs...');
     await addSlugs();
 
-    console.log('Migrations complete');
+    console.log('Adding general channels...');
+    await addGeneralChannels();
+
+    console.log('Adding messages table...');
+    await addMessages();
+
+    console.log('Adding direct messages...');
+    await addDirectMessages();
+
+    console.log('Adding notifications...');
+    await addNotifications();
+
+    console.log('Adding unread messages...');
+    await addUnreadMessages();
+
+    console.log('All migrations completed successfully!');
   } catch (error) {
     console.error('Database connection error:', error);
     throw error;

@@ -1,5 +1,7 @@
+'use client'
+
+import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
-import { formatRelativeTime } from '@/lib/utils'
 
 type MessageProps = {
   content: string
@@ -12,21 +14,35 @@ type MessageProps = {
 }
 
 export function Message({ content, sender, createdAt }: MessageProps) {
+  const { userId } = useAuth()
+  const isOwnMessage = sender.id === userId
+
   return (
-    <div className="group flex items-start gap-x-3 py-2 hover:bg-gray-50">
-      <UserAvatar
-        name={sender.name}
-        image={sender.profileImage}
-        className="h-9 w-9"
-      />
-      <div className="flex-1 overflow-hidden">
-        <div className="flex items-center gap-x-2">
-          <span className="font-medium text-gray-900">{sender.name}</span>
+    <div className="group flex items-start gap-3 px-4 py-1 hover:bg-gray-800/50">
+      <div className="flex-shrink-0">
+        <UserAvatar 
+          name={sender.name} 
+          image={sender.profileImage} 
+          className="h-9 w-9"
+        />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-baseline gap-2">
+          <span className="font-medium text-white hover:underline">
+            {sender.name}
+          </span>
           <span className="text-xs text-gray-500">
-            {formatRelativeTime(new Date(createdAt))}
+            {new Date(createdAt).toLocaleTimeString([], { 
+              hour: 'numeric', 
+              minute: '2-digit',
+              hour12: true 
+            })}
           </span>
         </div>
-        <p className="text-sm text-gray-900">{content}</p>
+        <div className="mt-0.5 text-gray-100">
+          {content}
+        </div>
       </div>
     </div>
   )
