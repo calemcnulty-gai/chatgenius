@@ -1,13 +1,13 @@
-import './globals.css'
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
 import { ClerkProvider } from '@clerk/nextjs'
+import { Inter } from 'next/font/google'
+import './globals.css'
+import { PusherHeartbeatProvider } from '@/components/providers/PusherHeartbeatProvider'
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ['latin'] })
 
-export const metadata: Metadata = {
-  title: "ChatGenius",
-  description: "AI-powered team chat platform",
+export const metadata = {
+  title: 'ChatGenius',
+  description: 'A modern chat application',
 }
 
 export default function RootLayout({
@@ -17,9 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <ClerkProvider>
-      <html lang="en" className="h-full">
-        <body className={`${inter.className} h-full`}>
-          {children}
+      <html lang="en" suppressHydrationWarning>
+        <body className={inter.className}>
+          <PusherHeartbeatProvider>
+            {children}
+          </PusherHeartbeatProvider>
         </body>
       </html>
     </ClerkProvider>

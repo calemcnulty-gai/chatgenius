@@ -3,12 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
+import { useUser } from '@clerk/nextjs'
 import { HashtagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Channel } from '@/types'
 import Modal from '@/components/ui/Modal'
 import CreateChannel from './CreateChannel'
-import { pusherClient } from '@/lib/pusher'
+import { getPusherClient } from '@/lib/pusher'
 
 type ChannelWithUnread = Channel & {
   unreadCount?: number
@@ -16,12 +16,13 @@ type ChannelWithUnread = Channel & {
 }
 
 type ChannelListProps = {
+  workspaceId: string
   channels: ChannelWithUnread[]
 }
 
-export default function ChannelList({ channels: initialChannels }: ChannelListProps) {
+export function ChannelList({ workspaceId, channels: initialChannels }: ChannelListProps) {
+  const { user } = useUser()
   const params = useParams()
-  const { userId } = useAuth()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 
@@ -49,37 +50,44 @@ export default function ChannelList({ channels: initialChannels }: ChannelListPr
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!userId) return
+    if (!user?.id) return
 
-    const channelName = `user-${userId}`
+    // Get the Pusher client
+    const pusherClient = getPusherClient()
+
+    const channelName = `user-${user.id}`
     const channel = pusherClient.subscribe(channelName)
 
     // Listen for new messages
     channel.bind('new-message', handleNewMessage)
 
-    // Listen for notification-read events
-    channel.bind('notification-read', (data: { channelId: string }) => {
-      setChannels(currentChannels => {
-        const updatedChannels = currentChannels.map(channel => {
-          if (channel.id === data.channelId) {
+    // Handle subscription errors
+    channel.bind('pusher:subscription_error', (error: any) => {
+      console.error(`[ChannelList] Subscription error for ${channelName}:`, error)
+    })
+
+    // Reset counts when viewing a channel
+    const currentChannelId = params.channelId
+    if (currentChannelId) {
+      setChannels(currentChannels =>
+        currentChannels.map(channel => {
+          if (channel.id === currentChannelId) {
             return {
               ...channel,
               unreadCount: 0,
-              hasMention: false
+              hasMention: false,
             }
           }
           return channel
         })
-        return updatedChannels
-      })
-    })
+      )
+    }
 
     return () => {
-      channel.unbind('new-message', handleNewMessage)
       channel.unbind_all()
       pusherClient.unsubscribe(channelName)
     }
-  }, [userId, handleNewMessage])
+  }, [user?.id, params.channelId])
 
   // Update channels when initial data changes
   useEffect(() => {

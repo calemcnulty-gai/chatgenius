@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Message } from './Message'
 import { MessageInput } from './MessageInput'
-import { pusherClient } from '@/lib/pusher'
+import { getPusherClient } from '@/lib/pusher'
 
 type MessageData = {
   id: string
@@ -64,44 +64,73 @@ export function MessageList({ channelId }: MessageListProps) {
 
   // Set up Pusher subscription
   useEffect(() => {
-    const channelName = `private-channel-${channelId}`
+    const channelName = `channel-${channelId}`
+    console.log(`[MessageList] Subscribing to channel: ${channelName}`)
+
+    // Get the Pusher client
+    const pusherClient = getPusherClient()
 
     // Subscribe if not already subscribed
-    if (!pusherClient.channel(channelName)) {
-      pusherClient.subscribe(channelName)
-    }
+    const channel = pusherClient.subscribe(channelName)
 
-    // Listen for new messages
-    const handleNewMessage = (newMessage: MessageData) => {
-      // Only add the message if it's not a reply or if we're showing replies
-      if (!newMessage.parentMessageId) {
-        setMessages((currentMessages) => [newMessage, ...currentMessages])
-      }
-    }
+    // Wait for subscription to be ready
+    const handleSubscriptionSucceeded = () => {
+      console.log(`[MessageList] Successfully subscribed to ${channelName}`)
+      
+      // Listen for new messages
+      channel.bind('new-message', (data: any) => {
+        console.log(`[MessageList] Received new message:`, data)
+        
+        // Only add the message if it's not a reply or if we're showing replies
+        if (!data.parentMessageId) {
+          // For DMs, check if the message belongs to this channel
+          // For regular channels, check if it's a channel message for this channel
+          const isDMForThisChannel = data.isDM && data.dmChannelId === channelId
+          const isChannelMessageForThisChannel = data.isChannel && data.channelId === channelId
 
-    // Listen for thread updates
-    const handleThreadUpdate = (update: { messageId: string, replyCount: number, latestReplyAt: string }) => {
-      setMessages((currentMessages) => 
-        currentMessages.map((message) =>
-          message.id === update.messageId
-            ? { 
-                ...message, 
-                replyCount: update.replyCount, 
-                latestReplyAt: update.latestReplyAt 
+          if (isDMForThisChannel || isChannelMessageForThisChannel) {
+            setMessages((currentMessages) => {
+              // Avoid duplicate messages
+              if (currentMessages.some(msg => msg.id === data.id)) {
+                console.log(`[MessageList] Skipping duplicate message: ${data.id}`)
+                return currentMessages;
               }
-            : message
+              console.log(`[MessageList] Adding new message: ${data.id}`)
+              return [data, ...currentMessages];
+            })
+          }
+        }
+      })
+
+      // Listen for thread updates
+      channel.bind('thread-update', (data: any) => {
+        console.log(`[MessageList] Received thread update:`, data)
+        setMessages((currentMessages) => 
+          currentMessages.map((message) =>
+            message.id === data.messageId
+              ? { 
+                  ...message, 
+                  replyCount: data.replyCount, 
+                  latestReplyAt: data.latestReplyAt 
+                }
+              : message
+          )
         )
-      )
+      })
     }
 
-    const channel = pusherClient.channel(channelName)
-    channel.bind('new-message', handleNewMessage)
-    channel.bind('thread-update', handleThreadUpdate)
+    channel.bind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
+
+    // Handle subscription errors
+    channel.bind('pusher:subscription_error', (error: any) => {
+      console.error(`[MessageList] Subscription error for ${channelName}:`, error)
+    })
 
     // Cleanup
     return () => {
-      channel?.unbind('new-message', handleNewMessage)
-      channel?.unbind('thread-update', handleThreadUpdate)
+      console.log(`[MessageList] Cleaning up subscription to ${channelName}`)
+      channel.unbind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
+      channel.unbind_all()
       pusherClient.unsubscribe(channelName)
     }
   }, [channelId])

@@ -117,11 +117,18 @@ export async function POST(req: Request) {
 
     // Trigger message events - for regular channels only
     if (regularChannel) {
-      await pusherServer.trigger(`channel-${channelId}`, 'new-message', messageData)
+      console.log(`[Messages API] Triggering new-message event for channel: channel-${channelId}`)
+      await pusherServer.trigger(`channel-${channelId}`, 'new-message', {
+        ...messageData,
+        isChannel: true,
+        channelId: channelId,
+        channelSlug: regularChannel.slug,
+      })
     }
     
     // If this is a reply, also trigger a thread-specific event
     if (parentMessageId) {
+      console.log(`[Messages API] Triggering new-reply event for thread: thread-${parentMessageId}`)
       await pusherServer.trigger(`thread-${parentMessageId}`, 'new-reply', messageData)
 
       // Get all users who have participated in this thread
@@ -262,21 +269,30 @@ export async function POST(req: Request) {
         })
 
         // Trigger DM-specific event for unread count and message
+        console.log(`[Messages API] Triggering new-message event for DM channel: channel-${channelId}`)
         await pusherServer.trigger(`channel-${channelId}`, 'new-message', {
           ...messageData,
           isDM: true,
+          dmChannelId: channelId,
+          channelId: channelId,
           hasMention: true,
           isThreadReply: !!parentMessageId,
+          replyCount: 0,
+          latestReplyAt: null,
+          senderId: userId
         })
 
         // Also trigger user-specific event for the DM list
+        console.log(`[Messages API] Triggering new-message event for user: user-${otherMember.userId}`)
         await pusherServer.trigger(`user-${otherMember.userId}`, 'new-message', {
           channelId,
+          dmChannelId: channelId,
           messageId: message.id,
           senderId: userId,
           hasMention: true,
           isDM: true,
           isThreadReply: !!parentMessageId,
+          content: messageData.content
         })
       }
     }
