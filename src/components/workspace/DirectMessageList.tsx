@@ -1,13 +1,14 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
-import { PlusIcon } from '@heroicons/react/24/outline'
+import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { PlusIcon } from '@heroicons/react/24/outline'
 import { StartDMModal } from './StartDMModal'
-import { getPusherClient } from '@/lib/pusher'
+import { PusherEvent, NewDirectMessageEvent } from '@/types/events'
+import { usePusherChannel } from '@/contexts/PusherContext'
 
 type User = {
   id: string
@@ -16,66 +17,49 @@ type User = {
   status: 'active' | 'away' | 'offline'
 }
 
-type Channel = {
+type DMChannel = {
   id: string
-  userId1: string
-  userId2: string
+  otherUser: User
   unreadCount?: number
   hasMention?: boolean
 }
 
 type DirectMessageListProps = {
   workspaceId: string
-  channels: Channel[]
+  channels: DMChannel[]
   users: User[]
 }
 
 export function DirectMessageList({ workspaceId, channels: initialChannels, users }: DirectMessageListProps) {
-  const { user } = useUser()
   const params = useParams()
+  const { userId } = useAuth()
+  const { userChannel } = usePusherChannel()
   const [isStartDMModalOpen, setIsStartDMModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
-  const dmChannelSubscriptionsRef = useRef<Record<string, any>>({})
 
+  // Set up event listener for new DMs - this should never be cleaned up
   useEffect(() => {
-    if (!user?.id) return
+    if (!userId || !userChannel) return
 
-    // Get the Pusher client
-    const pusherClient = getPusherClient()
+    console.log('[DirectMessageList] Setting up DM event listener')
+    userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewDirectMessageEvent) => {
+      if (data.senderId !== userId) {
+        console.log(`[DirectMessageList] Received DM event:`, data)
+        setChannels(currentChannels => {
+          // Don't increment unread count if we're currently viewing this channel
+          const isActiveChannel = params.channelId === data.channelId
+          if (isActiveChannel) {
+            console.log(`[DirectMessageList] Ignoring unread count for active channel ${data.channelId}`)
+            return currentChannels
+          }
 
-    const userChannelName = `user-${user.id}`
-    console.log(`[DirectMessageList] Subscribing to user channel: ${userChannelName}`)
-
-    // Subscribe to user's channel for updates
-    const userChannel = pusherClient.subscribe(userChannelName)
-
-    // Subscribe to all DM channels
-    channels.forEach(channel => {
-      const channelName = `channel-${channel.id}`
-      if (!dmChannelSubscriptionsRef.current[channelName]) {
-        console.log(`[DirectMessageList] Subscribing to DM channel: ${channelName}`)
-        dmChannelSubscriptionsRef.current[channelName] = pusherClient.subscribe(channelName)
-      }
-    })
-
-    // Wait for user channel subscription to be ready
-    const handleUserSubscriptionSucceeded = () => {
-      console.log(`[DirectMessageList] Successfully subscribed to ${userChannelName}`)
-      
-      // Listen for new messages
-      userChannel.bind('new-message', (data: { 
-        channelId: string, 
-        messageId: string,
-        senderId: string,
-        hasMention: boolean,
-        isDM: boolean,
-        isThreadReply: boolean 
-      }) => {
-        console.log(`[DirectMessageList] Received new-message event on user channel:`, data)
-        if (data.isDM && data.senderId !== user.id) {
-          console.log(`[DirectMessageList] Updating unread count for channel ${data.channelId}`)
-          setChannels(currentChannels => 
-            currentChannels.map(channel => {
+          // Find the channel if it exists
+          const existingChannel = currentChannels.find(channel => channel.id === data.channelId)
+          
+          if (existingChannel) {
+            // Update existing channel
+            console.log(`[DirectMessageList] Updating existing channel ${data.channelId}`)
+            return currentChannels.map(channel => {
               if (channel.id === data.channelId) {
                 return {
                   ...channel,
@@ -85,21 +69,32 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
               }
               return channel
             })
-          )
-        }
-      })
-    }
-
-    userChannel.bind('pusher:subscription_succeeded', handleUserSubscriptionSucceeded)
-
-    // Handle subscription errors
-    userChannel.bind('pusher:subscription_error', (error: any) => {
-      console.error(`[DirectMessageList] Subscription error for ${userChannelName}:`, error)
+          } else {
+            // Create new channel
+            console.log(`[DirectMessageList] Creating new channel ${data.channelId}`)
+            const newChannel: DMChannel = {
+              id: data.channelId,
+              otherUser: {
+                id: data.senderId,
+                name: data.senderName,
+                profileImage: data.senderProfileImage,
+                status: 'active', // Default to active since they just sent a message
+              },
+              unreadCount: 1,
+              hasMention: data.hasMention,
+            }
+            return [...currentChannels, newChannel]
+          }
+        })
+      }
     })
+  }, [userId, userChannel]) // Only depend on userId and userChannel
 
-    // Reset counts when viewing a channel
+  // Handle active channel changes
+  useEffect(() => {
     const currentChannelId = params.channelId
     if (currentChannelId) {
+      console.log(`[DirectMessageList] Resetting unread count for active channel ${currentChannelId}`)
       setChannels(currentChannels =>
         currentChannels.map(channel => {
           if (channel.id === currentChannelId) {
@@ -113,64 +108,75 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         })
       )
     }
+  }, [params.channelId])
 
-    return () => {
-      console.log(`[DirectMessageList] Cleaning up subscriptions`)
-      userChannel.unbind('pusher:subscription_succeeded', handleUserSubscriptionSucceeded)
-      userChannel.unbind_all()
-      pusherClient.unsubscribe(userChannelName)
-
-      // Clean up DM channel subscriptions
-      Object.entries(dmChannelSubscriptionsRef.current).forEach(([channelName, channel]) => {
-        channel.unbind_all()
-        pusherClient.unsubscribe(channelName)
-      })
-      dmChannelSubscriptionsRef.current = {}
-    }
-  }, [user?.id, channels, params.channelId])
+  // Update channels when initial data changes
+  useEffect(() => {
+    setChannels(initialChannels)
+  }, [initialChannels])
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between px-2">
-        <h2 className="text-sm font-semibold text-gray-400">Direct Messages</h2>
-        <button
-          onClick={() => setIsStartDMModalOpen(true)}
-          className="rounded p-1 text-gray-400 hover:bg-gray-800 hover:text-gray-300"
-        >
-          <PlusIcon className="h-4 w-4" />
-        </button>
-      </div>
+    <>
+      <div className="flex flex-col">
+        <div className="mb-2 flex items-center justify-between px-2">
+          <h2 className="text-sm font-semibold uppercase text-gray-400">Direct Messages</h2>
+          <button
+            onClick={() => setIsStartDMModalOpen(true)}
+            className="text-gray-400 hover:text-gray-300"
+            title="Start a DM"
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-1">
+          {channels.map((channel) => {
+            const isActive = params.channelId === channel.id;
+            const hasUnread = !isActive && channel.unreadCount && channel.unreadCount > 0;
 
-      <div className="space-y-1">
-        {channels.map(channel => {
-          const otherUserId = channel.userId1 === user?.id ? channel.userId2 : channel.userId1
-          const otherUser = users.find(u => u.id === otherUserId)
-          if (!otherUser) return null
-
-          const isActive = params.channelId === channel.id
-
-          return (
-            <Link
-              key={channel.id}
-              href={`/workspace/${workspaceId}/dm/${channel.id}`}
-              className={`flex items-center space-x-2 rounded px-2 py-1 ${
-                isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800'
-              }`}
-            >
-              <UserAvatar
-                name={otherUser.name}
-                image={otherUser.profileImage}
-                className="h-5 w-5"
-              />
-              <span className="flex-1 truncate">{otherUser.name}</span>
-              {(channel.unreadCount ?? 0) > 0 && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1.5 text-xs font-medium text-white">
-                  {channel.unreadCount}
-                </span>
-              )}
-            </Link>
-          )
-        })}
+            return (
+              <Link
+                key={channel.id}
+                href={`/workspace/${params.workspaceSlug}/dm/${channel.id}`}
+                className={`group flex items-center justify-between rounded-md px-2 py-1 ${
+                  isActive
+                    ? 'bg-gray-800 text-white'
+                    : hasUnread
+                    ? 'text-white hover:bg-gray-800'
+                    : 'text-gray-400 hover:bg-gray-800 hover:text-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="relative flex-shrink-0">
+                    <UserAvatar
+                      name={channel.otherUser.name}
+                      image={channel.otherUser.profileImage}
+                      className="h-4 w-4"
+                    />
+                    <div
+                      className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
+                        channel.otherUser.status === 'active'
+                          ? 'bg-green-500'
+                          : channel.otherUser.status === 'away'
+                          ? 'bg-yellow-500'
+                          : 'bg-gray-500'
+                      }`}
+                    />
+                  </div>
+                  <span className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}>
+                    {channel.otherUser.name}
+                  </span>
+                </div>
+                {hasUnread && channel.unreadCount ? (
+                  <span className={`ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
+                    channel.hasMention ? 'bg-red-500' : 'bg-gray-600'
+                  } text-white`}>
+                    {channel.unreadCount}
+                  </span>
+                ) : null}
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <StartDMModal
@@ -179,6 +185,6 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         workspaceId={workspaceId}
         users={users}
       />
-    </div>
+    </>
   )
 } 

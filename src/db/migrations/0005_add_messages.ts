@@ -6,9 +6,9 @@ export async function addMessages() {
     CREATE TABLE IF NOT EXISTS messages (
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       content TEXT NOT NULL,
-      channel_id TEXT NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
-      sender_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      created_at TIMESTAMP NOT NULL DEFAULT now()
+      channel_id UUID NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+      sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `)
 } 

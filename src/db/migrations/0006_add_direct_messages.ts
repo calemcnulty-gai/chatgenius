@@ -5,20 +5,20 @@ export async function addDirectMessages() {
   // Create direct message channels table
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS direct_message_channels (
-      id TEXT PRIMARY KEY,
-      workspace_id TEXT NOT NULL REFERENCES workspaces(id),
-      created_at TIMESTAMP NOT NULL DEFAULT now(),
-      updated_at TIMESTAMP NOT NULL DEFAULT now()
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      workspace_id UUID NOT NULL REFERENCES workspaces(id),
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
   `)
 
   // Create direct message members table
   await db.execute(sql`
     CREATE TABLE IF NOT EXISTS direct_message_members (
-      id TEXT PRIMARY KEY,
-      channel_id TEXT NOT NULL REFERENCES direct_message_channels(id),
-      user_id TEXT NOT NULL REFERENCES users(id),
-      created_at TIMESTAMP NOT NULL DEFAULT now(),
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      channel_id UUID NOT NULL REFERENCES direct_message_channels(id),
+      user_id UUID NOT NULL REFERENCES users(id),
+      created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(channel_id, user_id)
     );
   `)
@@ -26,7 +26,7 @@ export async function addDirectMessages() {
   // Alter messages table to support DMs
   await db.execute(sql`
     ALTER TABLE messages
-    ADD COLUMN IF NOT EXISTS dm_channel_id TEXT REFERENCES direct_message_channels(id) ON DELETE CASCADE,
+    ADD COLUMN IF NOT EXISTS dm_channel_id UUID REFERENCES direct_message_channels(id) ON DELETE CASCADE,
     DROP CONSTRAINT IF EXISTS messages_channel_id_fkey,
     ALTER COLUMN channel_id DROP NOT NULL,
     ADD CONSTRAINT messages_channel_id_fkey 

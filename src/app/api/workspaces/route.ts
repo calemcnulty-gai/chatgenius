@@ -1,88 +1,98 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
-import { workspaces, workspaceMemberships, channels } from '@/db/schema'
-import { v4 as uuidv4 } from 'uuid'
+import { workspaces, workspaceMemberships } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { v4 as uuidv4 } from 'uuid'
+import { getOrCreateUser } from '@/lib/db/users'
 
-function generateSlug(name: string): string {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+export async function GET() {
+  try {
+    const { userId: clerkUserId } = auth()
+    if (!clerkUserId) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    // Get the full user data from Clerk
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return new NextResponse('User not found', { status: 404 })
+    }
+
+    // Get or create user to get their database ID
+    const user = await getOrCreateUser({
+      id: clerkUser.id,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      emailAddresses: clerkUser.emailAddresses,
+      imageUrl: clerkUser.imageUrl,
+    })
+
+    // Get all workspaces the user is a member of
+    const userWorkspaces = await db
+      .select({
+        workspace: workspaces,
+      })
+      .from(workspaceMemberships)
+      .where(eq(workspaceMemberships.userId, user.id))
+      .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
+
+    return NextResponse.json(userWorkspaces.map(m => m.workspace))
+  } catch (error) {
+    console.error('Error fetching workspaces:', error)
+    return new NextResponse('Internal Server Error', { status: 500 })
+  }
 }
 
 export async function POST(req: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
+    const { userId: clerkUserId } = auth()
+    if (!clerkUserId) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    // Get the full user data from Clerk
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return new NextResponse('User not found', { status: 404 })
+    }
+
+    // Get or create user to get their database ID
+    const user = await getOrCreateUser({
+      id: clerkUser.id,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      emailAddresses: clerkUser.emailAddresses,
+      imageUrl: clerkUser.imageUrl,
+    })
+
     const { name } = await req.json()
     if (!name) {
-      return new NextResponse('Name is required', { status: 400 })
+      return new NextResponse('Missing required fields', { status: 400 })
     }
 
     // Create workspace
-    const slug = generateSlug(name)
-    const [workspace] = await db.insert(workspaces).values({
-      id: uuidv4(),
-      name,
-      slug,
-      ownerId: userId,
-    }).returning()
+    const [workspace] = await db
+      .insert(workspaces)
+      .values({
+        id: uuidv4(),
+        name,
+        slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        ownerId: user.id,
+      })
+      .returning()
 
-    // Create workspace membership
+    // Create workspace membership for creator
     await db.insert(workspaceMemberships).values({
       id: uuidv4(),
       workspaceId: workspace.id,
-      userId,
-      role: 'admin',
-    })
-
-    // Create default channel
-    await db.insert(channels).values({
-      id: uuidv4(),
-      workspaceId: workspace.id,
-      name: 'general',
-      slug: 'general',
-      type: 'public',
+      userId: user.id,
+      role: 'owner',
     })
 
     return NextResponse.json(workspace)
   } catch (error) {
     console.error('Error creating workspace:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
-  }
-}
-
-export async function GET() {
-  try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    const memberships = await db
-      .select({
-        workspace: workspaces,
-        role: workspaceMemberships.role,
-      })
-      .from(workspaceMemberships)
-      .where(eq(workspaceMemberships.userId, userId))
-      .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
-
-    return NextResponse.json(
-      memberships.map(({ workspace, role }) => ({
-        id: workspace.id,
-        name: workspace.name,
-        slug: workspace.slug,
-        role,
-      }))
-    )
-  } catch (error) {
-    console.error('Error fetching workspaces:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 

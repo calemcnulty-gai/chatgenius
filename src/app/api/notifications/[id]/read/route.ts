@@ -1,36 +1,47 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { notifications } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
+import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
-    return new NextResponse('Unauthorized', { status: 401 })
-  }
-
   try {
-    // Update notification
-    const [notification] = await db
+    const { userId: clerkUserId } = auth()
+    if (!clerkUserId) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    // Get the full user data from Clerk
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return new NextResponse('User not found', { status: 404 })
+    }
+
+    // Get or create user to get their database ID
+    const user = await getOrCreateUser({
+      id: clerkUser.id,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      emailAddresses: clerkUser.emailAddresses,
+      imageUrl: clerkUser.imageUrl,
+    })
+
+    // Mark notification as read
+    await db
       .update(notifications)
       .set({ read: true })
       .where(
         and(
           eq(notifications.id, params.id),
-          eq(notifications.userId, userId)
+          eq(notifications.userId, user.id)
         )
       )
-      .returning()
 
-    if (!notification) {
-      return new NextResponse('Notification not found', { status: 404 })
-    }
-
-    return NextResponse.json(notification)
+    return new NextResponse('OK')
   } catch (error) {
     console.error('Error marking notification as read:', error)
     return new NextResponse('Internal Server Error', { status: 500 })

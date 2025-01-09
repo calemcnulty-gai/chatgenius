@@ -8,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String    @id @default(uuid())
   name          String
   email         String    @unique
   profileImage  String?
@@ -24,7 +24,7 @@ model User {
 }
 
 model Workspace {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   name        String
   description String?
   ownerId     String
@@ -37,7 +37,7 @@ model Workspace {
 }
 
 model WorkspaceMembership {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   workspaceId String
   userId      String
   role        String    @default("member") // member, admin
@@ -52,7 +52,7 @@ model WorkspaceMembership {
 }
 
 model Channel {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   workspaceId String
   name        String
   type        String    @default("public") // public, private
@@ -65,7 +65,7 @@ model Channel {
 }
 
 model Message {
-  id           String    @id @default(cuid())
+  id           String    @id @default(uuid())
   channelId    String
   senderId     String
   content      String
@@ -80,7 +80,7 @@ model Message {
 }
 
 model AIInteraction {
-  id          String    @id @default(cuid())
+  id          String    @id @default(uuid())
   userId      String
   workspaceId String
   channelId   String?

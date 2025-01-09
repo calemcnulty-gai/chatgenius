@@ -1,80 +1,100 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useUser } from '@clerk/nextjs'
+import { useAuth } from '@clerk/nextjs'
 import { HashtagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Channel } from '@/types'
 import Modal from '@/components/ui/Modal'
 import CreateChannel from './CreateChannel'
-import { getPusherClient } from '@/lib/pusher'
+import { PusherEvent, NewChannelMessageEvent } from '@/types/events'
+import { usePusherChannel } from '@/contexts/PusherContext'
 
 type ChannelWithUnread = Channel & {
-  unreadCount?: number
+  hasUnread?: boolean
   hasMention?: boolean
 }
 
 type ChannelListProps = {
-  workspaceId: string
   channels: ChannelWithUnread[]
 }
 
-export function ChannelList({ workspaceId, channels: initialChannels }: ChannelListProps) {
-  const { user } = useUser()
+export default function ChannelList({ channels: initialChannels }: ChannelListProps) {
   const params = useParams()
+  const { userId } = useAuth()
+  const { userChannel } = usePusherChannel()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 
-  // Create a stable event handler
-  const handleNewMessage = useCallback((data: { channelId: string, channelSlug: string, hasMention?: boolean, isChannel?: boolean }) => {
-    if (data.isChannel) {
-      setChannels(currentChannels => {
-        const updatedChannels = currentChannels.map(channel => {
-          const shouldUpdate = channel.id === data.channelId && channel.slug === data.channelSlug && params.channelSlug !== data.channelSlug
-          
-          if (shouldUpdate) {
-            const newUnreadCount = (channel.unreadCount || 0) + 1
-            return {
-              ...channel,
-              unreadCount: newUnreadCount,
-              hasMention: channel.hasMention || data.hasMention || false,
-            }
-          }
-          return channel
-        })
-        return updatedChannels
-      })
-    }
-  }, [params.channelSlug, channels])
-
-  // Subscribe to real-time updates
+  // Set up event listener for channel events - this should never be cleaned up
   useEffect(() => {
-    if (!user?.id) return
+    if (!userId || !userChannel) return
 
-    // Get the Pusher client
-    const pusherClient = getPusherClient()
+    console.log('[ChannelList] Setting up channel event listeners')
+    
+    // Listen for new channel messages
+    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
+      if (data.senderId !== userId) {
+        console.log(`[ChannelList] Received channel message:`, data)
+        setChannels(currentChannels => {
+          // Don't mark as unread if we're currently viewing this channel
+          const isActiveChannel = params.channelSlug === data.channelName
+          if (isActiveChannel) {
+            console.log(`[ChannelList] Ignoring unread for active channel ${data.channelName}`)
+            return currentChannels
+          }
 
-    const channelName = `user-${user.id}`
-    const channel = pusherClient.subscribe(channelName)
-
-    // Listen for new messages
-    channel.bind('new-message', handleNewMessage)
-
-    // Handle subscription errors
-    channel.bind('pusher:subscription_error', (error: any) => {
-      console.error(`[ChannelList] Subscription error for ${channelName}:`, error)
+          return currentChannels.map(channel => {
+            if (channel.id === data.channelId) {
+              return {
+                ...channel,
+                hasUnread: true,
+                hasMention: channel.hasMention || data.hasMention,
+              }
+            }
+            return channel
+          })
+        })
+      }
     })
 
-    // Reset counts when viewing a channel
-    const currentChannelId = params.channelId
-    if (currentChannelId) {
+    // Listen for new channels
+    userChannel.bind(PusherEvent.CHANNEL_CREATED, (data: Channel) => {
+      console.log(`[ChannelList] New channel created:`, data)
+      setChannels(currentChannels => [...currentChannels, data])
+    })
+
+    // Listen for channel updates
+    userChannel.bind(PusherEvent.CHANNEL_UPDATED, (data: Channel) => {
+      console.log(`[ChannelList] Channel updated:`, data)
+      setChannels(currentChannels => 
+        currentChannels.map(channel => 
+          channel.id === data.id ? { ...channel, ...data } : channel
+        )
+      )
+    })
+
+    // Listen for channel deletions
+    userChannel.bind(PusherEvent.CHANNEL_DELETED, (data: { channelId: string }) => {
+      console.log(`[ChannelList] Channel deleted:`, data)
+      setChannels(currentChannels => 
+        currentChannels.filter(channel => channel.id !== data.channelId)
+      )
+    })
+  }, [userId, userChannel]) // Only depend on userId and userChannel
+
+  // Handle active channel changes
+  useEffect(() => {
+    const currentChannelSlug = params.channelSlug
+    if (currentChannelSlug) {
+      console.log(`[ChannelList] Resetting unread state for active channel ${currentChannelSlug}`)
       setChannels(currentChannels =>
         currentChannels.map(channel => {
-          if (channel.id === currentChannelId) {
+          if (channel.slug === currentChannelSlug) {
             return {
               ...channel,
-              unreadCount: 0,
+              hasUnread: false,
               hasMention: false,
             }
           }
@@ -82,12 +102,7 @@ export function ChannelList({ workspaceId, channels: initialChannels }: ChannelL
         })
       )
     }
-
-    return () => {
-      channel.unbind_all()
-      pusherClient.unsubscribe(channelName)
-    }
-  }, [user?.id, params.channelId])
+  }, [params.channelSlug])
 
   // Update channels when initial data changes
   useEffect(() => {
@@ -109,7 +124,7 @@ export function ChannelList({ workspaceId, channels: initialChannels }: ChannelL
       <div className="space-y-1 px-1">
         {channels.map((channel) => {
           const isActive = channel.slug === params.channelSlug;
-          const hasUnread = !!(channel.unreadCount && channel.unreadCount > 0);
+          const hasUnread = !isActive && channel.hasUnread;
 
           return (
             <Link
@@ -131,13 +146,11 @@ export function ChannelList({ workspaceId, channels: initialChannels }: ChannelL
                   {channel.name}
                 </span>
               </div>
-              {hasUnread && channel.unreadCount ? (
-                <span className={`ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                  channel.hasMention ? 'bg-red-500' : 'bg-gray-600'
-                } text-white`}>
-                  {channel.unreadCount}
+              {hasUnread && channel.hasMention && (
+                <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                  @
                 </span>
-              ) : null}
+              )}
             </Link>
           );
         })}

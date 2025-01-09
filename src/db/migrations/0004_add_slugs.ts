@@ -13,8 +13,8 @@ async function generateUniqueSlug(name: string, table: 'workspaces' | 'channels'
   while (true) {
     // Check if slug exists
     const exists = table === 'workspaces' 
-      ? await db.select().from(workspaces).where(eq(workspaces.slug, slug))
-      : await db.select().from(channels).where(
+      ? await db.select({ slug: workspaces.slug }).from(workspaces).where(eq(workspaces.slug, slug))
+      : await db.select({ slug: channels.slug }).from(channels).where(
           and(
             eq(channels.slug, slug),
             eq(channels.workspaceId, workspaceId!)
@@ -42,7 +42,11 @@ export async function addSlugs() {
   `);
 
   // Get all workspaces and generate slugs
-  const existingWorkspaces = await db.select().from(workspaces);
+  const existingWorkspaces = await db.select({
+    id: workspaces.id,
+    name: workspaces.name
+  }).from(workspaces);
+
   for (const workspace of existingWorkspaces) {
     const slug = await generateUniqueSlug(workspace.name, 'workspaces');
     await db
@@ -52,7 +56,12 @@ export async function addSlugs() {
   }
 
   // Get all channels and generate slugs
-  const existingChannels = await db.select().from(channels);
+  const existingChannels = await db.select({
+    id: channels.id,
+    name: channels.name,
+    workspaceId: channels.workspaceId
+  }).from(channels);
+
   for (const channel of existingChannels) {
     const slug = await generateUniqueSlug(channel.name, 'channels', channel.workspaceId);
     await db

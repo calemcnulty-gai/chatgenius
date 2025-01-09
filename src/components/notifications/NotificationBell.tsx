@@ -1,61 +1,142 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import { BellIcon } from '@heroicons/react/24/outline'
-import { getPusherClient } from '@/lib/pusher'
+import { pusherClient } from '@/lib/pusher'
+import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent } from '@/types/events'
+
+type Notification = {
+  id: string
+  type: 'mention' | 'thread_reply' | 'dm'
+  title: string
+  body?: string
+  read: boolean
+  createdAt: string
+  data: {
+    channelId: string
+    messageId: string
+    senderId: string
+    parentMessageId?: string
+  }
+}
 
 export function NotificationBell() {
-  const { user } = useUser()
-  const [unreadCount, setUnreadCount] = useState(0)
+  const router = useRouter()
+  const { userId } = useAuth()
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [isOpen, setIsOpen] = useState(false)
 
+  // Subscribe to real-time updates
   useEffect(() => {
-    if (!user?.id) return
+    if (!userId || !pusherClient) return
 
-    // Get the Pusher client
-    const pusherClient = getPusherClient()
+    const userChannel = pusherClient.subscribe(`user-${userId}`)
 
-    const channelName = `user-${user.id}`
-
-    // Ensure connection is established
-    if (pusherClient.connection.state !== 'connected') {
-      pusherClient.connect()
-    }
-
-    const channel = pusherClient.subscribe(channelName)
-
-    // Handle connection state changes
-    const handleConnectionStateChange = ({ current }: { current: string }) => {
-      console.log(`[NotificationBell] Pusher connection state changed to: ${current}`)
-    }
-
-    pusherClient.connection.bind('state_change', handleConnectionStateChange)
-
-    // Listen for new notifications
-    channel.bind('new-notification', (data: any) => {
-      console.log('[NotificationBell] Received new notification:', data)
-      setUnreadCount(prev => prev + 1)
+    // Handle new channel messages
+    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
+      if (data.senderId !== userId && data.hasMention) {
+        const notification: Notification = {
+          id: `${data.id}-mention`,
+          type: 'mention',
+          title: `${data.senderName} mentioned you in #${data.channelName}`,
+          body: data.content,
+          read: false,
+          createdAt: data.createdAt,
+          data: {
+            channelId: data.channelId,
+            messageId: data.id,
+            senderId: data.senderId,
+            parentMessageId: data.parentMessageId || undefined
+          }
+        }
+        setNotifications(prev => [notification, ...prev])
+      }
     })
 
-    // Listen for notification read events
-    channel.bind('notification-read', () => {
-      setUnreadCount(0)
+    // Handle new direct messages
+    userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewDirectMessageEvent) => {
+      if (data.senderId !== userId) {
+        const notification: Notification = {
+          id: `${data.id}-dm`,
+          type: 'dm',
+          title: `New message from ${data.senderName}`,
+          body: data.content,
+          read: false,
+          createdAt: data.createdAt,
+          data: {
+            channelId: data.channelId,
+            messageId: data.id,
+            senderId: data.senderId,
+            parentMessageId: data.parentMessageId || undefined
+          }
+        }
+        setNotifications(prev => [notification, ...prev])
+      }
     })
 
     return () => {
-      channel.unbind_all()
-      pusherClient.connection.unbind('state_change', handleConnectionStateChange)
-      pusherClient.unsubscribe(channelName)
+      if (!pusherClient) return
+      userChannel.unbind_all()
+      pusherClient.unsubscribe(`user-${userId}`)
     }
-  }, [user?.id])
+  }, [userId])
+
+  const unreadCount = notifications?.filter(n => !n.read)?.length || 0
+
+  const handleNotificationClick = async (notification: Notification) => {
+    // Navigate to the channel
+    router.push(`/workspace/${notification.data.channelId}`)
+    setIsOpen(false)
+  }
 
   return (
     <div className="relative">
-      <BellIcon className="h-6 w-6" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-xs text-white flex items-center justify-center">
-          {unreadCount}
-        </span>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="relative rounded-full p-1 text-gray-400 hover:bg-gray-800 hover:text-gray-300"
+      >
+        <BellIcon className="h-6 w-6" />
+        {unreadCount > 0 && (
+          <span className="absolute right-0 top-0 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <div className="absolute right-0 mt-2 w-80 rounded-lg bg-gray-800 p-2 shadow-lg">
+          <div className="space-y-1">
+            {notifications.length === 0 ? (
+              <p className="p-2 text-center text-sm text-gray-400">
+                No notifications
+              </p>
+            ) : (
+              notifications.map(notification => (
+                <button
+                  key={`${notification.id}-${notification.createdAt}`}
+                  onClick={() => handleNotificationClick(notification)}
+                  className={`group relative w-full rounded-md p-2 text-left hover:bg-gray-700`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className={`text-sm font-medium ${notification.read ? 'text-gray-400' : 'text-white'}`}>
+                      {notification.title}
+                    </div>
+                    {!notification.read && (
+                      <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-500"></span>
+                    )}
+                  </div>
+                  {notification.body && (
+                    <div className="mt-1 text-xs text-gray-400">
+                      {notification.body}
+                    </div>
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
       )}
     </div>
   )

@@ -6,7 +6,7 @@ export async function addMessageThreading() {
   await db.execute(sql`
     -- Add parent_message_id for threading
     ALTER TABLE messages
-    ADD COLUMN parent_message_id TEXT REFERENCES messages(id),
+    ADD COLUMN parent_message_id UUID REFERENCES messages(id),
     -- Add reply count for performance
     ADD COLUMN reply_count INTEGER NOT NULL DEFAULT 0,
     -- Add latest reply timestamp for sorting/display

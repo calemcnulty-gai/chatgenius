@@ -1,9 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Message } from './Message'
 import { MessageInput } from './MessageInput'
-import { getPusherClient } from '@/lib/pusher'
+import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent, MessageUpdatedEvent } from '@/types/events'
+import { useAuth } from '@clerk/nextjs'
+import { usePusherChannel } from '@/contexts/PusherContext'
 
 type MessageData = {
   id: string
@@ -24,10 +26,17 @@ type MessageListProps = {
 }
 
 export function MessageList({ channelId }: MessageListProps) {
+  const { userId } = useAuth()
+  const { userChannel } = usePusherChannel()
   const [messages, setMessages] = useState<MessageData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
   const [nextCursor, setNextCursor] = useState<string | undefined>()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   const fetchMessages = async (cursor?: string) => {
     try {
@@ -47,6 +56,11 @@ export function MessageList({ channelId }: MessageListProps) {
       setMessages(prev => cursor ? [...prev, ...data.messages] : data.messages)
       setHasMore(data.hasMore)
       setNextCursor(data.nextCursor)
+
+      // Scroll to bottom after loading initial messages
+      if (!cursor) {
+        scrollToBottom()
+      }
     } catch (error) {
       console.error('Error fetching messages:', error)
     } finally {
@@ -64,105 +78,54 @@ export function MessageList({ channelId }: MessageListProps) {
 
   // Set up Pusher subscription
   useEffect(() => {
-    const channelName = `channel-${channelId}`
-    console.log(`[MessageList] Subscribing to channel: ${channelName}`)
+    if (!userId || !userChannel) return
 
-    // Get the Pusher client
-    const pusherClient = getPusherClient()
-
-    // Subscribe if not already subscribed
-    const channel = pusherClient.subscribe(channelName)
-
-    // Wait for subscription to be ready
-    const handleSubscriptionSucceeded = () => {
-      console.log(`[MessageList] Successfully subscribed to ${channelName}`)
-      
-      // Listen for new messages
-      channel.bind('new-message', (data: any) => {
-        console.log(`[MessageList] Received new message:`, data)
-        
-        // Only add the message if it's not a reply or if we're showing replies
-        if (!data.parentMessageId) {
-          // For DMs, check if the message belongs to this channel
-          // For regular channels, check if it's a channel message for this channel
-          const isDMForThisChannel = data.isDM && data.dmChannelId === channelId
-          const isChannelMessageForThisChannel = data.isChannel && data.channelId === channelId
-
-          if (isDMForThisChannel || isChannelMessageForThisChannel) {
-            setMessages((currentMessages) => {
-              // Avoid duplicate messages
-              if (currentMessages.some(msg => msg.id === data.id)) {
-                console.log(`[MessageList] Skipping duplicate message: ${data.id}`)
-                return currentMessages;
-              }
-              console.log(`[MessageList] Adding new message: ${data.id}`)
-              return [data, ...currentMessages];
-            })
+    // Listen for new channel messages
+    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
+      if (data.channelId === channelId && !data.parentMessageId) {
+        setMessages((currentMessages) => {
+          if (currentMessages.some(msg => msg.id === data.id)) {
+            return currentMessages
           }
-        }
-      })
-
-      // Listen for thread updates
-      channel.bind('thread-update', (data: any) => {
-        console.log(`[MessageList] Received thread update:`, data)
-        setMessages((currentMessages) => 
-          currentMessages.map((message) =>
-            message.id === data.messageId
-              ? { 
-                  ...message, 
-                  replyCount: data.replyCount, 
-                  latestReplyAt: data.latestReplyAt 
-                }
-              : message
-          )
-        )
-      })
-    }
-
-    channel.bind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
-
-    // Handle subscription errors
-    channel.bind('pusher:subscription_error', (error: any) => {
-      console.error(`[MessageList] Subscription error for ${channelName}:`, error)
+          const newMessages = [{
+            id: data.id,
+            content: data.content,
+            createdAt: data.createdAt,
+            sender: {
+              id: data.senderId,
+              name: data.senderName,
+              profileImage: data.senderProfileImage
+            },
+            replyCount: 0,
+            latestReplyAt: null,
+            parentMessageId: null
+          }, ...currentMessages]
+          // Scroll to bottom when new message arrives
+          setTimeout(scrollToBottom, 100)
+          return newMessages
+        })
+      }
     })
 
-    // Cleanup
     return () => {
-      console.log(`[MessageList] Cleaning up subscription to ${channelName}`)
-      channel.unbind('pusher:subscription_succeeded', handleSubscriptionSucceeded)
-      channel.unbind_all()
-      pusherClient.unsubscribe(channelName)
+      if (!userChannel) return
+      userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
     }
-  }, [channelId])
-
-  const loadMore = () => {
-    if (hasMore && nextCursor) {
-      fetchMessages(nextCursor)
-    }
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex h-full flex-col">
-        <div className="flex flex-1 items-center justify-center">
-          <p className="text-gray-500">Loading messages...</p>
-        </div>
-        <div className="shrink-0">
-          <MessageInput channelId={channelId} onMessageSent={() => fetchMessages()} />
-        </div>
-      </div>
-    )
-  }
+  }, [userId, channelId, userChannel])
 
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        {messages.length === 0 ? (
+        {isLoading ? (
           <div className="flex h-full items-center justify-center">
-            <p className="text-gray-500">No messages yet</p>
+            <div className="text-sm text-gray-500">Loading messages...</div>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-sm text-gray-500">No messages yet</div>
           </div>
         ) : (
-          <div className="flex flex-col-reverse">
+          <div className="space-y-3 p-4">
             {messages.map((message) => (
               <Message
                 key={message.id}
@@ -172,24 +135,18 @@ export function MessageList({ channelId }: MessageListProps) {
                 createdAt={message.createdAt}
                 replyCount={message.replyCount}
                 latestReplyAt={message.latestReplyAt}
-                parentMessageId={message.parentMessageId}
                 channelId={channelId}
               />
             ))}
-            {hasMore && (
-              <button
-                onClick={loadMore}
-                className="mx-auto my-4 rounded-md bg-gray-700 px-4 py-2 text-sm text-white hover:bg-gray-600"
-              >
-                Load more messages
-              </button>
-            )}
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>
-      <div className="shrink-0">
-        <MessageInput channelId={channelId} onMessageSent={() => fetchMessages()} />
-      </div>
+
+      <MessageInput
+        channelId={channelId}
+        onMessageSent={() => fetchMessages()}
+      />
     </div>
   )
 } 

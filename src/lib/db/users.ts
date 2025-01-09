@@ -1,6 +1,7 @@
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { v4 as uuidv4 } from 'uuid'
 
 export async function getOrCreateUser(clerkUser: {
   id: string
@@ -11,7 +12,7 @@ export async function getOrCreateUser(clerkUser: {
 }) {
   // Check if user exists
   const existingUser = await db.query.users.findFirst({
-    where: eq(users.id, clerkUser.id),
+    where: eq(users.clerkId, clerkUser.id),
   })
 
   if (existingUser) {
@@ -23,7 +24,8 @@ export async function getOrCreateUser(clerkUser: {
   if (!email) throw new Error('User must have an email address')
 
   const newUser = {
-    id: clerkUser.id,
+    id: uuidv4(),
+    clerkId: clerkUser.id,
     name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'Anonymous',
     email,
     profileImage: clerkUser.imageUrl,

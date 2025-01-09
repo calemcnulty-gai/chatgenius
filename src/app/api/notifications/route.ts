@@ -1,18 +1,34 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { notifications } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { getOrCreateUser } from '@/lib/db/users'
 
 export async function GET(request: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-
   try {
+    const { userId: clerkUserId } = auth()
+    if (!clerkUserId) {
+      return new NextResponse('Unauthorized', { status: 401 })
+    }
+
+    // Get the full user data from Clerk
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return new NextResponse('User not found', { status: 404 })
+    }
+
+    // Get or create user to get their database ID
+    const user = await getOrCreateUser({
+      id: clerkUser.id,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      emailAddresses: clerkUser.emailAddresses,
+      imageUrl: clerkUser.imageUrl,
+    })
+
     const userNotifications = await db.query.notifications.findMany({
-      where: eq(notifications.userId, userId),
+      where: eq(notifications.userId, user.id),
       orderBy: (notifications, { desc }) => [desc(notifications.createdAt)],
       limit: 50,
     })
@@ -20,6 +36,6 @@ export async function GET(request: Request) {
     return NextResponse.json(userNotifications)
   } catch (error) {
     console.error('Error fetching notifications:', error)
-    return new Response('Error fetching notifications', { status: 500 })
+    return new NextResponse('Error fetching notifications', { status: 500 })
   }
 } 

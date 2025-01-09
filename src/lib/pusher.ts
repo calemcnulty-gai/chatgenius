@@ -9,66 +9,67 @@ export const pusherServer = new PusherServer({
   useTLS: true,
 })
 
-// Only initialize the client on the browser
-let pusherClient: PusherClient | undefined
+// Create a singleton instance for the client
+let pusherClientInstance: PusherClient | undefined
 
-if (typeof window !== 'undefined') {
-  console.log('Initializing Pusher client with:', {
-    key: process.env.NEXT_PUBLIC_PUSHER_KEY,
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
-  })
-
-  pusherClient = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
-    cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
-    authEndpoint: '/api/pusher/auth',
-    auth: {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-    },
-  })
-
-  // Debug connection state changes
-  const client = pusherClient // Create a stable reference for the event handlers
-  client.connection.bind('state_change', ({ current, previous }: { current: string, previous: string }) => {
-    console.log('Pusher: Connection state changed:', {
-      previous,
-      current,
-      connectionState: client.connection.state,
+export function initPusherClient() {
+  if (typeof window === 'undefined') return undefined
+  
+  if (!pusherClientInstance) {
+    console.log('Initializing Pusher client with:', {
+      key: process.env.NEXT_PUBLIC_PUSHER_KEY,
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER,
     })
-  })
 
-  client.connection.bind('connected', () => {
-    console.log('Pusher: Successfully connected')
-  })
+    pusherClientInstance = new PusherClient(process.env.NEXT_PUBLIC_PUSHER_KEY!, {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER!,
+      authEndpoint: '/api/pusher/auth',
+      auth: {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      },
+    })
 
-  client.connection.bind('error', (error: any) => {
-    console.error('Pusher: Connection error:', error)
-  })
+    // Debug connection state changes
+    pusherClientInstance.connection.bind('state_change', ({ current, previous }: { current: string, previous: string }) => {
+      console.log('Pusher: Connection state changed:', {
+        previous,
+        current,
+        connectionState: pusherClientInstance!.connection.state,
+      })
+    })
 
-  // Log the current connection state
-  console.log('Current Pusher connection state:', client.connection.state)
+    pusherClientInstance.connection.bind('connected', () => {
+      console.log('Pusher: Successfully connected')
+    })
+
+    pusherClientInstance.connection.bind('error', (error: any) => {
+      console.error('Pusher: Connection error:', error)
+    })
+
+    // Log the current connection state
+    console.log('Current Pusher connection state:', pusherClientInstance.connection.state)
+  }
+
+  return pusherClientInstance
 }
 
 // Utility function to disconnect and cleanup Pusher
 export function disconnectPusher() {
-  if (!pusherClient) return
+  if (!pusherClientInstance) return
 
   // Unsubscribe from all channels
-  Object.keys(pusherClient.channels.channels).forEach(channelName => {
-    pusherClient!.unsubscribe(channelName)
+  Object.keys(pusherClientInstance.channels.channels).forEach(channelName => {
+    pusherClientInstance!.unsubscribe(channelName)
   })
   
   // Disconnect the client
-  pusherClient.disconnect()
+  pusherClientInstance.disconnect()
+  pusherClientInstance = undefined
   
   console.log('Pusher: Disconnected and cleaned up all channels')
 }
 
-// Export a safe version of the client that throws if accessed on the server
-export const getPusherClient = () => {
-  if (!pusherClient) {
-    throw new Error('PusherClient is not available on the server side')
-  }
-  return pusherClient
-} 
+// Export the singleton instance
+export const pusherClient = typeof window !== 'undefined' ? initPusherClient() : undefined 

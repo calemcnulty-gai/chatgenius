@@ -72,7 +72,8 @@ export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: Wor
           users={users} 
           workspace={{
             id: workspace.id,
-            name: workspace.name
+            name: workspace.name,
+            slug: workspace.slug
           }}
         />
       </div>

@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
 
 type MessageInputProps = {
   channelId: string
   parentMessageId?: string
   onMessageSent: () => void
   placeholder?: string
+  className?: string
 }
 
 export function MessageInput({ 
@@ -14,11 +15,12 @@ export function MessageInput({
   parentMessageId,
   onMessageSent,
   placeholder = 'Type a message...',
+  className = '',
 }: MessageInputProps) {
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!content.trim() || isSubmitting) return
 
@@ -50,17 +52,15 @@ export function MessageInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="p-4">
-      <div className="relative">
-        <input
-          type="text"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-lg bg-gray-700 px-4 py-2 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          disabled={isSubmitting}
-        />
-      </div>
+    <form onSubmit={handleSubmit} className={`border-t border-gray-700/50 bg-gray-800 px-4 py-3 ${className}`}>
+      <input
+        type="text"
+        value={content}
+        onChange={(e) => setContent(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-md bg-gray-700 px-3 py-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+        disabled={isSubmitting}
+      />
     </form>
   )
 } 

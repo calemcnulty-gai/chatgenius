@@ -58,6 +58,8 @@ export async function GET(
         },
         replyCount: parentMessage.replyCount,
         latestReplyAt: parentMessage.latestReplyAt,
+        channelId: parentMessage.channelId,
+        dmChannelId: parentMessage.dmChannelId,
       },
       replies: replies.map(reply => ({
         id: reply.id,
@@ -69,6 +71,8 @@ export async function GET(
           profileImage: reply.sender.profileImage,
         },
         parentMessageId: reply.parentMessageId,
+        channelId: reply.channelId,
+        dmChannelId: reply.dmChannelId,
       })),
     })
   } catch (error) {

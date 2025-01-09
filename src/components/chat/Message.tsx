@@ -3,7 +3,7 @@
 import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
-import Link from 'next/link'
+import { formatMessageDate } from '@/lib/utils'
 
 type MessageProps = {
   id: string
@@ -22,95 +22,55 @@ type MessageProps = {
 
 export function Message({ 
   id,
-  content, 
-  sender, 
-  createdAt, 
-  replyCount = 0,
+  content,
+  sender,
+  createdAt,
+  replyCount,
   latestReplyAt,
   parentMessageId,
   channelId,
 }: MessageProps) {
-  const hasReplies = replyCount > 0
-  const isReply = !!parentMessageId
-  const showThreadUI = !isReply && (hasReplies || !parentMessageId)
+  const { userId } = useAuth()
+  const isCurrentUser = userId === sender.id
 
   const handleThreadClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    console.log('[Thread] Button clicked', {
-      messageId: id,
-      hasReplies,
-      replyCount,
-      isReply,
-      parentMessageId,
-      eventTarget: e.target,
-      currentTarget: e.currentTarget
+    // Dispatch a custom event that will be caught by the channel page
+    const event = new CustomEvent('open-thread', {
+      detail: { messageId: id },
+      bubbles: true,
     })
-    
-    try {
-      // Check if window is available (client-side)
-      if (typeof window === 'undefined') {
-        console.error('[Thread] Window is not defined - not in browser context')
-        return
-      }
-
-      const event = new CustomEvent('open-thread', {
-        detail: { messageId: id },
-        bubbles: true, // Ensure event bubbles up
-        cancelable: true // Make event cancelable
-      })
-
-      const dispatchResult = window.dispatchEvent(event)
-      console.log('[Thread] Event dispatch result:', {
-        messageId: id,
-        eventType: event.type,
-        detail: event.detail,
-        wasDispatched: dispatchResult
-      })
-    } catch (error: any) {
-      console.error('[Thread] Error dispatching open-thread event:', {
-        error,
-        messageId: id,
-        errorName: error?.name,
-        errorMessage: error?.message,
-        errorStack: error?.stack
-      })
-    }
+    window.dispatchEvent(event)
   }
 
   return (
-    <div className="group flex items-start gap-3 px-4 py-1 hover:bg-gray-800/50">
-      <img
-        src={sender.profileImage || '/default-avatar.png'}
-        alt={sender.name}
-        className="h-10 w-10 rounded-full"
+    <div className="group relative flex items-start gap-x-3">
+      <UserAvatar
+        name={sender.name}
+        image={sender.profileImage}
+        className="h-6 w-6 flex-shrink-0"
       />
-      <div className="flex-1 space-y-1">
-        <div className="flex items-baseline gap-2">
-          <span className="font-medium">{sender.name}</span>
-          <span className="text-xs text-gray-400">
-            {new Date(createdAt).toLocaleTimeString()}
+      <div className="flex-1 overflow-hidden">
+        <div className="flex items-center gap-x-2">
+          <span className={`text-sm font-medium ${isCurrentUser ? 'text-blue-400' : 'text-gray-200'}`}>
+            {sender.name}
+          </span>
+          <span className="text-xs text-gray-500" title={new Date(createdAt).toLocaleString()}>
+            {formatMessageDate(createdAt)}
           </span>
         </div>
-        <p className="text-sm text-gray-200">{content}</p>
-        {showThreadUI && (
-          <div className="mt-1 flex items-center gap-2">
+        <p className="whitespace-pre-wrap break-words text-sm text-gray-300">{content}</p>
+        {!parentMessageId && (
+          <div className="mt-1">
             <button
               onClick={handleThreadClick}
-              className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-700/50 hover:text-white"
+              className="group inline-flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-300"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />
-              {hasReplies ? (
-                <>
-                  {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
-                  {latestReplyAt && (
-                    <span className="ml-1 text-gray-500">
-                      · Last reply {new Date(latestReplyAt).toLocaleDateString()}
-                    </span>
-                  )}
-                </>
-              ) : (
-                'Reply in thread'
-              )}
+              <span>
+                {replyCount || 0} {replyCount === 1 ? 'reply' : 'replies'}
+                {latestReplyAt && ` · ${formatMessageDate(latestReplyAt)}`}
+              </span>
             </button>
           </div>
         )}

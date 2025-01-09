@@ -4,11 +4,16 @@ import * as schema from '@/db/schema'
 // Base types from schema
 export type User = InferModel<typeof schema.users>
 export type Message = InferModel<typeof schema.messages>
-export type Channel = InferModel<typeof schema.channels>
+export type Channel = Omit<InferModel<typeof schema.channels>, 'type'> & {
+  type: 'public' | 'private'
+}
 export type DirectMessageChannel = InferModel<typeof schema.directMessageChannels>
 export type DirectMessageMember = InferModel<typeof schema.directMessageMembers>
 export type Workspace = InferModel<typeof schema.workspaces>
 export type WorkspaceMembership = InferModel<typeof schema.workspaceMemberships>
+export type WorkspaceMembershipWithUser = WorkspaceMembership & {
+  user: User
+}
 export type Notification = InferModel<typeof schema.notifications>
 export type UnreadMessage = InferModel<typeof schema.unreadMessages>
 
@@ -23,7 +28,7 @@ export type MessageWithThread = MessageWithSender & {
   latestReplyAt?: Date
 }
 
-export interface DirectMessageChannelWithMembers extends DirectMessageChannel {
+export type DirectMessageChannelWithMembers = DirectMessageChannel & {
   members: Array<{
     id: string
     channelId: string
@@ -33,6 +38,30 @@ export interface DirectMessageChannelWithMembers extends DirectMessageChannel {
   }>
 }
 
+export type DirectMessageChannelWithUnreadMessages = DirectMessageChannelWithMembers & {
+  unreadMessages: UnreadMessage[]
+}
+
+export type DirectMessageChannelWithUnreadCounts = DirectMessageChannel & {
+  otherUser: {
+    id: string
+    name: string | null
+    profileImage: string | null
+    status: 'active' | 'away' | 'offline'
+  }
+  unreadCount: number
+  hasMention: boolean
+}
+
 export type ChannelWithWorkspace = Channel & {
   workspace: Workspace
+}
+
+export type ChannelWithUnreadMessages = Channel & {
+  unreadMessages: UnreadMessage[]
+}
+
+export type ChannelWithUnreadCounts = Channel & {
+  unreadCount: number
+  hasMention: boolean
 } 

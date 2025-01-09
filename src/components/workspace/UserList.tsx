@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
+import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
+import { pusherClient } from '@/lib/pusher'
 
 type User = {
   id: string
@@ -22,11 +25,61 @@ type UserListProps = {
   }
 }
 
-export function UserList({ users, workspace }: UserListProps) {
+export function UserList({ users: initialUsers, workspace }: UserListProps) {
   const router = useRouter()
   const params = useParams()
+  const { userId } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
+  const [users, setUsers] = useState(initialUsers)
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    if (!userId || !pusherClient) return
+
+    const userChannel = pusherClient.subscribe(`user-${userId}`)
+    
+    // Listen for new users
+    userChannel.bind(PusherEvent.NEW_USER, (data: NewUserEvent) => {
+      if (data.workspaceId === workspace.id) {
+        setUsers(currentUsers => [...currentUsers, {
+          id: data.id,
+          name: data.name,
+          profileImage: data.profileImage,
+          status: 'offline'
+        }])
+      }
+    })
+
+    // Listen for user status changes
+    userChannel.bind(PusherEvent.USER_STATUS_CHANGED, (data: UserStatusEvent) => {
+      setUsers(currentUsers =>
+        currentUsers.map(user =>
+          user.id === data.userId
+            ? { ...user, status: data.status }
+            : user
+        )
+      )
+    })
+
+    // Listen for users leaving
+    userChannel.bind(PusherEvent.USER_LEFT, (data: { userId: string }) => {
+      setUsers(currentUsers =>
+        currentUsers.filter(user => user.id !== data.userId)
+      )
+    })
+
+    return () => {
+      if (!pusherClient) return
+      userChannel.unbind_all()
+      pusherClient.unsubscribe(`user-${userId}`)
+    }
+  }, [userId, workspace.id])
+
+  // Update users when initial data changes
+  useEffect(() => {
+    setUsers(initialUsers)
+  }, [initialUsers])
 
   const handleUserClick = async (user: User) => {
     if (isLoading) return

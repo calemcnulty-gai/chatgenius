@@ -1,10 +1,11 @@
 import { db } from '@/db'
 import { workspaces, directMessageChannels, directMessageMembers, users } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { MessageList } from '@/components/chat/MessageList'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { getOrCreateUser } from '@/lib/db/users'
 
 type DMChannel = typeof directMessageChannels.$inferSelect & {
   members: (typeof directMessageMembers.$inferSelect & {
@@ -17,10 +18,25 @@ export default async function DMChannelPage({
 }: {
   params: { workspaceSlug: string; channelId: string }
 }) {
-  const { userId } = auth()
-  if (!userId) {
+  const { userId: clerkUserId } = auth()
+  if (!clerkUserId) {
     redirect('/sign-in')
   }
+
+  // Get the full user data from Clerk
+  const clerkUser = await currentUser()
+  if (!clerkUser) {
+    redirect('/sign-in')
+  }
+
+  // Get or create user to get their database ID
+  const user = await getOrCreateUser({
+    id: clerkUser.id,
+    firstName: clerkUser.firstName,
+    lastName: clerkUser.lastName,
+    emailAddresses: clerkUser.emailAddresses,
+    imageUrl: clerkUser.imageUrl,
+  })
 
   // Get workspace by slug
   const workspace = await db.query.workspaces.findFirst({
@@ -37,42 +53,36 @@ export default async function DMChannelPage({
     with: {
       members: {
         with: {
-          user: true
-        }
-      }
-    }
+          user: true,
+        },
+      },
+    },
   }) as DMChannel | null
 
-  if (!channel) {
-    redirect(`/workspace/${params.workspaceSlug}`)
-  }
-
-  // Verify user is a member of the channel
-  const isMember = channel.members.some(member => member.userId === userId)
-  if (!isMember) {
+  if (!channel || !channel.members.some(member => member.userId === user.id)) {
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
   // Get the other user in the DM
-  const otherUser = channel.members.find(member => member.userId !== userId)?.user
-  if (!otherUser) {
+  const otherMember = channel.members.find(member => member.userId !== user.id)
+  if (!otherMember) {
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
   return (
     <div className="flex h-full flex-col bg-gray-800">
       {/* Channel header */}
-      <div className="flex items-center gap-3 border-b border-gray-700 bg-gray-800 px-4 py-3">
+      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-700 bg-gray-800 px-4 py-3">
         <UserAvatar
-          name={otherUser.name}
-          image={otherUser.profileImage}
+          name={otherMember.user.name ?? ''}
+          image={otherMember.user.profileImage}
           className="h-6 w-6"
         />
-        <h1 className="text-lg font-medium text-white">{otherUser.name}</h1>
+        <h1 className="text-lg font-medium text-white">{otherMember.user.name}</h1>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1">
         <MessageList channelId={channel.id} />
       </div>
     </div>

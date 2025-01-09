@@ -11,7 +11,8 @@ import {
 } from 'drizzle-orm/pg-core'
 
 export const users = pgTable('users', {
-  id: text('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
+  clerkId: text('clerk_id').notNull().unique(),
   name: text('name').notNull(),
   email: text('email').notNull(),
   profileImage: text('profile_image'),
@@ -21,20 +22,20 @@ export const users = pgTable('users', {
 })
 
 export const workspaces = pgTable('workspaces', {
-  id: text('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
-  ownerId: text('owner_id').notNull().references(() => users.id),
+  ownerId: uuid('owner_id').notNull().references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
 export const channels = pgTable('channels', {
-  id: text('id').primaryKey(),
+  id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
   type: text('type').notNull().default('public'),
   slug: text('slug').notNull(),
-  workspaceId: text('workspace_id')
+  workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -42,11 +43,11 @@ export const channels = pgTable('channels', {
 })
 
 export const unreadMessages = pgTable('unread_messages', {
-  id: text('id').primaryKey(),
-  userId: text('user_id').notNull().references(() => users.id),
-  channelId: text('channel_id').references(() => channels.id),
-  dmChannelId: text('dm_channel_id').references(() => directMessageChannels.id),
-  lastReadMessageId: text('last_read_message_id').references(() => messages.id),
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  channelId: uuid('channel_id').references(() => channels.id),
+  dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id),
+  lastReadMessageId: uuid('last_read_message_id').references(() => messages.id),
   unreadCount: integer('unread_count').notNull().default(0),
   hasMention: boolean('has_mention').notNull().default(false),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -58,7 +59,7 @@ export const workspaceMemberships = pgTable('workspace_memberships', {
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  userId: text('user_id')
+  userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
   role: text('role').notNull().default('member'),
@@ -71,17 +72,17 @@ let messages: PgTableWithColumns<any>
 
 // Initialize messages table
 messages = pgTable('messages', {
-  id: text('id').primaryKey(),
-  channelId: text('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
-  dmChannelId: text('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
-  senderId: text('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  id: uuid('id').primaryKey().defaultRandom(),
+  channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
+  dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
+  senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   content: text('content').notNull(),
   aiGenerated: boolean('ai_generated').default(false),
   attachments: jsonb('attachments'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   editedAt: timestamp('edited_at'),
   // New columns for threading
-  parentMessageId: text('parent_message_id'),
+  parentMessageId: uuid('parent_message_id'),
   replyCount: integer('reply_count').default(0).notNull(),
   latestReplyAt: timestamp('latest_reply_at'),
 })
@@ -89,8 +90,8 @@ messages = pgTable('messages', {
 export { messages }
 
 export const directMessageChannels = pgTable('direct_message_channels', {
-  id: text('id').primaryKey(),
-  workspaceId: text('workspace_id')
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -98,19 +99,19 @@ export const directMessageChannels = pgTable('direct_message_channels', {
 })
 
 export const directMessageMembers = pgTable('direct_message_members', {
-  id: text('id').primaryKey(),
-  channelId: text('channel_id')
+  id: uuid('id').primaryKey().defaultRandom(),
+  channelId: uuid('channel_id')
     .notNull()
     .references(() => directMessageChannels.id),
-  userId: text('user_id')
+  userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 export const notifications = pgTable('notifications', {
-  id: text('id').primaryKey(),
-  userId: text('user_id')
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
   type: text('type').notNull(),
