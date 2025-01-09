@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
 import { BellIcon } from '@heroicons/react/24/outline'
 import { pusherClient } from '@/lib/pusher'
 import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent } from '@/types/events'
+import { useUser } from '@/contexts/UserContext'
+import { UserDisplay } from '@/components/ui/UserDisplay'
 
 type Notification = {
   id: string
@@ -18,29 +19,32 @@ type Notification = {
     channelId: string
     messageId: string
     senderId: string
+    senderName: string
+    senderDisplayName: string | null
+    channelName?: string
     parentMessageId?: string
   }
 }
 
 export function NotificationBell() {
   const router = useRouter()
-  const { userId } = useAuth()
+  const { user } = useUser()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!userId || !pusherClient) return
+    if (!user?.id || !pusherClient) return
 
-    const userChannel = pusherClient.subscribe(`user-${userId}`)
+    const userChannel = pusherClient.subscribe(`user-${user.id}`)
 
     // Handle new channel messages
     userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
-      if (data.senderId !== userId && data.hasMention) {
+      if (data.senderId !== user.id && data.hasMention) {
         const notification: Notification = {
           id: `${data.id}-mention`,
           type: 'mention',
-          title: `${data.senderName} mentioned you in #${data.channelName}`,
+          title: `mentioned you in #${data.channelName}`,
           body: data.content,
           read: false,
           createdAt: data.createdAt,
@@ -48,6 +52,9 @@ export function NotificationBell() {
             channelId: data.channelId,
             messageId: data.id,
             senderId: data.senderId,
+            senderName: data.senderName,
+            senderDisplayName: data.senderDisplayName,
+            channelName: data.channelName,
             parentMessageId: data.parentMessageId || undefined
           }
         }
@@ -57,11 +64,11 @@ export function NotificationBell() {
 
     // Handle new direct messages
     userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewDirectMessageEvent) => {
-      if (data.senderId !== userId) {
+      if (data.senderId !== user.id) {
         const notification: Notification = {
           id: `${data.id}-dm`,
           type: 'dm',
-          title: `New message from ${data.senderName}`,
+          title: `New message`,
           body: data.content,
           read: false,
           createdAt: data.createdAt,
@@ -69,6 +76,8 @@ export function NotificationBell() {
             channelId: data.channelId,
             messageId: data.id,
             senderId: data.senderId,
+            senderName: data.senderName,
+            senderDisplayName: data.senderDisplayName,
             parentMessageId: data.parentMessageId || undefined
           }
         }
@@ -79,9 +88,9 @@ export function NotificationBell() {
     return () => {
       if (!pusherClient) return
       userChannel.unbind_all()
-      pusherClient.unsubscribe(`user-${userId}`)
+      pusherClient.unsubscribe(`user-${user.id}`)
     }
-  }, [userId])
+  }, [user?.id])
 
   const unreadCount = notifications?.filter(n => !n.read)?.length || 0
 
@@ -121,6 +130,22 @@ export function NotificationBell() {
                 >
                   <div className="flex items-center justify-between">
                     <div className={`text-sm font-medium ${notification.read ? 'text-gray-400' : 'text-white'}`}>
+                      <UserDisplay
+                        user={{
+                          id: notification.data.senderId,
+                          name: notification.data.senderName,
+                          displayName: notification.data.senderDisplayName,
+                          email: '',
+                          profileImage: null,
+                          status: 'active',
+                          timeZone: null,
+                          title: null,
+                          clerkId: '',
+                          createdAt: '',
+                          updatedAt: '',
+                        }}
+                      />
+                      {' '}
                       {notification.title}
                     </div>
                     {!notification.read && (

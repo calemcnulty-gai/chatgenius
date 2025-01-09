@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
 import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
@@ -154,7 +155,11 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
                   }`}
                 />
               </div>
-              <span className="truncate text-sm">{user.displayName || user.name}</span>
+              <UserDisplay 
+                user={user}
+                variant="text-with-status"
+                className="truncate text-sm"
+              />
             </div>
           ))}
         </div>

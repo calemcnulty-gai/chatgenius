@@ -28,12 +28,14 @@ app/
    - Clerk authentication integration
    - User onboarding
    - Session management
+   - UserContext integration for client-side user data
 
 3. **Workspace Management (`workspace/`)**
    - Workspace views
    - Channel management
    - Member interactions
    - Real-time updates
+   - User data management through UserContext
 
 4. **Invitation System (`invite/`)**
    - Workspace invitations
@@ -63,21 +65,38 @@ app/
    - Nested layouts for consistent UI
    - Shared navigation and context
    - Authentication boundaries
+   - User context providers for data sharing
 
 2. **Server Components**
    - Default to server components
    - Data fetching at the component level
    - SEO optimization
+   - Initial user data hydration
 
 3. **Client Components**
    - Interactive features
    - Real-time updates
    - Form handling
+   - User context consumption
 
 4. **Middleware**
    - Authentication checks
    - Route protection
    - Request/response transformation
+
+#### State Management
+
+1. **UserContext**
+   - Centralized user data management
+   - Client-side user state
+   - Type-safe user information
+   - Status management
+
+2. **Data Flow**
+   - Server components fetch initial data
+   - Data passed through context providers
+   - Client components consume context
+   - Real-time updates through WebSocket
 
 #### Best Practices
 
@@ -103,16 +122,20 @@ app/
 
 #### Common Patterns
 
-1. **Page Component**
+1. **Page Component with User Context**
    ```typescript
    export default async function WorkspacePage({
      params
    }: {
      params: { workspaceSlug: string }
    }) {
-     // Server-side data fetching
+     const user = await getUser()
      return (
-       // Page content
+       <UserProvider initialUser={user}>
+         <WorkspaceClient>
+           {/* Page content */}
+         </WorkspaceClient>
+       </UserProvider>
      )
    }
    ```
@@ -125,7 +148,7 @@ app/
    }
    ```
 
-3. **Layout Component**
+3. **Layout Component with Context**
    ```typescript
    export default function WorkspaceLayout({
      children
@@ -133,10 +156,12 @@ app/
      children: React.ReactNode
    }) {
      return (
-       <div>
-         <WorkspaceNav />
-         {children}
-       </div>
+       <UserProvider initialUser={user}>
+         <div>
+           <WorkspaceNav />
+           {children}
+         </div>
+       </UserProvider>
      )
    }
    ```

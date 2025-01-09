@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { Message as MessageType } from '@/types/db'
 import { Message } from './Message'
-import { MessageInput } from './MessageInput'
+import { MessageInput } from '@/components/ui/MessageInput'
 import { PusherEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 

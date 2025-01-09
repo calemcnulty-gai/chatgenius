@@ -1,50 +1,85 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { User } from '@/types/user'
+import { timezones } from '@/lib/timezones'
+import { useUser } from '@/contexts/UserContext'
 
 interface ProfileEditModalProps {
   isOpen: boolean
   onClose: () => void
-  user: User
 }
 
-export function ProfileEditModal({ isOpen, onClose, user }: ProfileEditModalProps) {
-  const [displayName, setDisplayName] = useState(user.displayName || '')
-  const [title, setTitle] = useState(user.title || '')
-  const [timeZone, setTimeZone] = useState(user.timeZone || '')
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
+  const { user, updateUser, isLoading, error, clearError } = useUser()
+  
+  const [fullName, setFullName] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [title, setTitle] = useState('')
+  const [timeZone, setTimeZone] = useState('')
+  const [profileImage, setProfileImage] = useState<string | null>(null)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  // Initialize form data when user data is available
+  useEffect(() => {
+    if (user) {
+      setFullName(user.name)
+      setDisplayName(user.displayName || '')
+      setTitle(user.title || '')
+      setTimeZone(user.timeZone || '')
+      setProfileImage(user.profileImage)
+    }
+  }, [user])
+
+  // Clear any context errors when modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      clearError()
+    }
+  }, [isOpen, clearError])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
-    setError(null)
+    if (!user) return
 
     try {
-      const response = await fetch('/api/users/me', {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          displayName,
-          title,
-          timeZone,
-        }),
+      await updateUser({
+        name: fullName,
+        displayName,
+        title,
+        timeZone,
+        profileImage,
+      })
+      onClose()
+    } catch (err) {
+      // Error is handled by context
+    }
+  }
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    try {
+      setUploadError(null)
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
       })
 
       if (!response.ok) {
-        throw new Error('Failed to update profile')
+        throw new Error('Failed to upload image')
       }
 
-      onClose()
-    } catch (error) {
-      setError('Failed to update profile. Please try again.')
-    } finally {
-      setIsLoading(false)
+      const { url } = await response.json()
+      setProfileImage(url)
+    } catch (err) {
+      setUploadError('Failed to upload image. Please try again.')
     }
   }
 
@@ -75,34 +110,87 @@ export function ProfileEditModal({ isOpen, onClose, user }: ProfileEditModalProp
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-gray-900 p-6 text-left align-middle shadow-xl transition-all">
-                <div className="flex items-start justify-between">
-                  <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-white">
-                    Edit Profile
-                  </Dialog.Title>
-                  <button
-                    onClick={onClose}
-                    className="rounded-md text-gray-400 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
+                <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-white">
+                  Edit your profile
+                </Dialog.Title>
 
-                <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-                  <div>
-                    <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
-                      Display Name
-                    </label>
-                    <input
-                      type="text"
-                      id="displayName"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      placeholder="How should we call you?"
-                    />
+                <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-6 flex-1">
+                      <div>
+                        <label htmlFor="fullName" className="block text-sm font-medium text-gray-300">
+                          Full name
+                        </label>
+                        <input
+                          type="text"
+                          id="fullName"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+                          disabled={isLoading}
+                        />
+                      </div>
+
+                      <div>
+                        <label htmlFor="displayName" className="block text-sm font-medium text-gray-300">
+                          Display name
+                        </label>
+                        <input
+                          type="text"
+                          id="displayName"
+                          value={displayName}
+                          onChange={(e) => setDisplayName(e.target.value)}
+                          className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+                          disabled={isLoading}
+                        />
+                        <p className="mt-1 text-sm text-gray-500">
+                          This could be your first name, or a nickname — however you'd like people to refer to you.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="ml-6 flex flex-col items-center">
+                      <p className="text-sm font-medium text-gray-300 mb-2">Profile photo</p>
+                      <div className="relative flex flex-col items-center">
+                        <div className="h-24 w-24 rounded-lg bg-gray-800 overflow-hidden">
+                          {profileImage ? (
+                            <img src={profileImage} alt="Profile" className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center text-gray-500">
+                              <svg className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => document.getElementById('photo-upload')?.click()}
+                          className="mt-2 text-sm text-blue-500 hover:text-blue-400"
+                          disabled={isLoading}
+                        >
+                          Upload Photo
+                        </button>
+                        <input
+                          type="file"
+                          id="photo-upload"
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          disabled={isLoading}
+                        />
+                        {profileImage && (
+                          <button
+                            type="button"
+                            onClick={() => setProfileImage(null)}
+                            className="mt-1 text-sm text-gray-500 hover:text-gray-400"
+                            disabled={isLoading}
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   <div>
@@ -114,41 +202,54 @@ export function ProfileEditModal({ isOpen, onClose, user }: ProfileEditModalProp
                       id="title"
                       value={title}
                       onChange={(e) => setTitle(e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      placeholder="What's your role?"
+                      className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+                      placeholder="Title"
+                      disabled={isLoading}
                     />
+                    <p className="mt-1 text-sm text-gray-500">
+                      Let people know what you do at ChatGenius.
+                    </p>
                   </div>
 
                   <div>
                     <label htmlFor="timeZone" className="block text-sm font-medium text-gray-300">
-                      Time Zone
+                      Time zone
                     </label>
-                    <input
-                      type="text"
+                    <select
                       id="timeZone"
                       value={timeZone}
                       onChange={(e) => setTimeZone(e.target.value)}
-                      className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                      placeholder="e.g. America/New_York"
-                    />
+                      className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
+                      disabled={isLoading}
+                    >
+                      <option value="">Select a timezone</option>
+                      {timezones.map((tz) => (
+                        <option key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  {error && (
-                    <p className="text-sm text-red-500">{error}</p>
+                  {(error || uploadError) && (
+                    <p className="text-sm text-red-500">
+                      {error || uploadError}
+                    </p>
                   )}
 
-                  <div className="flex justify-end gap-2">
+                  <div className="mt-6 flex justify-end gap-3">
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-md bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      disabled={isLoading}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     >
                       {isLoading ? 'Saving...' : 'Save Changes'}
                     </button>

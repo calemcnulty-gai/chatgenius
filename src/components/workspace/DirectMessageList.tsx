@@ -3,12 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { StartDMModal } from './StartDMModal'
 import { PusherEvent, NewDirectMessageEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
+import { useUser } from '@/contexts/UserContext'
 import { User } from '@/types/user'
 
 type DMChannel = {
@@ -26,7 +27,7 @@ type DirectMessageListProps = {
 
 export function DirectMessageList({ workspaceId, channels: initialChannels, users }: DirectMessageListProps) {
   const params = useParams()
-  const { userId } = useAuth()
+  const { user } = useUser()
   const { userChannel } = usePusherChannel()
   const [isStartDMModalOpen, setIsStartDMModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
@@ -43,11 +44,11 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
 
   // Set up event listener for new DMs - this should never be cleaned up
   useEffect(() => {
-    if (!userId || !userChannel) return
+    if (!user?.id || !userChannel) return
 
     console.log('[DirectMessageList] Setting up DM event listener')
     userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewDirectMessageEvent) => {
-      if (data.senderId !== userId) {
+      if (data.senderId !== user.id) {
         console.log(`[DirectMessageList] Received DM event:`, data)
         setChannels(currentChannels => {
           // Don't increment unread count if we're currently viewing this channel
@@ -104,7 +105,7 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
       if (!userChannel) return
       userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
     }
-  }, [userId, userChannel, params.channelId])
+  }, [user?.id, userChannel, params.channelId])
 
   // Handle active channel changes
   useEffect(() => {
@@ -177,9 +178,10 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                       }`}
                     />
                   </div>
-                  <span className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}>
-                    {channel.otherUser.displayName || channel.otherUser.name}
-                  </span>
+                  <UserDisplay 
+                    user={channel.otherUser}
+                    className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}
+                  />
                 </div>
                 {hasUnread && channel.unreadCount ? (
                   <span className={`ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${

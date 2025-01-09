@@ -31,6 +31,9 @@ types/
      id: string
      content: string
      channelId: string
+     attachments?: {
+       files: string[]
+     }
      // ...
    }
    ```
@@ -48,6 +51,10 @@ types/
    - Channel messages
    - Direct messages
    - Thread replies
+   - Message attachments
+     - File metadata
+     - Attachment types
+     - Storage information
 
 2. **User-Related Types**
    - User profiles
@@ -72,15 +79,17 @@ types/
 1. **Type Definition**
    ```typescript
    // Use interfaces for extendable types
-   export interface User {
+   export interface Message {
      id: string
-     name: string
-     email: string
-     role: UserRole
+     content: string
+     attachments?: {
+       files: string[]
+     }
+     // ...
    }
 
    // Use type aliases for unions/intersections
-   export type UserRole = 'admin' | 'member' | 'guest'
+   export type AttachmentType = 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
    ```
 
 2. **Event Types**
@@ -92,30 +101,32 @@ types/
      data: T
    }
 
-   // Specific event type
+   // Message event type with attachments
    export type MessageEvent = BaseEvent<{
      content: string
      senderId: string
+     attachments?: {
+       files: string[]
+     }
    }>
    ```
 
 3. **Utility Types**
    ```typescript
    // Partial type for updates
-   export type UserUpdate = Partial<User>
+   export type MessageUpdate = Partial<Message>
 
    // Pick specific fields
-   export type UserProfile = Pick<User, 'name' | 'email'>
+   export type MessagePreview = Pick<Message, 'content' | 'attachments'>
    ```
 
 #### Common Patterns
 
 1. **Discriminated Unions**
    ```typescript
-   type NotificationType = 
-     | { type: 'mention'; userId: string }
-     | { type: 'reply'; messageId: string }
-     | { type: 'dm'; senderId: string }
+   type AttachmentData = 
+     | { type: 'image'; files: string[] }
+     | { type: 'file'; files: string[] }
    ```
 
 2. **Generic Types**
@@ -129,9 +140,10 @@ types/
 
 3. **Mapped Types**
    ```typescript
-   export type Timestamps<T> = T & {
-     createdAt: string
-     updatedAt: string
+   export type WithAttachments<T> = T & {
+     attachments?: {
+       files: string[]
+     }
    }
    ```
 

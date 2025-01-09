@@ -3,8 +3,6 @@ import { workspaces, channels, workspaceMemberships, users, directMessageChannel
 import { and, eq } from 'drizzle-orm'
 import { auth, currentUser } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
-import { WorkspaceSidebar } from '@/components/workspace/WorkspaceSidebar'
-import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { getOrCreateUser } from '@/lib/db/users'
 import { 
   ChannelWithUnreadMessages, 
@@ -12,9 +10,9 @@ import {
   DirectMessageChannelWithUnreadMessages,
   DirectMessageChannelWithUnreadCounts,
   WorkspaceMembershipWithUser,
-  Channel
 } from '@/types/db'
-import { UserAvatar } from '@/components/ui/UserAvatar'
+import { UserProvider } from '@/contexts/UserContext'
+import { WorkspaceLayoutClient } from '@/components/workspace/WorkspaceLayoutClient'
 
 export default async function WorkspaceLayout({
   children,
@@ -35,7 +33,7 @@ export default async function WorkspaceLayout({
   }
 
   // Get or create user to get their database ID
-  const user = await getOrCreateUser({
+  const dbUser = await getOrCreateUser({
     id: clerkUser.id,
     firstName: clerkUser.firstName,
     lastName: clerkUser.lastName,
@@ -43,9 +41,13 @@ export default async function WorkspaceLayout({
     imageUrl: clerkUser.imageUrl,
   })
 
-  console.log('WorkspaceLayout: User data:', JSON.stringify(user, null, 2))
-
-  console.log('WorkspaceLayout: Loading workspace data for user:', user.id)
+  // Ensure user has valid status and date formats
+  const user = {
+    ...dbUser,
+    status: (dbUser.status as 'active' | 'away' | 'offline') || 'offline',
+    createdAt: dbUser.createdAt.toISOString(),
+    updatedAt: dbUser.updatedAt.toISOString()
+  }
 
   // Get workspace by slug
   const workspace = await db.query.workspaces.findFirst({
@@ -78,12 +80,6 @@ export default async function WorkspaceLayout({
     }
   }) as unknown as ChannelWithUnreadMessages[]
 
-  console.log('WorkspaceLayout: Raw channel data:', workspaceChannels.map(channel => ({
-    id: channel.id,
-    name: channel.name,
-    unreadMessages: channel.unreadMessages
-  })))
-
   // Transform channels to include unread counts
   const formattedChannels = workspaceChannels.map(channel => {
     const unreadMessage = channel.unreadMessages?.[0]
@@ -94,14 +90,6 @@ export default async function WorkspaceLayout({
       hasMention: unreadMessage?.hasMention ?? false,
     }
   })
-
-  console.log('WorkspaceLayout: Formatted channels:', formattedChannels.map(channel => ({
-    id: channel.id,
-    name: channel.name,
-    slug: channel.slug,
-    unreadCount: channel.unreadCount,
-    hasMention: channel.hasMention
-  })))
 
   // Get workspace members
   const workspaceUsers = await db.query.workspaceMemberships.findMany({
@@ -149,35 +137,15 @@ export default async function WorkspaceLayout({
     })
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <WorkspaceSidebar
+    <UserProvider initialUser={user}>
+      <WorkspaceLayoutClient
         workspace={workspace}
         channels={formattedChannels}
-        users={workspaceUsers.map(membership => ({
-          id: membership.user.id,
-          name: membership.user.name ?? '',
-          profileImage: membership.user.profileImage,
-          status: 'active', // You might want to fetch this from somewhere
-        }))}
+        users={workspaceUsers}
         dmChannels={formattedDMChannels}
-      />
-      <main className="flex flex-1 flex-col overflow-hidden">
-        <div className="flex h-14 shrink-0 items-center justify-end border-b border-gray-800 px-4">
-          <div className="flex items-center gap-4">
-            <NotificationBell />
-            <UserAvatar
-              user={{
-                ...user,
-                status: user.status as 'active' | 'away' | 'offline' || 'active'
-              }}
-              size="sm"
-            />
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden">
-          {children}
-        </div>
-      </main>
-    </div>
+      >
+        {children}
+      </WorkspaceLayoutClient>
+    </UserProvider>
   )
 } 

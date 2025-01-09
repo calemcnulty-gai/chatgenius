@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Dialog } from '@headlessui/react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { UserAvatar } from '@/components/ui/UserAvatar'
+import { UserDisplay } from '@/components/ui/UserDisplay'
 import { User } from '@/types/user'
 
 type StartDMModalProps = {
@@ -101,7 +102,11 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
                       }`}
                     />
                   </div>
-                  <span className="flex-1 text-left">{user.displayName || user.name}</span>
+                  <UserDisplay 
+                    user={user}
+                    variant="text-with-status"
+                    className="flex-1 text-left"
+                  />
                 </button>
               ))}
             </div>

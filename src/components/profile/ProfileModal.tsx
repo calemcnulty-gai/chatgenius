@@ -1,29 +1,19 @@
+'use client'
+
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { User } from '@/types/user'
-import { formatDistanceToNow } from 'date-fns'
+import { useUser } from '@/contexts/UserContext'
 
 interface ProfileModalProps {
   isOpen: boolean
   onClose: () => void
-  user: User
+  user: User  // Keep this prop as we need it for viewing other users' profiles
 }
 
 export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Unknown'
-    
-    try {
-      const date = new Date(dateString)
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return 'Unknown'
-      }
-      return formatDistanceToNow(date, { addSuffix: true })
-    } catch (error) {
-      return 'Unknown'
-    }
-  }
+  const { user: currentUser } = useUser()
+  const isCurrentUser = currentUser?.id === user.id
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -52,67 +42,47 @@ export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
               leaveTo="opacity-0 scale-95"
             >
               <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-gray-900 p-6 text-left align-middle shadow-xl transition-all">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-4">
+                <div className="flex items-start space-x-4">
+                  <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-800">
                     {user.profileImage ? (
-                      <img
-                        src={user.profileImage}
-                        alt={user.name || 'User profile'}
-                        className="h-16 w-16 rounded-full"
-                      />
+                      <img src={user.profileImage} alt={`${user.displayName || user.name}'s profile`} className="h-full w-full object-cover" />
                     ) : (
-                      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-2xl font-medium text-blue-600">
-                        {(user.name || '?').charAt(0).toUpperCase()}
+                      <div className="flex h-full w-full items-center justify-center bg-blue-100 text-2xl font-medium text-blue-600">
+                        {(user.displayName || user.name).charAt(0).toUpperCase()}
                       </div>
                     )}
-                    <div>
-                      <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-white">
-                        {user.name || 'Unknown User'}
-                      </Dialog.Title>
-                      {user.displayName && (
-                        <p className="mt-1 text-sm text-gray-400">{user.displayName}</p>
-                      )}
-                    </div>
                   </div>
-                  <button
-                    onClick={onClose}
-                    className="rounded-md text-gray-400 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <span className="sr-only">Close</span>
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+
+                  <div className="flex-1">
+                    <Dialog.Title as="h3" className="text-xl font-semibold leading-6 text-white">
+                      {user.displayName || user.name}
+                    </Dialog.Title>
+                    {user.displayName && (
+                      <p className="mt-1 text-sm text-gray-400">{user.name}</p>
+                    )}
+                    {user.title && (
+                      <p className="mt-2 text-sm text-gray-300">{user.title}</p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="mt-6 space-y-4">
-                  {user.title && (
-                    <div>
-                      <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500">Title</h4>
-                      <p className="mt-1 text-sm text-gray-300">{user.title}</p>
-                    </div>
-                  )}
-
                   {user.timeZone && (
                     <div>
-                      <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500">Time zone</h4>
-                      <p className="mt-1 text-sm text-gray-300">{user.timeZone}</p>
+                      <h4 className="text-sm font-medium text-gray-300">Time zone</h4>
+                      <p className="mt-1 text-sm text-gray-400">{user.timeZone}</p>
                     </div>
                   )}
+                </div>
 
-                  {user.email && (
-                    <div>
-                      <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500">Email</h4>
-                      <p className="mt-1 text-sm text-gray-300">{user.email}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <h4 className="text-xs font-medium uppercase tracking-wider text-gray-500">Member since</h4>
-                    <p className="mt-1 text-sm text-gray-300">
-                      {formatDate(user.createdAt)}
-                    </p>
-                  </div>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900"
+                  >
+                    Close
+                  </button>
                 </div>
               </Dialog.Panel>
             </Transition.Child>

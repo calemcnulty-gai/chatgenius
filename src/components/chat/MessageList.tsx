@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Message } from './Message'
-import { useAuth } from '@clerk/nextjs'
 import { usePusherChannel } from '@/contexts/PusherContext'
 import { PusherEvent } from '@/types/events'
 import { User } from '@/types/user'
+import { useUser } from '@/contexts/UserContext'
+import { MessageInput } from '@/components/ui/MessageInput'
 
 interface MessageData {
   id: string
@@ -45,10 +46,8 @@ interface MessageListProps {
 
 export function MessageList({ channelId }: MessageListProps) {
   const [messages, setMessages] = useState<MessageData[]>([])
-  const [newMessage, setNewMessage] = useState('')
   const [isLoading, setIsLoading] = useState(true)
-  const { userId: clerkUserId } = useAuth()
-  const [userId, setUserId] = useState<string | null>(null)
+  const { user } = useUser()
   const { userChannel } = usePusherChannel()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -93,96 +92,11 @@ export function MessageList({ channelId }: MessageListProps) {
     scrollToBottom()
   }, [messages])
 
-  // Get database user ID on mount
   useEffect(() => {
-    if (!clerkUserId) return
-
-    fetch('/api/auth/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(response => response.json())
-      .then(data => {
-        setUserId(data.id)
-      })
-      .catch(error => {
-        console.error('Error syncing user:', error)
-      })
-  }, [clerkUserId])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMessage.trim() || isLoading || !userId) return
-
-    console.log('[MessageList] Submitting new message:', {
-      content: newMessage,
-      channelId,
-      userId
-    })
-
-    const tempId = crypto.randomUUID()
-    const tempMessage: MessageData = {
-      id: tempId,
-      content: newMessage,
-      sender: {
-        id: userId,
-        clerkId: clerkUserId!,
-        name: '',  // Will be replaced by server response
-        email: '',
-        profileImage: null,
-        displayName: null,
-        title: null,
-        timeZone: null,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      },
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      parentId: null,
-      replyCount: 0,
-      latestReplyAt: null,
-      parentMessageId: null,
-    }
-
-    console.log('[MessageList] Adding temporary message:', tempMessage)
-    setMessages(currentMessages => [...currentMessages, tempMessage])
-    setNewMessage('')
-
-    try {
-      console.log('[MessageList] Sending message to server')
-      const response = await fetch('/api/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: newMessage,
-          channelId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to send message')
-      }
-
-      console.log('[MessageList] Message sent successfully')
-      // Server will send the real message through Pusher
-      // We'll handle replacing the temp message in the Pusher event handler
-    } catch (error) {
-      console.error('[MessageList] Error sending message:', error)
-      // Remove the temporary message on error
-      setMessages(currentMessages => currentMessages.filter(m => m.id !== tempId))
-    }
-  }
-
-  useEffect(() => {
-    if (!userId || !userChannel) return
+    if (!user?.id || !userChannel) return
 
     console.log('[MessageList] Setting up Pusher binding for channel:', channelId)
-    console.log('[MessageList] Current user ID:', userId)
+    console.log('[MessageList] Current user ID:', user.id)
     console.log('[MessageList] User channel:', userChannel.name)
     
     // Handle regular channel messages
@@ -192,7 +106,7 @@ export function MessageList({ channelId }: MessageListProps) {
         data,
         currentChannelId: channelId,
         matches: data.channelId === channelId,
-        currentUserId: userId,
+        currentUserId: user.id,
         senderUserId: data.senderId
       })
       
@@ -208,7 +122,7 @@ export function MessageList({ channelId }: MessageListProps) {
         data,
         currentChannelId: channelId,
         matches: data.channelId === channelId,
-        currentUserId: userId,
+        currentUserId: user.id,
         senderUserId: data.senderId
       })
       
@@ -249,78 +163,67 @@ export function MessageList({ channelId }: MessageListProps) {
           parentId: data.parentId,
           replyCount: 0,
           latestReplyAt: null,
-          parentMessageId: data.parentId,
+          parentMessageId: null,
         }
 
-        // Replace temporary message if it exists (for our own messages)
+        // Replace temporary message if it exists
         const tempMessageIndex = currentMessages.findIndex(m => 
           m.content === newMessage.content && 
-          m.sender.id === userId &&  // Use database user ID here
-          m.id.includes('-')  // temp messages use UUID format
+          m.sender.id === newMessage.sender.id &&
+          new Date(m.createdAt).getTime() > Date.now() - 5000 // Within last 5 seconds
         )
 
         if (tempMessageIndex !== -1) {
-          console.log('[MessageList] Replacing temporary message at index:', tempMessageIndex)
-          const updatedMessages = [...currentMessages]
-          updatedMessages[tempMessageIndex] = newMessage
-          return updatedMessages
+          console.log('[MessageList] Replacing temporary message')
+          const newMessages = [...currentMessages]
+          newMessages[tempMessageIndex] = newMessage
+          return newMessages
         }
 
-        console.log('[MessageList] Adding new message:', newMessage)
+        console.log('[MessageList] Adding new message')
         return [...currentMessages, newMessage]
       })
     }
 
     return () => {
-      console.log('[MessageList] Cleaning up Pusher bindings')
-      userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
-      userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
+      if (!userChannel) return
+      userChannel.unbind_all()
+      userChannel.unsubscribe()
     }
-  }, [userId, channelId, userChannel])
+  }, [user?.id, userChannel, channelId])
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <div className="text-gray-400">Loading messages...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto">
-        <div className="space-y-4 p-4">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="text-gray-400">Loading messages...</div>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex justify-center items-center h-full">
-              <div className="text-gray-400">No messages yet</div>
-            </div>
-          ) : (
-            messages.map((message) => (
-              <Message
-                key={message.id}
-                {...message}
-                channelId={channelId}
-              />
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <Message
+            key={message.id}
+            id={message.id}
+            content={message.content}
+            sender={message.sender}
+            createdAt={message.createdAt}
+            replyCount={message.replyCount}
+            latestReplyAt={message.latestReplyAt || undefined}
+            parentMessageId={message.parentMessageId || undefined}
+            channelId={channelId}
+          />
+        ))}
+        <div ref={messagesEndRef} />
       </div>
 
-      <div className="border-t border-gray-700 px-4 py-3">
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSubmit(e)
-              }
-            }}
-            placeholder="Type a message..."
-            className="w-full rounded-md border border-gray-700 bg-gray-800 px-3 py-2 text-sm text-white placeholder-gray-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            disabled={isLoading}
-          />
-        </form>
-      </div>
+      <MessageInput
+        channelId={channelId}
+        onMessageSent={fetchMessages}
+        className="border-t-0"
+      />
     </div>
   )
 } 

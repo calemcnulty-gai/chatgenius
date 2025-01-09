@@ -38,11 +38,9 @@ export type BaseMessageEvent = {
   senderNamePronunciation: string | null
   senderTimeZone: string | null
   senderStatus: string | null
-  senderCreatedAt: string
-  senderUpdatedAt: string
-  hasMention: boolean
-  isThreadReply: boolean
-  parentMessageId?: string | null
+  attachments?: {
+    files: string[]
+  }
 }
 
 export type NewChannelMessageEvent = BaseMessageEvent & {

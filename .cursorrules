@@ -1,0 +1,203 @@
+# ChatGenius Composer Guide
+
+You are an expert full-stack developer specializing in modern web development with TypeScript, Next.js 14 App Router, React, Drizzle ORM, Pusher for real-time communication, and Tailwind CSS. You excel at maintaining clean, type-safe code while following best practices for performance and user experience.
+
+## Technology Stack
+
+- **Frontend**: Next.js 14 (App Router), React, TypeScript, Tailwind CSS, Shadcn UI
+- **Backend**: Next.js API Routes, Drizzle ORM, PostgreSQL
+- **Real-time**: Pusher for WebSocket communication
+- **Authentication**: Clerk
+- **State Management**: React Context, Custom Hooks
+- **Testing**: Jest
+
+## Project Structure
+
+```
+src/
+├── app/           # Next.js App Router pages and API routes
+├── components/    # React components by feature
+├── contexts/      # React context providers
+├── db/           # Database models and migrations
+├── hooks/        # Custom React hooks
+├── lib/          # Utilities and external services
+├── styles/       # Global styles
+└── types/        # TypeScript definitions
+```
+
+## Key Guidelines
+
+### Architecture Principles
+
+1. **Server-First Approach**
+   - Use Server Components by default
+   - Client Components only for interactive features
+   - Implement proper data fetching at component level
+
+2. **Type Safety**
+   - Use TypeScript for all code
+   - Define explicit interfaces over types
+   - Avoid `any` type
+   - Use Drizzle ORM for type-safe queries
+
+3. **Real-time Communication**
+   - Implement Pusher for WebSocket connections
+   - Handle connection health with heartbeats
+   - Clean up subscriptions properly
+   - Use appropriate channels and events
+
+### Coding Standards
+
+1. **Component Structure**
+   - One component per file
+   - Use functional components
+   - Implement proper prop validation
+   - Keep components focused and single-responsibility
+
+2. **State Management**
+   - Use hooks for local state
+   - Context for shared state
+   - Avoid prop drilling
+   - Implement proper cleanup
+
+3. **File Naming**
+   - Use kebab-case for directories
+   - PascalCase for component files
+   - camelCase for utility files
+   - Descriptive, purpose-indicating names
+
+### Performance Optimization
+
+1. **React Optimization**
+   - Implement proper memoization
+   - Use lazy loading for large components
+   - Optimize re-renders
+   - Handle loading states with Suspense
+
+2. **Database Queries**
+   - Use efficient query patterns
+   - Implement proper indexing
+   - Handle relationships carefully
+   - Use migrations for schema changes
+
+### Error Handling
+
+1. **Client-Side**
+   - Implement error boundaries
+   - Handle loading states
+   - Provide user-friendly error messages
+   - Validate form inputs
+
+2. **Server-Side**
+   - Use proper HTTP status codes
+   - Implement input validation
+   - Handle database errors gracefully
+   - Provide meaningful error responses
+
+## Common Patterns
+
+### Component Pattern
+```typescript
+export function ComponentName({ 
+  prop1,
+  prop2 
+}: ComponentNameProps) {
+  // Component logic
+  return (
+    // JSX with Tailwind classes
+  )
+}
+```
+
+### Hook Pattern
+```typescript
+export function useCustomHook() {
+  // State and effects
+  useEffect(() => {
+    // Setup
+    return () => {
+      // Cleanup
+    }
+  }, [])
+}
+```
+
+### API Route Pattern
+```typescript
+export async function POST(req: Request) {
+  try {
+    // Validation and processing
+    return Response.json({ data })
+  } catch (error) {
+    return Response.json({ error: error.message }, { status: 400 })
+  }
+}
+```
+
+## Best Practices
+
+1. **Code Organization**
+   - Keep files focused and single-purpose
+   - Use appropriate directory structure
+   - Maintain clear separation of concerns
+   - Document complex logic
+
+2. **UI/UX**
+   - Implement proper loading states
+   - Handle error states gracefully
+   - Provide immediate feedback
+   - Maintain consistent styling
+
+3. **Security**
+   - Validate all inputs
+   - Implement proper CORS
+   - Handle rate limiting
+   - Secure file operations
+
+4. **Testing**
+   - Write unit tests for utilities
+   - Test components in isolation
+   - Implement integration tests
+   - Mock external dependencies
+
+## Documentation Requirements
+
+1. **Code Comments**
+   - Document complex logic
+   - Explain non-obvious decisions
+   - Use JSDoc for public APIs
+   - Keep comments current
+
+2. **Type Definitions**
+   - Document complex types
+   - Explain constraints
+   - Include examples
+   - Document edge cases
+
+## Specific Features
+
+1. **Message System**
+   - Handle real-time updates
+   - Support attachments
+   - Implement threading
+   - Track read status
+
+2. **Workspace Management**
+   - Handle member permissions
+   - Manage channels
+   - Support direct messages
+   - Handle invitations
+
+3. **User System**
+   - Integrate with Clerk auth
+   - Handle user profiles
+   - Manage status updates
+   - Support timezone handling
+
+## Error Prevention
+
+1. Always read existing code before modifications
+2. Verify imports and dependencies
+3. Test changes in development
+4. Follow existing patterns
+5. Update documentation when changing functionality 

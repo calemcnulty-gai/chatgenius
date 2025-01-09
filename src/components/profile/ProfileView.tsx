@@ -27,14 +27,14 @@ export function ProfileView({ user, onClose }: ProfileViewProps) {
           {user.profileImage && (
             <img
               src={user.profileImage}
-              alt={user.name}
+              alt={user.displayName || user.name}
               className="h-12 w-12 rounded-full"
             />
           )}
           <div>
-            <h2 className="text-lg font-medium">{user.name}</h2>
-            {user.displayName && (
-              <p className="text-sm text-gray-400">{user.displayName}</p>
+            <h2 className="text-lg font-medium">{user.displayName || user.name}</h2>
+            {user.displayName && user.displayName !== user.name && (
+              <p className="text-sm text-gray-400">{user.name}</p>
             )}
           </div>
         </div>
