@@ -14,6 +14,7 @@ import {
   WorkspaceMembershipWithUser,
   Channel
 } from '@/types/db'
+import { UserAvatar } from '@/components/ui/UserAvatar'
 
 export default async function WorkspaceLayout({
   children,
@@ -41,6 +42,8 @@ export default async function WorkspaceLayout({
     emailAddresses: clerkUser.emailAddresses,
     imageUrl: clerkUser.imageUrl,
   })
+
+  console.log('WorkspaceLayout: User data:', JSON.stringify(user, null, 2))
 
   console.log('WorkspaceLayout: Loading workspace data for user:', user.id)
 
@@ -162,6 +165,13 @@ export default async function WorkspaceLayout({
         <div className="flex h-14 shrink-0 items-center justify-end border-b border-gray-800 px-4">
           <div className="flex items-center gap-4">
             <NotificationBell />
+            <UserAvatar
+              user={{
+                ...user,
+                status: user.status as 'active' | 'away' | 'offline' || 'active'
+              }}
+              size="sm"
+            />
           </div>
         </div>
         <div className="flex-1 overflow-hidden">

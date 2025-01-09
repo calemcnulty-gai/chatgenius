@@ -9,13 +9,7 @@ import { PlusIcon } from '@heroicons/react/24/outline'
 import { StartDMModal } from './StartDMModal'
 import { PusherEvent, NewDirectMessageEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
-
-type User = {
-  id: string
-  name: string
-  profileImage: string | null
-  status: 'active' | 'away' | 'offline'
-}
+import { User } from '@/types/user'
 
 type DMChannel = {
   id: string
@@ -36,6 +30,16 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
   const { userChannel } = usePusherChannel()
   const [isStartDMModalOpen, setIsStartDMModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
+
+  const safeDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return new Date()
+    try {
+      const date = new Date(dateStr)
+      return isNaN(date.getTime()) ? new Date() : date
+    } catch (error) {
+      return new Date()
+    }
+  }
 
   // Set up event listener for new DMs - this should never be cleaned up
   useEffect(() => {
@@ -76,9 +80,16 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
               id: data.channelId,
               otherUser: {
                 id: data.senderId,
+                clerkId: data.senderClerkId,
                 name: data.senderName,
+                email: data.senderEmail,
                 profileImage: data.senderProfileImage,
-                status: 'active', // Default to active since they just sent a message
+                displayName: data.senderDisplayName,
+                title: data.senderTitle,
+                timeZone: data.senderTimeZone,
+                status: 'active', // They're active since they just sent a message
+                createdAt: safeDate(data.senderCreatedAt).toISOString(),
+                updatedAt: safeDate(data.senderUpdatedAt).toISOString(),
               },
               unreadCount: 1,
               hasMention: data.hasMention,
@@ -88,7 +99,12 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         })
       }
     })
-  }, [userId, userChannel]) // Only depend on userId and userChannel
+
+    return () => {
+      if (!userChannel) return
+      userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
+    }
+  }, [userId, userChannel, params.channelId])
 
   // Handle active channel changes
   useEffect(() => {
@@ -148,9 +164,8 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative flex-shrink-0">
                     <UserAvatar
-                      name={channel.otherUser.name}
-                      image={channel.otherUser.profileImage}
-                      className="h-4 w-4"
+                      user={channel.otherUser}
+                      size="sm"
                     />
                     <div
                       className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
@@ -163,7 +178,7 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                     />
                   </div>
                   <span className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}>
-                    {channel.otherUser.name}
+                    {channel.otherUser.displayName || channel.otherUser.name}
                   </span>
                 </div>
                 {hasUnread && channel.unreadCount ? (

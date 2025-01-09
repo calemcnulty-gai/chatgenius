@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/Button'
 
 type CreateChannelProps = {
   workspaceId: string
@@ -69,19 +68,20 @@ export function CreateChannel({ workspaceId, onComplete }: CreateChannelProps) {
       )}
 
       <div className="flex justify-end gap-2">
-        <Button
+        <button
           type="button"
-          variant="secondary"
           onClick={onComplete}
+          className="rounded-md bg-gray-800 px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Cancel
-        </Button>
-        <Button
+        </button>
+        <button
           type="submit"
-          isLoading={isLoading}
+          disabled={isLoading}
+          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Create Channel
-        </Button>
+          {isLoading ? 'Creating...' : 'Create Channel'}
+        </button>
       </div>
     </form>
   )

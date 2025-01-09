@@ -16,7 +16,10 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   email: text('email').notNull(),
   profileImage: text('profile_image'),
-  status: text('status').default('active'),
+  displayName: text('display_name'),
+  title: text('title'),
+  timeZone: text('time_zone').default('UTC'),
+  status: text('status').default('offline'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -216,4 +219,6 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.userId],
     references: [users.id],
   }),
-})) 
+}))
+
+export { invites } from './migrations/0021_add_invites_table' 

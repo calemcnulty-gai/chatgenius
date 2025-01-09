@@ -74,11 +74,25 @@ export default async function DMChannelPage({
       {/* Channel header */}
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-700 bg-gray-800 px-4 py-3">
         <UserAvatar
-          name={otherMember.user.name ?? ''}
-          image={otherMember.user.profileImage}
-          className="h-6 w-6"
+          user={{
+            id: otherMember.user.id,
+            clerkId: otherMember.user.clerkId,
+            name: otherMember.user.name,
+            email: otherMember.user.email,
+            profileImage: otherMember.user.profileImage,
+            displayName: otherMember.user.displayName,
+            title: otherMember.user.title,
+            namePronunciation: otherMember.user.namePronunciation,
+            timezone: otherMember.user.timezone,
+            status: otherMember.user.status as 'active' | 'away' | 'offline' || 'offline',
+            createdAt: otherMember.user.createdAt,
+            updatedAt: otherMember.user.updatedAt,
+          }}
+          size="sm"
         />
-        <h1 className="text-lg font-medium text-white">{otherMember.user.name}</h1>
+        <h1 className="text-lg font-medium text-white">
+          {otherMember.user.displayName || otherMember.user.name}
+        </h1>
       </div>
 
       {/* Messages area */}

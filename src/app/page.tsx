@@ -5,7 +5,8 @@ import { useUser } from '@clerk/nextjs'
 import { useState } from 'react'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import CreateWorkspace from '@/components/workspace/CreateWorkspace'
-import Modal from '@/components/ui/Modal'
+import { Dialog, Transition } from '@headlessui/react'
+import { Fragment } from 'react'
 import { useWorkspaces } from '@/hooks/useWorkspaces'
 import Link from 'next/link'
 
@@ -89,13 +90,56 @@ export default function Home() {
         </div>
       </div>
 
-      <Modal
-        isOpen={isCreateModalOpen}
-        onClose={() => setIsCreateModalOpen(false)}
-        title="Create New Workspace"
-      >
-        <CreateWorkspace onComplete={() => setIsCreateModalOpen(false)} />
-      </Modal>
+      <Transition appear show={isCreateModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setIsCreateModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-gray-900 p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-start justify-between">
+                    <Dialog.Title as="h3" className="text-lg font-medium leading-6 text-white">
+                      Create New Workspace
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setIsCreateModalOpen(false)}
+                      className="rounded-md text-gray-400 hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <div className="mt-4">
+                    <CreateWorkspace onComplete={() => setIsCreateModalOpen(false)} />
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   )
 } 

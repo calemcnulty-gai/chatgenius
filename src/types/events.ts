@@ -29,8 +29,17 @@ export type BaseMessageEvent = {
   createdAt: string
   channelId: string
   senderId: string
+  senderClerkId: string
   senderName: string
+  senderEmail: string
   senderProfileImage: string | null
+  senderDisplayName: string | null
+  senderTitle: string | null
+  senderNamePronunciation: string | null
+  senderTimeZone: string | null
+  senderStatus: string | null
+  senderCreatedAt: string
+  senderUpdatedAt: string
   hasMention: boolean
   isThreadReply: boolean
   parentMessageId?: string | null

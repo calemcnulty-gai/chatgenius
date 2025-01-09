@@ -8,13 +8,7 @@ import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
 import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
 import { pusherClient } from '@/lib/pusher'
-
-type User = {
-  id: string
-  name: string
-  profileImage: string | null
-  status: 'active' | 'away' | 'offline'
-}
+import { User } from '@/types/user'
 
 type UserListProps = {
   users: User[]
@@ -42,11 +36,19 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     // Listen for new users
     userChannel.bind(PusherEvent.NEW_USER, (data: NewUserEvent) => {
       if (data.workspaceId === workspace.id) {
+        const now = new Date().toISOString()
         setUsers(currentUsers => [...currentUsers, {
           id: data.id,
+          clerkId: '', // We don't have this from the event
           name: data.name,
+          email: '', // We don't have this from the event
           profileImage: data.profileImage,
-          status: 'offline'
+          displayName: null,
+          title: null,
+          timeZone: null,
+          status: 'offline',
+          createdAt: now,
+          updatedAt: now,
         }])
       }
     })
@@ -130,19 +132,17 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
         </div>
         <div className="space-y-1">
           {users.map((user) => (
-            <button
+            <div
               key={user.id}
               onClick={() => handleUserClick(user)}
-              disabled={isLoading}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 ${
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 cursor-pointer ${
                 isLoading ? 'cursor-wait opacity-50' : ''
               }`}
             >
               <div className="relative">
                 <UserAvatar
-                  name={user.name}
-                  image={user.profileImage}
-                  className="h-4 w-4"
+                  user={user}
+                  size="sm"
                 />
                 <div
                   className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
@@ -154,8 +154,8 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
                   }`}
                 />
               </div>
-              <span className="truncate text-sm">{user.name}</span>
-            </button>
+              <span className="truncate text-sm">{user.displayName || user.name}</span>
+            </div>
           ))}
         </div>
       </div>

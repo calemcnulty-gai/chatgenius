@@ -132,6 +132,15 @@ export async function POST(req: Request) {
 
       // Send the message to each member's user channel
       for (const member of workspaceMembers) {
+        console.log('[API] Triggering message event:', {
+          channel: `user-${member.userId}`,
+          event: PusherEvent.NEW_CHANNEL_MESSAGE,
+          messageId: message.id,
+          channelId,
+          senderId: user.id,
+          recipientId: member.userId
+        })
+        
         await pusherServer.trigger(`user-${member.userId}`, PusherEvent.NEW_CHANNEL_MESSAGE, {
           id: message.id,
           content: message.content,
@@ -332,7 +341,10 @@ export async function GET(request: Request) {
     // Fetch messages with Drizzle
     const results = await db.query.messages.findMany({
       where: and(
-        eq(messages.channelId, channelId),
+        or(
+          eq(messages.channelId, channelId),
+          eq(messages.dmChannelId, channelId)
+        ),
         isNull(messages.parentMessageId)
       ),
       with: {

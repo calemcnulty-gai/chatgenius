@@ -1,18 +1,15 @@
 'use client'
 
-import { useAuth } from '@clerk/nextjs'
+import { useAuth, useUser } from '@clerk/nextjs'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline'
-import { formatMessageDate } from '@/lib/utils'
+import { formatMessageTimestamp } from '@/lib/utils'
+import { User } from '@/types/user'
 
 type MessageProps = {
   id: string
   content: string
-  sender: {
-    id: string
-    name: string
-    profileImage: string | null
-  }
+  sender: User
   createdAt: string
   replyCount?: number
   latestReplyAt?: string | null
@@ -31,11 +28,11 @@ export function Message({
   channelId,
 }: MessageProps) {
   const { userId } = useAuth()
-  const isCurrentUser = userId === sender.id
+  const { user } = useUser()
+  const isCurrentUser = userId === sender.clerkId
 
   const handleThreadClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    // Dispatch a custom event that will be caught by the channel page
     const event = new CustomEvent('open-thread', {
       detail: { messageId: id },
       bubbles: true,
@@ -44,32 +41,36 @@ export function Message({
   }
 
   return (
-    <div className="group relative flex items-start gap-x-3">
-      <UserAvatar
-        name={sender.name}
-        image={sender.profileImage}
-        className="h-6 w-6 flex-shrink-0"
-      />
-      <div className="flex-1 overflow-hidden">
-        <div className="flex items-center gap-x-2">
-          <span className={`text-sm font-medium ${isCurrentUser ? 'text-blue-400' : 'text-gray-200'}`}>
-            {sender.name}
+    <div className="group relative flex items-start gap-x-3 hover:bg-gray-800/50 px-4 py-0.5">
+      <div className="flex-shrink-0 mt-0.5">
+        <UserAvatar
+          user={isCurrentUser ? {
+            ...sender,
+            profileImage: user?.imageUrl || null,
+          } : sender}
+          size="sm"
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-medium text-gray-200">
+            {isCurrentUser ? user?.fullName || sender.name : sender.name}
           </span>
-          <span className="text-xs text-gray-500" title={new Date(createdAt).toLocaleString()}>
-            {formatMessageDate(createdAt)}
+          <span className="text-xs text-gray-500">
+            {formatMessageTimestamp(createdAt)}
           </span>
         </div>
-        <p className="whitespace-pre-wrap break-words text-sm text-gray-300">{content}</p>
-        {!parentMessageId && (
-          <div className="mt-1">
+        <p className="text-sm text-gray-300 mt-0.5">{content}</p>
+        {!parentMessageId && (replyCount ?? 0) > 0 && (
+          <div className="mt-0.5">
             <button
               onClick={handleThreadClick}
               className="group inline-flex items-center gap-x-2 text-xs text-gray-500 hover:text-gray-300"
             >
               <ChatBubbleLeftRightIcon className="h-4 w-4" />
               <span>
-                {replyCount || 0} {replyCount === 1 ? 'reply' : 'replies'}
-                {latestReplyAt && ` · ${formatMessageDate(latestReplyAt)}`}
+                {replyCount} {replyCount === 1 ? 'reply' : 'replies'}
+                {latestReplyAt && ` · ${formatMessageTimestamp(latestReplyAt)}`}
               </span>
             </button>
           </div>

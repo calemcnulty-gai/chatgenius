@@ -49,13 +49,13 @@ export async function POST(req: Request) {
   console.log('Webhook body:', body)
 
   if (eventType === 'user.created' || eventType === 'user.updated') {
-    const { id, first_name, last_name, image_url, email_addresses } = evt.data
+    const { id: clerkId, first_name, last_name, image_url, email_addresses } = evt.data
 
     const name = [first_name, last_name].filter(Boolean).join(' ')
     const email = email_addresses?.[0]?.email_address
 
     if (!email) {
-      console.error('No email address found for user:', id)
+      console.error('No email address found for user:', clerkId)
       return new Response('No email address found', { status: 400 })
     }
 
@@ -63,13 +63,13 @@ export async function POST(req: Request) {
     await db
       .insert(users)
       .values({
-        id,
+        clerkId,
         name,
         email,
         profileImage: image_url,
       })
       .onConflictDoUpdate({
-        target: users.id,
+        target: users.clerkId,
         set: {
           name,
           email,

@@ -26,8 +26,8 @@ export default async function WorkspacePage({ params }: { params: { workspaceSlu
   }
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-gray-500">Select a channel to start chatting</p>
+    <div className="flex h-full items-center justify-center bg-gray-800">
+      <p className="text-gray-400">Select a channel to start chatting</p>
     </div>
   )
 } 

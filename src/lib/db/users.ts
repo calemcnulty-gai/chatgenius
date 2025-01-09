@@ -23,12 +23,19 @@ export async function getOrCreateUser(clerkUser: {
   const email = clerkUser.emailAddresses[0]?.emailAddress
   if (!email) throw new Error('User must have an email address')
 
+  const now = new Date()
   const newUser = {
     id: uuidv4(),
     clerkId: clerkUser.id,
     name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'Anonymous',
     email,
     profileImage: clerkUser.imageUrl,
+    displayName: null,
+    title: null,
+    timeZone: 'UTC',
+    status: 'active',
+    createdAt: now,
+    updatedAt: now,
   }
 
   await db.insert(users).values(newUser)

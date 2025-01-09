@@ -61,4 +61,4 @@ ChatGenius is a Slack-like real-time messaging app that incorporates AI tools to
 
 ---
 
-This PRD is focused on delivering a functional and scalable MVP for ChatGenius. Let me know if you'd like further details or refinements!
+This PRD is focused on delivering a functional and scalable MVP for ChatGenius. Let me know if you'd like further details or refinements.

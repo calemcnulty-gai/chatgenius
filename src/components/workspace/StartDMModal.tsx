@@ -5,13 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Dialog } from '@headlessui/react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
 import { UserAvatar } from '@/components/ui/UserAvatar'
-
-type User = {
-  id: string
-  name: string
-  profileImage: string | null
-  status: 'active' | 'away' | 'offline'
-}
+import { User } from '@/types/user'
 
 type StartDMModalProps = {
   isOpen: boolean
@@ -94,9 +88,8 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
                 >
                   <div className="relative">
                     <UserAvatar
-                      name={user.name}
-                      image={user.profileImage}
-                      className="h-8 w-8"
+                      user={user}
+                      size="md"
                     />
                     <div
                       className={`absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-gray-800 ${
@@ -108,7 +101,7 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
                       }`}
                     />
                   </div>
-                  <span className="flex-1 text-left">{user.name}</span>
+                  <span className="flex-1 text-left">{user.displayName || user.name}</span>
                 </button>
               ))}
             </div>

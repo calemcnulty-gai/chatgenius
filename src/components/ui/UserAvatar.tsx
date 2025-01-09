@@ -1,31 +1,59 @@
-type UserAvatarProps = {
-  name: string
-  image: string | null
-  className?: string
+'use client'
+
+import { useState } from 'react'
+import { User } from '@/types/user'
+import { ProfileModal } from '../profile/ProfileModal'
+
+interface UserAvatarProps {
+  user: User
+  size?: 'sm' | 'md' | 'lg'
+  onClick?: () => void
 }
 
-export function UserAvatar({ name, image, className = "h-8 w-8" }: UserAvatarProps) {
-  if (image) {
-    return (
-      <img
-        src={image}
-        alt={name}
-        className={`rounded-full object-cover ${className}`}
-      />
-    )
+const sizeClasses = {
+  sm: 'w-8 h-8 text-sm',
+  md: 'w-10 h-10 text-base',
+  lg: 'w-12 h-12 text-lg'
+}
+
+export function UserAvatar({ user, size = 'md', onClick }: UserAvatarProps) {
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+
+  const handleClick = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent click from bubbling up
+    if (onClick) {
+      onClick()
+    } else {
+      setIsProfileOpen(true)
+    }
   }
 
-  // Get initials from name
-  const initials = name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-
   return (
-    <div className={`flex items-center justify-center rounded-full bg-blue-500 text-white ${className}`}>
-      <span className="text-sm font-medium">{initials}</span>
-    </div>
+    <>
+      <div
+        onClick={handleClick}
+        className={`${sizeClasses[size]} rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2`}
+      >
+        {user.profileImage ? (
+          <img
+            src={user.profileImage}
+            alt={`${user.name}'s profile`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-medium">
+            {user.name.charAt(0).toUpperCase()}
+          </div>
+        )}
+      </div>
+
+      {isProfileOpen && (
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          user={user}
+        />
+      )}
+    </>
   )
 } 

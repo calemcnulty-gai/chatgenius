@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { directMessageChannels, directMessageMembers } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { getOrCreateUser } from '@/lib/db/users'
 
 type DMChannel = {
   id: string
@@ -20,13 +21,31 @@ type DMChannel = {
 
 export async function POST(req: Request) {
   try {
-    const { userId: currentUserId } = auth()
-    if (!currentUserId) {
+    const { userId: clerkUserId } = auth()
+    if (!clerkUserId) {
       return NextResponse.json({ 
         message: 'Unauthorized',
         status: 'error'
       }, { status: 401 })
     }
+
+    // Get the full user data from Clerk
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return NextResponse.json({ 
+        message: 'User not found',
+        status: 'error'
+      }, { status: 404 })
+    }
+
+    // Get or create user to get their database ID
+    const user = await getOrCreateUser({
+      id: clerkUser.id,
+      firstName: clerkUser.firstName,
+      lastName: clerkUser.lastName,
+      emailAddresses: clerkUser.emailAddresses,
+      imageUrl: clerkUser.imageUrl,
+    })
 
     const { workspaceId, userId: otherUserId } = await req.json()
     if (!workspaceId || !otherUserId) {
@@ -46,7 +65,7 @@ export async function POST(req: Request) {
 
     const existingChannel = existingChannels.find(channel => {
       const hasOtherUser = channel.members.some(m => m.userId === otherUserId)
-      const hasCurrentUser = channel.members.some(m => m.userId === currentUserId)
+      const hasCurrentUser = channel.members.some(m => m.userId === user.id)
       return hasOtherUser && hasCurrentUser
     })
 
@@ -68,7 +87,7 @@ export async function POST(req: Request) {
       {
         id: uuidv4(),
         channelId: channel.id,
-        userId: currentUserId,
+        userId: user.id,
       },
       {
         id: uuidv4(),

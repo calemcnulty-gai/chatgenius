@@ -1,7 +1,6 @@
-import { ClerkProvider } from '@clerk/nextjs'
 import { Inter } from 'next/font/google'
 import './globals.css'
-import { PusherProvider } from '@/contexts/PusherContext'
+import ClientProviders from '@/components/providers/ClientProviders'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -18,11 +17,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full bg-gray-900 text-white`}>
-        <ClerkProvider>
-          <PusherProvider>
-            {children}
-          </PusherProvider>
-        </ClerkProvider>
+        <ClientProviders>
+          {children}
+        </ClientProviders>
       </body>
     </html>
   )
