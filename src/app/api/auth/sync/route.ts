@@ -16,14 +16,18 @@ export async function POST() {
 
     // Get or create user in our database
     const dbUser = await getOrCreateUser({
-      id: user.id,
+      id: userId,
       firstName: user.firstName,
       lastName: user.lastName,
       emailAddresses: user.emailAddresses,
       imageUrl: user.imageUrl,
     })
 
-    return NextResponse.json(dbUser)
+    // Return the user with the internal database ID as the id field
+    return NextResponse.json({
+      ...dbUser,
+      id: dbUser.id,
+    })
   } catch (error) {
     console.error('Error syncing user:', error)
     return new NextResponse('Internal Server Error', { status: 500 })

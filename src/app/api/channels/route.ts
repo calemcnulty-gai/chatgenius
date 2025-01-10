@@ -3,7 +3,6 @@ import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { workspaceMemberships, channels } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { v4 as uuidv4 } from 'uuid'
 import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST(req: Request) {
@@ -49,7 +48,6 @@ export async function POST(req: Request) {
     const [channel] = await db
       .insert(channels)
       .values({
-        id: uuidv4(),
         workspaceId,
         name,
         slug: name.toLowerCase().replace(/[^a-z0-9]/g, '-'),

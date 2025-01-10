@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs'
 import { db } from '@/db'
-import { messages, users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { messages, users, workspaceMemberships } from '@/db/schema'
+import { eq, sql } from 'drizzle-orm'
 import { pusherServer } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 
@@ -33,6 +33,13 @@ export async function POST(
     // Verify the parent message exists
     const parentMessage = await db.query.messages.findFirst({
       where: eq(messages.id, params.messageId),
+      with: {
+        channel: {
+          with: {
+            workspace: true
+          }
+        }
+      }
     })
 
     if (!parentMessage) {
@@ -40,6 +47,11 @@ export async function POST(
     }
 
     // Create the reply using internal ID
+    console.log('Messages: Creating new thread reply:', {
+      channelId,
+      senderId: user.id,
+      parentMessageId: params.messageId
+    })
     const [reply] = await db.insert(messages).values({
       content: content.trim(),
       channelId,
@@ -52,37 +64,49 @@ export async function POST(
       .update(messages)
       .set({
         replyCount: (parentMessage.replyCount || 0) + 1,
-        latestReplyAt: new Date().toISOString(),
+        latestReplyAt: sql`NOW()`,
       })
       .where(eq(messages.id, params.messageId))
 
-    // Trigger real-time updates
-    // 1. Send the thread reply event to the channel
-    await pusherServer.trigger(
-      `channel-${channelId}`,
-      PusherEvent.NEW_THREAD_REPLY,
-      {
-        id: reply.id,
-        content: reply.content,
-        channelId: reply.channelId,
-        senderId: user.id,
-        createdAt: reply.createdAt,
-        updatedAt: reply.updatedAt,
-        parentId: reply.parentMessageId,
-      }
-    )
+    // Get all workspace members
+    const workspaceMembers = await db.query.workspaceMemberships.findMany({
+      where: eq(workspaceMemberships.workspaceId, parentMessage.channel.workspace.id),
+    })
 
-    // 2. Update the parent message's reply count
-    await pusherServer.trigger(
-      `channel-${channelId}`,
-      PusherEvent.MESSAGE_UPDATED,
-      {
-        id: params.messageId,
+    // Prepare the event payload
+    const threadReplyPayload = {
+      id: reply.id,
+      content: reply.content,
+      createdAt: reply.createdAt,
+      channelId: reply.channelId,
+      channelName: 'thread-reply',
+      workspaceId: parentMessage.channel.workspace.id,
+      senderId: user.id,
+      senderName: user.name,
+      senderProfileImage: user.profileImage,
+      hasMention: false,
+      isThreadReply: true,
+      parentMessageId: reply.parentMessageId,
+      parentId: params.messageId
+    }
+
+    // Send event to each workspace member
+    for (const member of workspaceMembers) {
+      console.log('[API] Triggering thread reply event:', {
+        channel: `user-${member.userId}`,
+        event: PusherEvent.NEW_THREAD_REPLY,
+        messageId: reply.id,
         channelId,
-        replyCount: (parentMessage.replyCount || 0) + 1,
-        latestReplyAt: new Date().toISOString(),
-      }
-    )
+        senderId: user.id,
+        recipientId: member.userId
+      })
+
+      await pusherServer.trigger(
+        `user-${member.userId}`,
+        PusherEvent.NEW_THREAD_REPLY,
+        JSON.stringify(threadReplyPayload)
+      )
+    }
 
     return Response.json(reply)
   } catch (error) {

@@ -58,7 +58,7 @@ export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: Wor
       {/* Sidebar sections */}
       <div className="flex-1 space-y-4 overflow-y-auto p-2">
         {/* Channels section */}
-        <ChannelList channels={channels} />
+        <ChannelList channels={channels} workspaceId={workspace.id} />
 
         {/* Direct Messages section */}
         <DirectMessageList

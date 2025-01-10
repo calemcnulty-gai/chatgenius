@@ -8,7 +8,7 @@ import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
 import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
-import { pusherClient } from '@/lib/pusher'
+import { usePusherChannel } from '@/contexts/PusherContext'
 import { User } from '@/types/user'
 
 type UserListProps = {
@@ -24,15 +24,16 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
   const router = useRouter()
   const params = useParams()
   const { userId } = useAuth()
+  const { userChannel } = usePusherChannel()
   const [isLoading, setIsLoading] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [users, setUsers] = useState(initialUsers)
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!userId || !pusherClient) return
+    if (!userId || !userChannel) return
 
-    const userChannel = pusherClient.subscribe(`user-${userId}`)
+    console.log('[UserList] Setting up event listeners')
     
     // Listen for new users
     userChannel.bind(PusherEvent.NEW_USER, (data: NewUserEvent) => {
@@ -56,6 +57,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
 
     // Listen for user status changes
     userChannel.bind(PusherEvent.USER_STATUS_CHANGED, (data: UserStatusEvent) => {
+      console.log('[UserList] Received status change:', data)
       setUsers(currentUsers =>
         currentUsers.map(user =>
           user.id === data.userId
@@ -73,11 +75,12 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     })
 
     return () => {
-      if (!pusherClient) return
-      userChannel.unbind_all()
-      pusherClient.unsubscribe(`user-${userId}`)
+      if (!userChannel) return
+      userChannel.unbind(PusherEvent.NEW_USER)
+      userChannel.unbind(PusherEvent.USER_STATUS_CHANGED)
+      userChannel.unbind(PusherEvent.USER_LEFT)
     }
-  }, [userId, workspace.id])
+  }, [userId, workspace.id, userChannel])
 
   // Update users when initial data changes
   useEffect(() => {
@@ -89,7 +92,6 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     setIsLoading(true)
 
     try {
-      // Try to create/get DM channel
       const response = await fetch('/api/dm/create', {
         method: 'POST',
         headers: {
@@ -97,72 +99,66 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
         },
         body: JSON.stringify({
           workspaceId: workspace.id,
-          userId: user.id,
+          otherUserId: user.id,
         }),
       })
 
       if (!response.ok) {
-        throw new Error('Failed to create/get DM channel')
+        throw new Error('Failed to create DM channel')
       }
 
-      const data = await response.json()
-      if (data.status === 'success' && data.channelId) {
-        router.push(`/workspace/${workspace.slug}/dm/${data.channelId}`)
-      } else {
-        throw new Error(data.message || 'Failed to create DM channel')
-      }
+      const channel = await response.json()
+      router.push(`/workspace/${workspace.slug}/dm/${channel.id}`)
     } catch (error) {
-      console.error('Error handling user click:', error)
+      console.error('Error creating DM channel:', error)
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <>
-      <div className="flex flex-col">
-        <div className="mb-2 flex items-center justify-between px-2">
-          <h2 className="text-sm font-semibold uppercase text-gray-400">Users</h2>
-          <button
-            onClick={() => setIsInviteModalOpen(true)}
-            className="text-gray-400 hover:text-gray-300"
-            title="Invite users"
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between px-2 py-2">
+        <h2 className="text-sm font-semibold text-gray-400">Direct Messages</h2>
+        <button
+          onClick={() => setIsInviteModalOpen(true)}
+          className="text-gray-400 hover:text-gray-300"
+        >
+          <PlusIcon className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="space-y-1">
+        {users.map((user) => (
+          <div
+            key={user.id}
+            onClick={() => handleUserClick(user)}
+            className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 cursor-pointer ${
+              isLoading ? 'cursor-wait opacity-50' : ''
+            }`}
           >
-            <PlusIcon className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="space-y-1">
-          {users.map((user) => (
-            <div
-              key={user.id}
-              onClick={() => handleUserClick(user)}
-              className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-gray-400 hover:bg-gray-800 hover:text-gray-300 cursor-pointer ${
-                isLoading ? 'cursor-wait opacity-50' : ''
-              }`}
-            >
-              <div className="relative">
-                <UserAvatar
-                  user={user}
-                  size="sm"
-                />
-                <div
-                  className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
-                    user.status === 'active'
-                      ? 'bg-green-500'
-                      : user.status === 'away'
-                      ? 'bg-yellow-500'
-                      : 'bg-gray-500'
-                  }`}
-                />
-              </div>
-              <UserDisplay 
+            <div className="relative">
+              <UserAvatar
                 user={user}
-                variant="text-with-status"
-                className="truncate text-sm"
+                size="sm"
+              />
+              <div
+                className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
+                  user.status === 'active'
+                    ? 'bg-green-500'
+                    : user.status === 'away'
+                    ? 'bg-yellow-500'
+                    : 'bg-gray-500'
+                }`}
               />
             </div>
-          ))}
-        </div>
+            <UserDisplay 
+              user={user}
+              variant="text-with-status"
+              className="truncate text-sm"
+            />
+          </div>
+        ))}
       </div>
 
       <InviteModal
@@ -171,6 +167,6 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
         workspaceId={workspace.id}
         workspaceName={workspace.name}
       />
-    </>
+    </div>
   )
 } 

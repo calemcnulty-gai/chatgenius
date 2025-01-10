@@ -5,8 +5,8 @@ import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST(req: Request) {
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
+    const { userId } = auth()
+    if (!userId) {
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
 
     // Get or create user to get their database ID
     const user = await getOrCreateUser({
-      id: clerkUser.id,
+      id: userId,
       firstName: clerkUser.firstName,
       lastName: clerkUser.lastName,
       emailAddresses: clerkUser.emailAddresses,
@@ -33,15 +33,32 @@ export async function POST(req: Request) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
-    const authResponse = pusherServer.authorizeChannel(socketId, channel, {
-      user_id: user.id,
-      user_info: {
-        name: user.name,
-        image: user.profileImage,
-      },
-    })
+    // Handle presence channel authentication
+    if (channel.startsWith('presence-')) {
+      const authResponse = pusherServer.authorizeChannel(socketId, channel, {
+        user_id: user.id,
+        user_info: {
+          name: user.name,
+          image: user.profileImage,
+          status: user.status,
+        },
+      })
+      return NextResponse.json(authResponse)
+    }
 
-    return NextResponse.json(authResponse)
+    // Handle private channel authentication
+    if (channel.startsWith('private-') || channel === `user-${user.id}`) {
+      const authResponse = pusherServer.authorizeChannel(socketId, channel, {
+        user_id: user.id,
+        user_info: {
+          name: user.name,
+          image: user.profileImage,
+        },
+      })
+      return NextResponse.json(authResponse)
+    }
+
+    return new NextResponse('Unauthorized channel', { status: 401 })
   } catch (error) {
     console.error('Error authorizing Pusher channel:', error)
     return new NextResponse('Internal Server Error', { status: 500 })

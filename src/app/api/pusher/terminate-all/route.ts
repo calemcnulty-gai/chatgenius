@@ -37,7 +37,7 @@ export async function POST() {
       .returning()
 
     // Trigger presence event
-    await pusherServer.trigger('presence-status', PusherEvent.USER_STATUS_CHANGED, {
+    await pusherServer.trigger(`user-${user.id}`, PusherEvent.USER_STATUS_CHANGED, {
       userId: user.id,
       name: user.name,
       image: user.profileImage,

@@ -31,7 +31,6 @@ interface NewMessageEvent {
   senderProfileImage: string | null
   senderDisplayName: string | null
   senderTitle: string | null
-  senderNamePronunciation: string | null
   senderTimeZone: string | null
   senderCreatedAt: string
   senderUpdatedAt: string
@@ -144,6 +143,35 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
       }
     })
 
+    // Handle thread replies with a named handler function
+    const handleThreadReply = (data: any) => {
+      console.log('[MessageList] Received thread reply:', {
+        event: PusherEvent.NEW_THREAD_REPLY,
+        data,
+        currentChannelId: channelId,
+        matches: data.channelId === channelId,
+        currentUserId: user.id,
+        senderUserId: data.senderId
+      })
+      
+      // Update the reply count of the parent message regardless of channel
+      setMessages(currentMessages => {
+        return currentMessages.map(message => {
+          if (message.id === data.parentMessageId) {
+            console.log('[MessageList] Updating reply count for message:', message.id, 'from', message.replyCount, 'to', (message.replyCount || 0) + 1)
+            return {
+              ...message,
+              replyCount: (message.replyCount || 0) + 1,
+              latestReplyAt: data.createdAt
+            }
+          }
+          return message
+        })
+      })
+    }
+
+    userChannel.bind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
+
     // Helper function to handle new messages
     const handleNewMessage = (data: NewMessageEvent) => {
       console.log('[MessageList] Adding new message to state')
@@ -206,8 +234,9 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
 
     return () => {
       if (!userChannel) return
-      userChannel.unbind_all()
-      userChannel.unsubscribe()
+      userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
+      userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
+      userChannel.unbind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)  // Unbind specific handler
     }
   }, [user?.id, userChannel, channelId])
 

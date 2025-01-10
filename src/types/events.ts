@@ -36,7 +36,6 @@ export type BaseMessageEvent = {
   senderProfileImage: string | null
   senderDisplayName: string | null
   senderTitle: string | null
-  senderNamePronunciation: string | null
   senderTimeZone: string | null
   senderStatus: string | null
   attachments?: {
@@ -47,6 +46,20 @@ export type BaseMessageEvent = {
 export type NewChannelMessageEvent = BaseMessageEvent & {
   channelName: string
   workspaceId: string
+}
+
+export type NewThreadReplyEvent = {
+  id: string
+  content: string
+  createdAt: string
+  channelId: string
+  workspaceId: string
+  senderId: string
+  senderName: string
+  senderProfileImage: string | null
+  hasMention: boolean
+  isThreadReply: boolean
+  parentMessageId: string
 }
 
 export type NewDirectMessageEvent = BaseMessageEvent & {

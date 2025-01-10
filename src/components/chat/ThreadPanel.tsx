@@ -5,7 +5,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline'
 import { Message as MessageType } from '@/types/db'
 import { Message } from '@/components/ui/Message'
 import { MessageInput } from '@/components/ui/MessageInput'
-import { PusherEvent } from '@/types/events'
+import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 
 type ThreadPanelProps = {
@@ -49,21 +49,32 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
   useEffect(() => {
     if (!channelId || !userChannel) return
 
-    // Listen for new thread replies
-    userChannel.bind(PusherEvent.NEW_THREAD_REPLY, (data: MessageType) => {
-      if (data.parentId === messageId) {
+    // Listen for new thread replies with a named handler
+    const handleThreadReply = (data: NewThreadReplyEvent) => {
+      if (data.parentMessageId === messageId) {
         setThread(current => {
           if (!current) return null
           return {
             ...current,
-            replies: [...current.replies, data],
+            replies: [...current.replies, {
+              id: data.id,
+              content: data.content,
+              createdAt: new Date(data.createdAt),
+              sender: {
+                id: data.senderId,
+                name: data.senderName,
+                profileImage: data.senderProfileImage,
+              },
+              parentMessageId: data.parentMessageId,
+              channelId: data.channelId,
+            }],
           }
         })
       }
-    })
+    }
 
-    // Listen for message updates (e.g., reply count changes)
-    userChannel.bind(PusherEvent.MESSAGE_UPDATED, (data: { id: string, replyCount: number }) => {
+    // Listen for message updates with a named handler
+    const handleMessageUpdate = (data: { id: string, replyCount: number }) => {
       if (data.id === messageId) {
         setThread(current => {
           if (!current) return null
@@ -76,11 +87,14 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
           }
         })
       }
-    })
+    }
+
+    userChannel.bind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
+    userChannel.bind(PusherEvent.MESSAGE_UPDATED, handleMessageUpdate)
 
     return () => {
-      userChannel.unbind(PusherEvent.NEW_THREAD_REPLY)
-      userChannel.unbind(PusherEvent.MESSAGE_UPDATED)
+      userChannel.unbind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
+      userChannel.unbind(PusherEvent.MESSAGE_UPDATED, handleMessageUpdate)
     }
   }, [channelId, messageId, userChannel])
 

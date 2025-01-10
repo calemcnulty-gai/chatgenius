@@ -1,6 +1,6 @@
 'use client'
 
-import { ClerkProvider, useAuth } from '@clerk/nextjs'
+import { ClerkProvider } from '@clerk/nextjs'
 import { useAuthSync } from '@/hooks/useAuthSync'
 import { PusherProvider } from '@/contexts/PusherContext'
 import { UserProvider } from '@/contexts/UserContext'
@@ -8,7 +8,6 @@ import { useState, useEffect } from 'react'
 import { User } from '@/types/user'
 
 function AuthSyncWrapper({ children }: { children: React.ReactNode }) {
-  const [userId, setUserId] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -23,7 +22,6 @@ function AuthSyncWrapper({ children }: { children: React.ReactNode }) {
     })
       .then(response => response.json())
       .then(data => {
-        setUserId(data.id)
         setUser(data)
       })
       .catch(error => {
@@ -45,7 +43,7 @@ function AuthSyncWrapper({ children }: { children: React.ReactNode }) {
 
   return (
     <UserProvider initialUser={user}>
-      <PusherProvider userId={userId!}>
+      <PusherProvider userId={user.id}>
         {children}
       </PusherProvider>
     </UserProvider>

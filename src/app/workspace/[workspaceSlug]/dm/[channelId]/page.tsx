@@ -69,6 +69,19 @@ export default async function DMChannelPage({
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
+  const otherUser = {
+    id: otherMember.user.id,
+    name: otherMember.user.name,
+    email: otherMember.user.email,
+    profileImage: otherMember.user.profileImage,
+    displayName: otherMember.user.displayName,
+    title: otherMember.user.title,
+    timeZone: otherMember.user.timeZone,
+    status: otherMember.user.status,
+    createdAt: otherMember.user.createdAt,
+    updatedAt: otherMember.user.updatedAt,
+  }
+
   return (
     <div className="flex h-full flex-col bg-gray-800">
       {/* Channel header */}
@@ -82,8 +95,7 @@ export default async function DMChannelPage({
             profileImage: otherMember.user.profileImage,
             displayName: otherMember.user.displayName,
             title: otherMember.user.title,
-            namePronunciation: otherMember.user.namePronunciation,
-            timezone: otherMember.user.timezone,
+            timeZone: otherMember.user.timeZone,
             status: otherMember.user.status as 'active' | 'away' | 'offline' || 'offline',
             createdAt: otherMember.user.createdAt,
             updatedAt: otherMember.user.updatedAt,

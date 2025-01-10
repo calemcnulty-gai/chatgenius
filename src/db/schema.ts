@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm'
+import { relations, sql } from 'drizzle-orm'
 import {
   pgTable,
   text,
@@ -20,6 +20,7 @@ export const users = pgTable('users', {
   title: text('title'),
   timeZone: text('time_zone').default('UTC'),
   status: text('status').default('offline'),
+  lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
@@ -80,7 +81,6 @@ messages = pgTable('messages', {
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
   senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   content: text('content').notNull(),
-  aiGenerated: boolean('ai_generated').default(false),
   attachments: jsonb('attachments'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   editedAt: timestamp('edited_at'),

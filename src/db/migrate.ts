@@ -11,13 +11,9 @@ import { addUnreadMessages } from './migrations/0008_add_unread_messages'
 import { addUserProfiles } from './migrations/0012_add_user_profiles'
 import { addStatusHistory } from './migrations/0013_add_status_history'
 import { up as addClerkId } from './migrations/0015_add_clerk_id'
-import { up as addAiGenerated } from './migrations/0016_add_ai_generated'
 import { up as addMessageAttachments } from './migrations/0017_add_message_attachments'
 import { up as addMessageThreadingColumns } from './migrations/0018_add_message_threading_columns'
-import { addUserProfileFields } from './migrations/0019_add_user_profile_fields'
-import { invites, inviteIndexes } from './migrations/0021_add_invites_table'
-import { standardizeTimestamps } from './migrations/0022_standardize_timestamps'
-import { convertTimezonesToIANA } from './migrations/0023_convert_timezones_to_iana'
+import { addLastHeartbeat } from './migrations/0022_add_last_heartbeat'
 import * as dotenv from 'dotenv'
 
 // Load environment variables before anything else
@@ -97,51 +93,21 @@ async function main() {
     await addStatusHistory()
 
     console.log('Adding clerk ID column...')
-    await addClerkId()
+    await pool.query(addClerkId)
 
-    console.log('Adding AI generated column...')
-    await pool.query(addAiGenerated)
-
-    console.log('Adding message attachments column...')
+    console.log('Adding message attachments...')
     await pool.query(addMessageAttachments)
 
     console.log('Adding message threading columns...')
     await pool.query(addMessageThreadingColumns)
 
-    console.log('Adding user profile fields...')
-    await addUserProfileFields()
+    console.log('Adding last heartbeat column...')
+    await addLastHeartbeat()
 
-    console.log('Adding invites table...')
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS invites (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        workspace_id UUID NOT NULL REFERENCES workspaces(id),
-        inviter_id UUID NOT NULL REFERENCES users(id),
-        email VARCHAR(255) NOT NULL,
-        token UUID NOT NULL UNIQUE,
-        status VARCHAR(20) NOT NULL DEFAULT 'pending',
-        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-      )
-    `)
-    
-    // Add indexes
-    await pool.query('CREATE INDEX IF NOT EXISTS invites_workspace_id_idx ON invites (workspace_id)')
-    await pool.query('CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (email)')
-    await pool.query('CREATE INDEX IF NOT EXISTS invites_token_idx ON invites (token)')
-    await pool.query('CREATE INDEX IF NOT EXISTS invites_status_idx ON invites (status)')
-
-    console.log('Standardizing timestamps...')
-    await standardizeTimestamps()
-
-    console.log('Converting timezones to IANA format...')
-    await convertTimezonesToIANA()
-
-    console.log('All migrations completed successfully!')
+    console.log('All migrations completed successfully')
   } catch (error) {
-    console.error('Database connection error:', error)
-    throw error
+    console.error('Error running migrations:', error)
+    process.exit(1)
   } finally {
     await pool.end()
   }

@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { pusherServer } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { getOrCreateUser } from '@/lib/db/users'
+
+const OFFLINE_THRESHOLD = 60 // seconds
 
 export async function POST(req: Request) {
   try {
@@ -35,15 +37,45 @@ export async function POST(req: Request) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
-    // Update user status
+    // Update user's last heartbeat and status
     const [updatedUser] = await db
       .update(users)
-      .set({ status: 'active' })
+      .set({ 
+        status: 'active',
+        lastHeartbeat: new Date()
+      })
       .where(eq(users.id, user.id))
       .returning()
 
-    // Trigger presence event
-    await pusherServer.trigger('presence-status', PusherEvent.USER_STATUS_CHANGED, {
+    // Find users who haven't sent a heartbeat recently and mark them as offline
+    const offlineThreshold = new Date(Date.now() - OFFLINE_THRESHOLD * 1000)
+    const usersToMarkOffline = await db
+      .select()
+      .from(users)
+      .where(
+        lt(users.lastHeartbeat, offlineThreshold)
+      )
+
+    // Update status for users who haven't sent a heartbeat
+    for (const offlineUser of usersToMarkOffline) {
+      if (offlineUser.status !== 'offline') {
+        await db
+          .update(users)
+          .set({ status: 'offline' })
+          .where(eq(users.id, offlineUser.id))
+
+        // Notify about status change
+        await pusherServer.trigger(`user-${offlineUser.id}`, PusherEvent.USER_STATUS_CHANGED, {
+          userId: offlineUser.id,
+          name: offlineUser.name,
+          image: offlineUser.profileImage,
+          status: 'offline',
+        })
+      }
+    }
+
+    // Trigger presence event for the active user
+    await pusherServer.trigger(`user-${user.id}`, PusherEvent.USER_STATUS_CHANGED, {
       userId: user.id,
       name: user.name,
       image: user.profileImage,

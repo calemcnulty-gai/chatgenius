@@ -21,9 +21,10 @@ type Channel = {
 
 type ChannelListProps = {
   channels: Channel[]
+  workspaceId: string
 }
 
-export default function ChannelList({ channels: initialChannels }: ChannelListProps) {
+export default function ChannelList({ channels: initialChannels, workspaceId }: ChannelListProps) {
   const params = useParams()
   const { userId } = useAuth()
   const { userChannel } = usePusherChannel()
@@ -202,7 +203,7 @@ export default function ChannelList({ channels: initialChannels }: ChannelListPr
 
                   <div className="mt-4">
                     <CreateChannel
-                      workspaceId={params.workspaceSlug as string}
+                      workspaceId={workspaceId}
                       onComplete={() => setIsCreateModalOpen(false)}
                     />
                   </div>
