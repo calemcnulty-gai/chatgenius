@@ -1,3 +1,5 @@
+import { Timestamp } from './timestamp'
+
 export interface User {
   id: string
   clerkId: string
@@ -8,6 +10,6 @@ export interface User {
   title: string | null
   timeZone: string | null
   status: 'active' | 'away' | 'offline'
-  createdAt: string
-  updatedAt: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
 } 

@@ -128,3 +128,22 @@ Key features:
    - Proper error handling
 
 See individual components for detailed implementation examples. 
+
+# UI Components Documentation
+
+This directory contains reusable UI components used throughout the ChatGenius application.
+
+## Message Component
+
+The Message component displays individual chat messages with the following features:
+- User avatar and display name
+- Message content
+- Timestamp display using the standardized `Timestamp` type
+- Thread reply functionality
+- Attachment display
+
+### Timestamp Handling
+The Message component uses the application's standardized timestamp system:
+- `createdAt` and `latestReplyAt` are strictly typed as `Timestamp`
+- Timestamps are parsed using the `parseTimestamp` utility
+- Formatting is consistent across the application using date-fns
