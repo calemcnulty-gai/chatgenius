@@ -1,40 +1,47 @@
 'use client'
 
-import { useState, FormEvent } from 'react'
+import { useState } from 'react'
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
+import { cn } from '@/lib/utils'
 
-type MessageInputProps = {
+interface MessageInputProps {
   channelId: string
   parentMessageId?: string
-  onMessageSent: () => void
   placeholder?: string
   className?: string
+  onMessageSent?: () => void
 }
 
-export function MessageInput({ 
-  channelId, 
+export function MessageInput({
+  channelId,
   parentMessageId,
-  onMessageSent,
   placeholder = 'Type a message...',
-  className = '',
+  className,
+  onMessageSent
 }: MessageInputProps) {
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!content.trim() || isSubmitting) return
 
     setIsSubmitting(true)
     try {
-      const response = await fetch('/api/messages', {
+      // If this is a thread reply, use the thread endpoint
+      const endpoint = parentMessageId 
+        ? `/api/messages/${parentMessageId}/replies`
+        : '/api/messages'
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          channelId,
           content: content.trim(),
-          parentMessageId,
+          channelId,
+          parentMessageId
         }),
       })
 
@@ -43,7 +50,7 @@ export function MessageInput({
       }
 
       setContent('')
-      onMessageSent()
+      onMessageSent?.()
     } catch (error) {
       console.error('Error sending message:', error)
     } finally {
@@ -52,15 +59,23 @@ export function MessageInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={`border-t border-gray-700/50 bg-gray-800 px-4 py-3 ${className}`}>
-      <input
-        type="text"
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-md bg-gray-700 px-3 py-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-        disabled={isSubmitting}
-      />
+    <form onSubmit={handleSubmit} className={cn("border-t border-gray-800 p-4", className)}>
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          value={content}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          type="submit"
+          disabled={!content.trim() || isSubmitting}
+          className="bg-blue-600 text-white rounded-md p-2 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <PaperAirplaneIcon className="h-5 w-5" />
+        </button>
+      </div>
     </form>
   )
 } 

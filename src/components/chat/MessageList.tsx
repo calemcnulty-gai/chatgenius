@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Message } from './Message'
+import { Message } from '@/components/ui/Message'
 import { usePusherChannel } from '@/contexts/PusherContext'
 import { PusherEvent } from '@/types/events'
 import { User } from '@/types/user'
@@ -42,14 +42,23 @@ interface NewMessageEvent {
 
 interface MessageListProps {
   channelId: string
+  variant?: 'channel' | 'dm'
 }
 
-export function MessageList({ channelId }: MessageListProps) {
+export function MessageList({ channelId, variant = 'channel' }: MessageListProps) {
   const [messages, setMessages] = useState<MessageData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { user } = useUser()
   const { userChannel } = usePusherChannel()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const handleThreadClick = (messageId: string) => {
+    const event = new CustomEvent('open-thread', {
+      detail: { messageId },
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+  };
 
   const safeDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return new Date()
@@ -74,7 +83,11 @@ export function MessageList({ channelId }: MessageListProps) {
       }
       const { messages: messageData, hasMore } = await response.json()
       console.log('Received messages:', { messages: messageData, hasMore })
-      setMessages(Array.isArray(messageData) ? messageData : [])
+      // Filter out thread replies (messages with parentMessageId)
+      const filteredMessages = Array.isArray(messageData) 
+        ? messageData.filter(m => !m.parentMessageId)
+        : []
+      setMessages(filteredMessages)
     } catch (error) {
       console.error('Error fetching messages:', error)
       setMessages([])
@@ -139,6 +152,12 @@ export function MessageList({ channelId }: MessageListProps) {
         const messageExists = currentMessages.some(m => m.id === data.id)
         if (messageExists) {
           console.log('[MessageList] Message already exists:', data.id)
+          return currentMessages
+        }
+
+        // Don't add thread replies to the main channel
+        if (data.parentId) {
+          console.log('[MessageList] Skipping thread reply:', data.id)
           return currentMessages
         }
 
@@ -210,10 +229,12 @@ export function MessageList({ channelId }: MessageListProps) {
             content={message.content}
             sender={message.sender}
             createdAt={message.createdAt}
+            variant={variant}
             replyCount={message.replyCount}
             latestReplyAt={message.latestReplyAt || undefined}
             parentMessageId={message.parentMessageId || undefined}
             channelId={channelId}
+            onThreadClick={handleThreadClick}
           />
         ))}
         <div ref={messagesEndRef} />

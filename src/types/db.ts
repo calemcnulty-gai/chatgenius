@@ -1,21 +1,56 @@
 import { InferModel } from 'drizzle-orm'
 import * as schema from '@/db/schema'
+import { Timestamp } from './timestamp'
 
 // Base types from schema
-export type User = InferModel<typeof schema.users>
-export type Message = InferModel<typeof schema.messages>
-export type Channel = Omit<InferModel<typeof schema.channels>, 'type'> & {
-  type: 'public' | 'private'
+export type User = Omit<InferModel<typeof schema.users>, 'createdAt' | 'updatedAt'> & {
+  createdAt: Timestamp
+  updatedAt: Timestamp
 }
-export type DirectMessageChannel = InferModel<typeof schema.directMessageChannels>
-export type DirectMessageMember = InferModel<typeof schema.directMessageMembers>
-export type Workspace = InferModel<typeof schema.workspaces>
-export type WorkspaceMembership = InferModel<typeof schema.workspaceMemberships>
+
+export type Message = Omit<InferModel<typeof schema.messages>, 'createdAt' | 'editedAt' | 'latestReplyAt'> & {
+  createdAt: Timestamp
+  editedAt: Timestamp | null
+  latestReplyAt: Timestamp | null
+}
+
+export type Channel = Omit<InferModel<typeof schema.channels>, 'type' | 'createdAt' | 'updatedAt'> & {
+  type: 'public' | 'private'
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export type DirectMessageChannel = Omit<InferModel<typeof schema.directMessageChannels>, 'createdAt' | 'updatedAt'> & {
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export type DirectMessageMember = Omit<InferModel<typeof schema.directMessageMembers>, 'createdAt'> & {
+  createdAt: Timestamp
+}
+
+export type Workspace = Omit<InferModel<typeof schema.workspaces>, 'createdAt' | 'updatedAt'> & {
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
+export type WorkspaceMembership = Omit<InferModel<typeof schema.workspaceMemberships>, 'createdAt' | 'updatedAt'> & {
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
+
 export type WorkspaceMembershipWithUser = WorkspaceMembership & {
   user: User
 }
-export type Notification = InferModel<typeof schema.notifications>
-export type UnreadMessage = InferModel<typeof schema.unreadMessages>
+
+export type Notification = Omit<InferModel<typeof schema.notifications>, 'createdAt'> & {
+  createdAt: Timestamp
+}
+
+export type UnreadMessage = Omit<InferModel<typeof schema.unreadMessages>, 'createdAt' | 'updatedAt'> & {
+  createdAt: Timestamp
+  updatedAt: Timestamp
+}
 
 // Types with relations
 export type MessageWithSender = Message & {
@@ -25,7 +60,7 @@ export type MessageWithSender = Message & {
 export type MessageWithThread = MessageWithSender & {
   replies?: MessageWithSender[]
   replyCount: number
-  latestReplyAt?: Date
+  latestReplyAt?: Timestamp
 }
 
 export type DirectMessageChannelWithMembers = DirectMessageChannel & {
@@ -33,7 +68,7 @@ export type DirectMessageChannelWithMembers = DirectMessageChannel & {
     id: string
     channelId: string
     userId: string
-    createdAt: Date
+    createdAt: Timestamp
     user: User
   }>
 }

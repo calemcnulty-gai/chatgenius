@@ -201,3 +201,6 @@ export async function POST(req: Request) {
 3. Test changes in development
 4. Follow existing patterns
 5. Update documentation when changing functionality 
+6. DO NOT, UNDER ANY CIRCUMSTANCES, MAKE CHANGES IN Workspace.
+   ALL CHANGES SHOULD BE MADE IN Workspace/chatgenius.
+7. DO, at the beginning of EVERY conversation, run `cd chatgenius` to ensure you are in the correct directory.

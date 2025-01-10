@@ -1,9 +1,10 @@
 import { formatDistanceToNow } from 'date-fns'
 import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
+import { Timestamp, parseTimestamp } from '@/types/timestamp'
 
-export function formatRelativeTime(date: Date): string {
-  return formatDistanceToNow(date, { addSuffix: true })
+export function formatRelativeTime(timestamp: Timestamp): string {
+  return formatDistanceToNow(parseTimestamp(timestamp), { addSuffix: true })
 }
 
 export function generateSlug(name: string): string {
@@ -17,14 +18,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatMessageDate(dateString: string | null | undefined) {
-  if (!dateString) return ''
+export function formatMessageDate(timestamp: Timestamp | null | undefined): string {
+  if (!timestamp) return ''
   
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) {
-      return ''
-    }
+    const date = parseTimestamp(timestamp)
     const now = new Date()
     
     // Same day
@@ -51,13 +49,11 @@ export function formatMessageDate(dateString: string | null | undefined) {
   }
 }
 
-export function formatMessageTimestamp(dateString: string | null | undefined): string {
-  if (!dateString) return ''
+export function formatMessageTimestamp(timestamp: Timestamp | null | undefined): string {
+  if (!timestamp) return ''
   
   try {
-    const date = new Date(dateString)
-    if (isNaN(date.getTime())) return ''
-
+    const date = parseTimestamp(timestamp)
     const now = new Date()
     const timeFormatter = new Intl.DateTimeFormat('en-US', {
       hour: 'numeric',

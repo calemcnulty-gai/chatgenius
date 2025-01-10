@@ -4,6 +4,32 @@ This directory contains reusable UI components used throughout the ChatGenius ap
 
 ## Components Overview
 
+### Message
+A general-purpose message component that displays chat messages in various contexts (channels, threads, DMs).
+
+Props:
+- `id`: Message identifier
+- `content`: Message content
+- `sender`: User who sent the message
+- `createdAt`: Message timestamp
+- `variant`: Message display variant ('channel' | 'thread' | 'dm')
+- `replyCount`: Number of replies (optional)
+- `latestReplyAt`: Latest reply timestamp (optional)
+- `parentMessageId`: ID of parent message if this is a reply (optional)
+- `channelId`: Channel identifier (optional)
+- `className`: Additional CSS classes (optional)
+- `attachments`: Object containing array of file names for attached images (optional)
+- `onThreadClick`: Callback when thread button is clicked (optional)
+
+Features:
+- Consistent message display across all contexts
+- User avatar and display name
+- Timestamp formatting
+- Thread support for channel messages
+- Image attachment display
+- Current user message highlighting
+- Real-time user data updates
+
 ### Skeleton
 A component that provides loading state placeholders that match the shape of the content being loaded.
 
@@ -44,140 +70,31 @@ Key features:
 - Consistent with design system
 - Improves perceived performance
 
-### UserDisplay
-A versatile component for displaying user information consistently across the application.
+### User Components
+- `UserAvatar`: Displays user profile images with status indicators
+- `UserDisplay`: Shows user names and additional information
 
-Variants:
-- `text`: Simple text display of user's name (prefers displayName if set)
-- `text-with-status`: Text display with online status indicator
-- `full`: Complete user display with avatar, name, title, and status
+### Input Components
+- `MessageInput`: Universal message input component used across channels, DMs, and threads
+  - Handles message submission
+  - Supports parent messages for threads
+  - Context-agnostic (works in any messaging context)
+  - Props:
+    - `channelId`: Target channel identifier
+    - `parentMessageId`: Optional parent message for threads
+    - `onMessageSent`: Callback after successful message send
+    - `placeholder`: Custom input placeholder
+    - `className`: Additional styling classes
 
-Props:
-- `user`: User object containing all user data
-- `variant`: Display variant (default: 'text')
-- `className`: Additional CSS classes
-- `showLoadingState`: Whether to show loading skeletons (default: true)
+### Layout Components
+- `Skeleton`: Loading state placeholders
+- Modal base components
+- Common layout structures
 
-Usage:
-```tsx
-// Simple text display
-<UserDisplay user={user} />
-
-// With status and loading states disabled
-<UserDisplay 
-  user={user} 
-  variant="text-with-status"
-  showLoadingState={false}
-/>
-
-// Full display with all user info
-<UserDisplay 
-  user={user} 
-  variant="full" 
-  className="my-custom-class"
-/>
-```
-
-Key features:
-- Consistent user name display logic (prefers displayName over name)
-- Multiple display variants for different contexts
-- Loading state handling with skeletons
-- Error handling for images
-- Customizable loading state behavior
-- Responsive to UserContext states
-- Uses cn utility for class merging
-- Graceful fallbacks for missing data
-
-States:
-- Normal: Displays user information based on variant
-- Loading: Shows appropriate skeleton based on variant
-- Error: Falls back to initials for images
-- Interactive: Maintains accessibility during state changes
-
-Integration:
-- Uses UserContext for loading states
-- Handles image loading errors
-- Consistent styling across states
-- Maintains layout stability during loading
-
-## UserAvatar
-
-The `UserAvatar` component displays user avatars and handles profile modal interactions. It uses `UserContext` to determine if the displayed user is the current user and manage loading states.
-
-### Props
-- `user`: User object to display
-- `size`: 'sm' | 'md' | 'lg' (default: 'md')
-- `onClick`: Optional click handler
-- `className`: Optional additional CSS classes
-
-### Features
-- Displays user avatar with fallback states:
-  - Profile image if available
-  - Initials fallback if no image
-  - Loading skeleton during context updates
-  - Error fallback if image fails to load
-- Integrates with profile modals
-- Smart handling of current user vs other users
-- Loading state management
-- Error handling for image loading
-- Customizable appearance
-- Responsive to UserContext states
-
-### Usage
-```tsx
-<UserAvatar
-  user={user}
-  size="md"
-  className="custom-class"
-  onClick={handleClick}
-/>
-```
-
-### States
-- Normal: Displays user avatar or initials
-- Loading: Shows animated skeleton
-- Error: Falls back to initials
-- Interactive: Opens appropriate profile modal
-
-### Integration
-- Uses UserContext for:
-  - Loading states
-  - Current user detection
-  - Profile modal selection
-- Handles image loading errors gracefully
-- Respects loading states in click handling 
-
-### Shared UI Components
-
-This directory contains reusable UI components that are shared across different features of the ChatGenius application.
-
-#### Component Categories
-
-1. **User Components**
-   - `UserAvatar`: Displays user profile images with status indicators
-   - `UserDisplay`: Shows user names and additional information
-
-2. **Input Components**
-   - `MessageInput`: Universal message input component used across channels, DMs, and threads
-     - Handles message submission
-     - Supports parent messages for threads
-     - Context-agnostic (works in any messaging context)
-     - Props:
-       - `channelId`: Target channel identifier
-       - `parentMessageId`: Optional parent message for threads
-       - `onMessageSent`: Callback after successful message send
-       - `placeholder`: Custom input placeholder
-       - `className`: Additional styling classes
-
-3. **Layout Components**
-   - `Skeleton`: Loading state placeholders
-   - Modal base components
-   - Common layout structures
-
-4. **Interactive Elements**
-   - Buttons
-   - Form controls
-   - Interactive overlays
+### Interactive Elements
+- Buttons
+- Form controls
+- Interactive overlays
 
 #### Usage Guidelines
 

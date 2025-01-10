@@ -16,6 +16,8 @@ import { up as addMessageAttachments } from './migrations/0017_add_message_attac
 import { up as addMessageThreadingColumns } from './migrations/0018_add_message_threading_columns'
 import { addUserProfileFields } from './migrations/0019_add_user_profile_fields'
 import { invites, inviteIndexes } from './migrations/0021_add_invites_table'
+import { standardizeTimestamps } from './migrations/0022_standardize_timestamps'
+import { convertTimezonesToIANA } from './migrations/0023_convert_timezones_to_iana'
 import * as dotenv from 'dotenv'
 
 // Load environment variables before anything else
@@ -118,9 +120,9 @@ async function main() {
         email VARCHAR(255) NOT NULL,
         token UUID NOT NULL UNIQUE,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
-        expires_at TIMESTAMP NOT NULL,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
       )
     `)
     
@@ -129,6 +131,12 @@ async function main() {
     await pool.query('CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (email)')
     await pool.query('CREATE INDEX IF NOT EXISTS invites_token_idx ON invites (token)')
     await pool.query('CREATE INDEX IF NOT EXISTS invites_status_idx ON invites (status)')
+
+    console.log('Standardizing timestamps...')
+    await standardizeTimestamps()
+
+    console.log('Converting timezones to IANA format...')
+    await convertTimezonesToIANA()
 
     console.log('All migrations completed successfully!')
   } catch (error) {
