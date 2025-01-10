@@ -202,8 +202,8 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
             title: data.senderTitle,
             timeZone: data.senderTimeZone,
             status: 'active',
-            createdAt: safeDate(data.senderCreatedAt).toISOString(),
-            updatedAt: safeDate(data.senderUpdatedAt).toISOString(),
+            createdAt: data.senderCreatedAt,
+            updatedAt: data.senderUpdatedAt,
           },
           createdAt: data.createdAt,
           updatedAt: data.updatedAt,
@@ -250,23 +250,25 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <Message
-            key={message.id}
-            id={message.id}
-            content={message.content}
-            sender={message.sender}
-            createdAt={message.createdAt}
-            variant={variant}
-            replyCount={message.replyCount}
-            latestReplyAt={message.latestReplyAt || undefined}
-            parentMessageId={message.parentMessageId || undefined}
-            channelId={channelId}
-            onThreadClick={handleThreadClick}
-          />
-        ))}
-        <div ref={messagesEndRef} />
+      <div className="flex-1 overflow-y-auto min-h-0">
+        <div className="min-h-full px-4 py-4 space-y-1">
+          {messages.map((message) => (
+            <Message
+              key={message.id}
+              id={message.id}
+              content={message.content}
+              sender={message.sender}
+              createdAt={message.createdAt}
+              variant={variant}
+              replyCount={message.replyCount}
+              latestReplyAt={message.latestReplyAt || undefined}
+              parentMessageId={message.parentMessageId || undefined}
+              channelId={channelId}
+              onThreadClick={handleThreadClick}
+            />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
       <MessageInput

@@ -50,9 +50,15 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
     userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewDirectMessageEvent) => {
       if (data.senderId !== user.id) {
         console.log(`[DirectMessageList] Received DM event:`, data)
+        console.log(`[DirectMessageList] Current user ID:`, user.id)
+        
         setChannels(currentChannels => {
+          console.log(`[DirectMessageList] Current channels:`, currentChannels)
+          
           // Don't increment unread count if we're currently viewing this channel
           const isActiveChannel = params.channelId === data.channelId
+          console.log(`[DirectMessageList] Is active channel? ${isActiveChannel} (current: ${params.channelId}, event: ${data.channelId})`)
+          
           if (isActiveChannel) {
             console.log(`[DirectMessageList] Ignoring unread count for active channel ${data.channelId}`)
             return currentChannels
@@ -60,20 +66,24 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
 
           // Find the channel if it exists
           const existingChannel = currentChannels.find(channel => channel.id === data.channelId)
+          console.log(`[DirectMessageList] Found existing channel?`, existingChannel ? 'yes' : 'no')
           
           if (existingChannel) {
             // Update existing channel
             console.log(`[DirectMessageList] Updating existing channel ${data.channelId}`)
-            return currentChannels.map(channel => {
+            const updatedChannels = currentChannels.map(channel => {
               if (channel.id === data.channelId) {
-                return {
+                const updatedChannel = {
                   ...channel,
-                  unreadCount: (channel.unreadCount || 0) + 1,
-                  hasMention: data.hasMention,
+                  unreadCount: (channel.unreadCount || 0) + 1
                 }
+                console.log(`[DirectMessageList] Updated channel:`, updatedChannel)
+                return updatedChannel
               }
               return channel
             })
+            console.log(`[DirectMessageList] Final channels after update:`, updatedChannels)
+            return updatedChannels
           } else {
             // Create new channel
             console.log(`[DirectMessageList] Creating new channel ${data.channelId}`)
@@ -88,16 +98,19 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                 displayName: data.senderDisplayName,
                 title: data.senderTitle,
                 timeZone: data.senderTimeZone,
-                status: 'active', // They're active since they just sent a message
-                createdAt: safeDate(data.senderCreatedAt).toISOString(),
-                updatedAt: safeDate(data.senderUpdatedAt).toISOString(),
+                status: 'active',
+                createdAt: safeDate(data.createdAt).toISOString(),
+                updatedAt: safeDate(data.createdAt).toISOString(),
               },
-              unreadCount: 1,
-              hasMention: data.hasMention,
+              unreadCount: 1
             }
-            return [...currentChannels, newChannel]
+            const updatedChannels = [...currentChannels, newChannel]
+            console.log(`[DirectMessageList] Final channels after adding new:`, updatedChannels)
+            return updatedChannels
           }
         })
+      } else {
+        console.log(`[DirectMessageList] Ignoring own message from ${data.senderId}`)
       }
     })
 
@@ -185,7 +198,7 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                 </div>
                 {hasUnread && channel.unreadCount ? (
                   <span className={`ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                    channel.hasMention ? 'bg-red-500' : 'bg-gray-600'
+                    channel.hasMention ? 'bg-red-500' : 'bg-red-500'
                   } text-white`}>
                     {channel.unreadCount}
                   </span>

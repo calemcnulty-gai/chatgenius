@@ -119,7 +119,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-2 py-2">
-        <h2 className="text-sm font-semibold text-gray-400">Direct Messages</h2>
+        <h2 className="text-sm font-semibold text-gray-400">USERS</h2>
         <button
           onClick={() => setIsInviteModalOpen(true)}
           className="text-gray-400 hover:text-gray-300"
