@@ -5,15 +5,15 @@ WORKDIR /app
 # Copy package files and env
 COPY package*.json .env ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies including TypeScript
+RUN npm ci && npm install typescript @types/node
 
 # Copy application files
 COPY . .
 
 # Build application and compile migrations
 RUN npm run build && \
-    npx tsc src/db/migrate.ts --outDir dist --esModuleInterop true
+    npx tsc src/db/migrate.ts --outDir dist --esModuleInterop true --skipLibCheck true --module commonjs
 
 # Production image
 FROM node:20-alpine
