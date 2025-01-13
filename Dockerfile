@@ -13,7 +13,11 @@ COPY . .
 
 # Build application and compile migrations
 RUN npm run build && \
-    npx tsc src/db/migrate.ts --outDir dist --esModuleInterop true --skipLibCheck true --module commonjs
+    mkdir -p dist && \
+    echo "Compiling migrations..." && \
+    npx tsc src/db/migrate.ts --outDir dist --esModuleInterop true --skipLibCheck true --module commonjs && \
+    ls -la dist && \
+    cat dist/migrate.js
 
 # Production image
 FROM node:20-alpine
@@ -33,7 +37,7 @@ RUN mkdir -p public/uploads
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src/db ./src/db
-COPY --from=builder /app/dist/migrate.js ./dist/migrate.js
+COPY --from=builder /app/dist ./dist
 
 # Set environment variables
 ENV NODE_ENV=production
