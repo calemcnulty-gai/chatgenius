@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { db, pool } from '..'
 import { v4 as uuidv4 } from 'uuid'
-import { createTimestamp } from '@/types/timestamp'
+import { createTimestamp } from './utils'
 
 export async function addGauntletWorkspace() {
   // Create a system user for the Gauntlet workspace if it doesn't exist
