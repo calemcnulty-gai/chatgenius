@@ -45,6 +45,10 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
       }
 
       const { channelId } = await response.json()
+      
+      // Wait for a short delay to allow Pusher to deliver the channel data
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       router.push(`/workspace/${workspaceId}/dm/${channelId}`)
       onClose()
     } catch (error) {

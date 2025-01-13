@@ -72,3 +72,51 @@
    - Add CloudWatch monitoring
    - Configure SSL/TLS with Let's Encrypt
    - Set up a custom domain name 
+
+# AWS Deployment Notes
+
+## Deployment History
+We initially attempted to deploy using AWS ECS and Elastic Beanstalk but encountered several permission issues. We ultimately switched to a direct EC2 deployment approach.
+
+## Permission Issues
+
+### Critical Permissions Missing
+1. `iam:PassRole` ❌
+   - Required for: Passing IAM roles to ECS tasks and Elastic Beanstalk environments
+   - Resource: `arn:aws:iam::474668398195:role/*`
+   - Impact: Blocked both ECS and Elastic Beanstalk deployments
+   - Error: "Unable to assign role. Please verify that you have permission to pass this role"
+
+2. `iam:CreateRole` ❌
+   - Required for: Creating ECS task execution roles and Elastic Beanstalk instance profiles
+   - Resource: `arn:aws:iam::474668398195:role/*`
+   - Impact: Could not create necessary IAM roles for services
+
+3. `elasticfilesystem:CreateFileSystem` ❌
+   - Required for: Setting up EFS for PostgreSQL persistence in ECS
+   - Resource: `*`
+   - Impact: Could not create persistent storage for database
+
+### Optional Permissions Missing
+1. `cloudtrail:LookupEvents` ❌
+   - Required for: Auditing resource creation and identifying resource owners
+   - Resource: `*`
+   - Impact: Limited ability to troubleshoot ownership of existing resources
+
+## Resource Limits
+- VPC limit reached (maximum of 5 VPCs)
+- Existing VPCs:
+  - vpc-0a190df8a39e2d108 (cm-gauntlet)
+  - Used for current EC2 deployment
+
+## Current Deployment
+- Using direct EC2 deployment with Docker
+- Instance ID: i-0751ac0cd3258ea3e
+- Public IP: 44.218.104.132
+- Security Group: sg-0236f7b58e1b86c55 (allows ports 80, 443, 5432, 22)
+
+## Next Steps
+1. Request `iam:PassRole` permission for future managed service deployments
+2. Consider cleanup of unused VPCs
+3. Implement automated backups for EC2-hosted PostgreSQL
+4. Set up CloudWatch monitoring 

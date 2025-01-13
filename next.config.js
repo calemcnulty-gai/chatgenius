@@ -9,15 +9,18 @@ const nextConfig = {
       bodySizeLimit: '2mb'
     },
     optimizePackageImports: ['@heroicons/react', '@clerk/nextjs'],
-    workerThreads: true,
-    concurrent: true
+    workerThreads: true
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
   poweredByHeader: false,
   reactStrictMode: true,
-  swcMinify: true
+  swcMinify: true,
+  output: 'standalone',
+  // Disable static page generation for all routes
+  generateStaticParams: () => [],
+  generateBuildId: () => 'build',
 }
 
 module.exports = nextConfig 
