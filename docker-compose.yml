@@ -16,7 +16,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    command: sh -c "npm run db:migrate && npm start"
+    command: sh -c "node dist/migrate.js && npm start"
 
   db:
     image: postgres:15
