@@ -13,8 +13,8 @@ export default authMiddleware({
 
 export const config = {
   matcher: [
-    "/((?!.*\\..*|_next).*)",
+    "/((?!api|_next|.*\\..*).*)",
     "/",
-    "/(api|trpc)(.*)",
+    "/api/((?!webhooks).*)"
   ],
 }; 

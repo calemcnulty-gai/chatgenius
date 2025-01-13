@@ -1,0 +1,60 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "474668398195.dkr.ecr.us-east-1.amazonaws.com/chatgenius:latest",
+      "essential": true,
+      "memory": 512,
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "containerPort": 3000
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ]
+    },
+    {
+      "name": "db",
+      "image": "postgres:15",
+      "essential": true,
+      "memory": 512,
+      "portMappings": [
+        {
+          "hostPort": 5432,
+          "containerPort": 5432
+        }
+      ],
+      "environment": [
+        {
+          "name": "POSTGRES_USER",
+          "value": "postgres"
+        },
+        {
+          "name": "POSTGRES_DB",
+          "value": "chatgenius"
+        }
+      ],
+      "mountPoints": [
+        {
+          "sourceVolume": "postgres-data",
+          "containerPath": "/var/lib/postgresql/data",
+          "readOnly": false
+        }
+      ]
+    }
+  ],
+  "volumes": [
+    {
+      "name": "postgres-data",
+      "host": {
+        "sourcePath": "/var/app/postgres-data"
+      }
+    }
+  ]
+} 

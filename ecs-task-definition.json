@@ -1,0 +1,79 @@
+{
+  "family": "chatgenius-task",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "1024",
+  "memory": "2048",
+  "executionRoleArn": "arn:aws:iam::474668398195:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::474668398195:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "web",
+      "image": "474668398195.dkr.ecr.us-east-1.amazonaws.com/chatgenius:latest",
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "environment": [
+        {
+          "name": "NODE_ENV",
+          "value": "production"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:ssm:us-east-1:474668398195:parameter/chatgenius/DATABASE_URL"
+        },
+        {
+          "name": "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-1:474668398195:parameter/chatgenius/NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"
+        },
+        {
+          "name": "CLERK_SECRET_KEY",
+          "valueFrom": "arn:aws:ssm:us-east-1:474668398195:parameter/chatgenius/CLERK_SECRET_KEY"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "chatgenius",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "web"
+        }
+      },
+      "essential": true
+    },
+    {
+      "name": "db",
+      "image": "postgres:15",
+      "environment": [
+        {
+          "name": "POSTGRES_USER",
+          "value": "postgres"
+        },
+        {
+          "name": "POSTGRES_DB",
+          "value": "chatgenius"
+        }
+      ],
+      "secrets": [
+        {
+          "name": "POSTGRES_PASSWORD",
+          "valueFrom": "arn:aws:ssm:us-east-1:474668398195:parameter/chatgenius/POSTGRES_PASSWORD"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "chatgenius",
+          "awslogs-region": "us-east-1",
+          "awslogs-stream-prefix": "db"
+        }
+      },
+      "essential": true
+    }
+  ]
+} 

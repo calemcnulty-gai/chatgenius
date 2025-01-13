@@ -1,0 +1,19 @@
+{
+  "cluster": "chatgenius-cluster",
+  "serviceName": "chatgenius-service",
+  "taskDefinition": "chatgenius-task",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ["subnet-054a605f580b61fe"],
+      "securityGroups": ["sg-0236f7b58e1b86c55"],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+  "schedulingStrategy": "REPLICA",
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100
+  }
+} 

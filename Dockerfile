@@ -15,5 +15,5 @@ COPY . .
 # Expose port
 EXPOSE 3000
 
-# Run in development mode (command is overridden by docker-compose)
+# Run in development mode
 CMD ["npm", "run", "dev"] 
