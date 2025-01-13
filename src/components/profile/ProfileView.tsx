@@ -1,5 +1,6 @@
 import { User } from '@/types/user'
 import { formatDistanceToNow } from 'date-fns'
+import { Timestamp, parseTimestamp } from '@/types/timestamp'
 
 interface ProfileViewProps {
   user: User
@@ -7,14 +8,10 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ user, onClose }: ProfileViewProps) {
-  // Parse the date string and handle invalid dates
-  const formatDate = (dateString: string) => {
+  // Format the timestamp using our standardized timestamp handling
+  const formatDate = (timestamp: Timestamp) => {
     try {
-      const date = new Date(dateString)
-      if (isNaN(date.getTime())) {
-        return 'Unknown'
-      }
-      return formatDistanceToNow(date, { addSuffix: true })
+      return formatDistanceToNow(parseTimestamp(timestamp), { addSuffix: true })
     } catch (error) {
       return 'Unknown'
     }

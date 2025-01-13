@@ -2,13 +2,13 @@ import { relations, sql } from 'drizzle-orm'
 import {
   pgTable,
   text,
-  timestamp,
   uuid,
   boolean,
   integer,
   jsonb,
   type PgTableWithColumns,
 } from 'drizzle-orm/pg-core'
+import { timestampString } from './timestamp'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -20,9 +20,9 @@ export const users = pgTable('users', {
   title: text('title'),
   timeZone: text('time_zone').default('UTC'),
   status: text('status').default('offline'),
-  lastHeartbeat: timestamp('last_heartbeat', { withTimezone: true }).default(sql`CURRENT_TIMESTAMP`),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  lastHeartbeat: timestampString('last_heartbeat').default(sql`CURRENT_TIMESTAMP`),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const workspaces = pgTable('workspaces', {
@@ -30,8 +30,8 @@ export const workspaces = pgTable('workspaces', {
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
   ownerId: uuid('owner_id').notNull().references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const channels = pgTable('channels', {
@@ -42,8 +42,8 @@ export const channels = pgTable('channels', {
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const unreadMessages = pgTable('unread_messages', {
@@ -54,8 +54,8 @@ export const unreadMessages = pgTable('unread_messages', {
   lastReadMessageId: uuid('last_read_message_id').references(() => messages.id),
   unreadCount: integer('unread_count').notNull().default(0),
   hasMention: boolean('has_mention').notNull().default(false),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const workspaceMemberships = pgTable('workspace_memberships', {
@@ -67,8 +67,8 @@ export const workspaceMemberships = pgTable('workspace_memberships', {
     .notNull()
     .references(() => users.id),
   role: text('role').notNull().default('member'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 // Declare messages type to avoid circular reference
@@ -82,12 +82,12 @@ messages = pgTable('messages', {
   senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
   content: text('content').notNull(),
   attachments: jsonb('attachments'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  editedAt: timestamp('edited_at'),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  editedAt: timestampString('edited_at'),
   // New columns for threading
   parentMessageId: uuid('parent_message_id'),
   replyCount: integer('reply_count').default(0).notNull(),
-  latestReplyAt: timestamp('latest_reply_at'),
+  latestReplyAt: timestampString('latest_reply_at'),
 })
 
 export { messages }
@@ -97,8 +97,8 @@ export const directMessageChannels = pgTable('direct_message_channels', {
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const directMessageMembers = pgTable('direct_message_members', {
@@ -109,7 +109,7 @@ export const directMessageMembers = pgTable('direct_message_members', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const notifications = pgTable('notifications', {
@@ -122,7 +122,7 @@ export const notifications = pgTable('notifications', {
   body: text('body'),
   read: boolean('read').notNull().default(false),
   data: jsonb('data'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
 export const usersRelations = relations(users, ({ many }) => ({

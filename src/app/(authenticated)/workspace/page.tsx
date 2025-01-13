@@ -1,23 +1,15 @@
-import { auth, currentUser } from '@clerk/nextjs'
-import { redirect } from 'next/navigation'
+import { currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { workspaceMemberships } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import Link from 'next/link'
 import { getOrCreateUser } from '@/lib/db/users'
-
-export const dynamic = 'force-dynamic'
-export const fetchCache = 'force-no-store'
+import { WorkspaceMembership } from '@/types/db'
 
 export default async function WorkspacesPage() {
-  const { userId: clerkUserId } = auth()
-  if (!clerkUserId) {
-    redirect('/sign-in')
-  }
-
   const clerkUser = await currentUser()
   if (!clerkUser) {
-    redirect('/sign-in')
+    throw new Error('User not found')
   }
 
   // Get or create the internal user
@@ -35,7 +27,7 @@ export default async function WorkspacesPage() {
     with: {
       workspace: true
     }
-  })
+  }) as (WorkspaceMembership & { workspace: { id: string; name: string; slug: string; description: string | null } })[]
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">

@@ -11,8 +11,10 @@ import {
   DirectMessageChannelWithUnreadCounts,
   WorkspaceMembershipWithUser,
 } from '@/types/db'
+import { User } from '@/types/user'
 import { UserProvider } from '@/contexts/UserContext'
 import { WorkspaceLayoutClient } from '@/components/workspace/WorkspaceLayoutClient'
+import { Timestamp } from '@/types/timestamp'
 
 export default async function WorkspaceLayout({
   children,
@@ -41,12 +43,19 @@ export default async function WorkspaceLayout({
     imageUrl: clerkUser.imageUrl,
   })
 
-  // Ensure user has valid status and date formats
-  const user = {
-    ...dbUser,
-    status: (dbUser.status as 'active' | 'away' | 'offline') || 'offline',
-    createdAt: dbUser.createdAt.toISOString(),
-    updatedAt: dbUser.updatedAt.toISOString()
+  const user: User = {
+    id: dbUser.id,
+    clerkId: dbUser.clerkId,
+    name: dbUser.name,
+    email: dbUser.email,
+    profileImage: dbUser.profileImage,
+    displayName: dbUser.displayName,
+    title: dbUser.title,
+    timeZone: dbUser.timeZone,
+    status: (dbUser.status || 'offline') as 'offline' | 'active' | 'away',
+    lastHeartbeat: dbUser.lastHeartbeat,
+    createdAt: dbUser.createdAt,
+    updatedAt: dbUser.updatedAt,
   }
 
   // Get workspace by slug
@@ -83,8 +92,9 @@ export default async function WorkspaceLayout({
   // Transform channels to include unread counts
   const formattedChannels = workspaceChannels.map(channel => {
     const unreadMessage = channel.unreadMessages?.[0]
+    const { unreadMessages, ...channelWithoutUnread } = channel
     return {
-      ...channel,
+      ...channelWithoutUnread,
       type: channel.type as 'public' | 'private',
       unreadCount: unreadMessage?.unreadCount ?? 0,
       hasMention: unreadMessage?.hasMention ?? false,
@@ -97,9 +107,9 @@ export default async function WorkspaceLayout({
     with: {
       user: true,
     },
-  }) as WorkspaceMembershipWithUser[]
+  }) as unknown as WorkspaceMembershipWithUser[]
 
-  // Get DM channels for the current user in this workspace with unread counts
+  // Get DM channels
   const dmChannels = await db.query.directMessageChannels.findMany({
     where: eq(directMessageChannels.workspaceId, workspace.id),
     with: {
@@ -112,7 +122,7 @@ export default async function WorkspaceLayout({
         where: eq(unreadMessages.userId, user.id)
       }
     },
-  }) as DirectMessageChannelWithUnreadMessages[]
+  }) as unknown as DirectMessageChannelWithUnreadMessages[]
 
   // Transform DM channels to include only the other user and unread counts
   const formattedDMChannels = dmChannels

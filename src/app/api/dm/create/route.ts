@@ -5,17 +5,18 @@ import { directMessageChannels, directMessageMembers } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getOrCreateUser } from '@/lib/db/users'
+import { Timestamp } from '@/types/timestamp'
 
 type DMChannel = {
   id: string
   workspaceId: string
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Timestamp
+  updatedAt: Timestamp
   members: {
     userId: string
     channelId: string
     id: string
-    createdAt: Date
+    createdAt: Timestamp
   }[]
 }
 

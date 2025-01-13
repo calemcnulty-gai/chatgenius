@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
+import { now } from '@/types/timestamp'
 
 export async function GET() {
   try {
@@ -50,7 +51,7 @@ export async function PATCH(request: Request) {
         title,
         timeZone,
         profileImage,
-        updatedAt: new Date(),
+        updatedAt: now(),
       })
       .where(eq(users.clerkId, clerkUserId))
       .returning()

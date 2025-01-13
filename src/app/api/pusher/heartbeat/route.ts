@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { pusherServer } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { getOrCreateUser } from '@/lib/db/users'
+import { now } from '@/types/timestamp'
 
 const OFFLINE_THRESHOLD = 60 // seconds
 
@@ -32,60 +33,16 @@ export async function POST(req: Request) {
       imageUrl: clerkUser.imageUrl,
     })
 
-    const { socketId } = await req.json()
-    if (!socketId) {
-      return new NextResponse('Missing required fields', { status: 400 })
-    }
-
-    // Update user's last heartbeat and status
-    const [updatedUser] = await db
-      .update(users)
-      .set({ 
-        status: 'active',
-        lastHeartbeat: new Date()
+    // Update user's last heartbeat
+    await db.update(users)
+      .set({
+        lastHeartbeat: now(),
       })
       .where(eq(users.id, user.id))
-      .returning()
 
-    // Find users who haven't sent a heartbeat recently and mark them as offline
-    const offlineThreshold = new Date(Date.now() - OFFLINE_THRESHOLD * 1000)
-    const usersToMarkOffline = await db
-      .select()
-      .from(users)
-      .where(
-        lt(users.lastHeartbeat, offlineThreshold)
-      )
-
-    // Update status for users who haven't sent a heartbeat
-    for (const offlineUser of usersToMarkOffline) {
-      if (offlineUser.status !== 'offline') {
-        await db
-          .update(users)
-          .set({ status: 'offline' })
-          .where(eq(users.id, offlineUser.id))
-
-        // Notify about status change
-        await pusherServer.trigger(`user-${offlineUser.id}`, PusherEvent.USER_STATUS_CHANGED, {
-          userId: offlineUser.id,
-          name: offlineUser.name,
-          image: offlineUser.profileImage,
-          status: 'offline',
-        })
-      }
-    }
-
-    // Trigger presence event for the active user
-    await pusherServer.trigger(`user-${user.id}`, PusherEvent.USER_STATUS_CHANGED, {
-      userId: user.id,
-      name: user.name,
-      image: user.profileImage,
-      status: 'active',
-      socketId,
-    })
-
-    return NextResponse.json(updatedUser)
+    return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error updating user status:', error)
+    console.error('Error updating heartbeat:', error)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 

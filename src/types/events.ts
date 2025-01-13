@@ -1,3 +1,5 @@
+import { Timestamp } from '@/types/timestamp'
+
 export enum PusherEvent {
   // Message events
   NEW_CHANNEL_MESSAGE = 'NEW_CHANNEL_MESSAGE',
@@ -27,7 +29,7 @@ export enum PusherEvent {
 export type BaseMessageEvent = {
   id: string
   content: string
-  createdAt: string
+  createdAt: Timestamp
   channelId: string
   senderId: string
   senderClerkId: string
@@ -46,12 +48,15 @@ export type BaseMessageEvent = {
 export type NewChannelMessageEvent = BaseMessageEvent & {
   channelName: string
   workspaceId: string
+  hasMention: boolean
+  senderDisplayName: string | null
+  parentMessageId?: string
 }
 
 export type NewThreadReplyEvent = {
   id: string
   content: string
-  createdAt: string
+  createdAt: Timestamp
   channelId: string
   workspaceId: string
   senderId: string
@@ -70,7 +75,7 @@ export type MessageUpdatedEvent = {
   id: string
   content: string
   channelId: string
-  updatedAt: string
+  updatedAt: Timestamp
 }
 
 export type NewUserEvent = {
@@ -98,7 +103,7 @@ export type NotificationEvent = {
   title: string
   body?: string
   read: boolean
-  createdAt: string
+  createdAt: Timestamp
   data: {
     channelId: string
     messageId: string

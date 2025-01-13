@@ -14,6 +14,7 @@ import { up as addClerkId } from './migrations/0015_add_clerk_id'
 import { up as addMessageAttachments } from './migrations/0017_add_message_attachments'
 import { up as addMessageThreadingColumns } from './migrations/0018_add_message_threading_columns'
 import { addLastHeartbeat } from './migrations/0022_add_last_heartbeat'
+import { standardizeAllTimestamps } from './migrations/0024_standardize_all_timestamps'
 import * as dotenv from 'dotenv'
 
 // Load environment variables before anything else
@@ -93,7 +94,7 @@ async function main() {
     await addStatusHistory()
 
     console.log('Adding clerk ID column...')
-    await pool.query(addClerkId)
+    await addClerkId()
 
     console.log('Adding message attachments...')
     await pool.query(addMessageAttachments)
@@ -103,6 +104,9 @@ async function main() {
 
     console.log('Adding last heartbeat column...')
     await addLastHeartbeat()
+
+    console.log('Standardizing timestamps...')
+    await standardizeAllTimestamps()
 
     console.log('All migrations completed successfully')
   } catch (error) {

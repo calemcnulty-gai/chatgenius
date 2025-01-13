@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useAuth } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
@@ -10,6 +11,7 @@ import { InviteModal } from './InviteModal'
 import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 import { User } from '@/types/user'
+import { now } from '@/types/timestamp'
 
 type UserListProps = {
   users: User[]
@@ -25,6 +27,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
   const params = useParams()
   const { userId } = useAuth()
   const { userChannel } = usePusherChannel()
+  const { user } = useUser()
   const [isLoading, setIsLoading] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [users, setUsers] = useState(initialUsers)
@@ -38,7 +41,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     // Listen for new users
     userChannel.bind(PusherEvent.NEW_USER, (data: NewUserEvent) => {
       if (data.workspaceId === workspace.id) {
-        const now = new Date().toISOString()
+        const timestamp = now()
         setUsers(currentUsers => [...currentUsers, {
           id: data.id,
           clerkId: '', // We don't have this from the event
@@ -49,8 +52,9 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
           title: null,
           timeZone: null,
           status: 'offline',
-          createdAt: now,
-          updatedAt: now,
+          lastHeartbeat: null,
+          createdAt: timestamp,
+          updatedAt: timestamp,
         }])
       }
     })
@@ -115,6 +119,26 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
       setIsLoading(false)
     }
   }
+
+  useEffect(() => {
+    // Update heartbeat
+    const interval = setInterval(() => {
+      if (user?.id) {
+        fetch('/api/users/heartbeat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            timestamp: now()
+          }),
+        }).catch(console.error)
+      }
+    }, 30000)
+
+    return () => clearInterval(interval)
+  }, [user?.id])
 
   return (
     <div className="flex flex-col">

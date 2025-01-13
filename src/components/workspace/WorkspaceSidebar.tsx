@@ -6,25 +6,15 @@ import { UserButton } from '@clerk/nextjs'
 import { UserList } from './UserList'
 import { DirectMessageList } from './DirectMessageList'
 import ChannelList from './ChannelList'
-import { Channel as BaseChannel } from '@/types'
+import { Channel as BaseChannel, DirectMessageChannelWithUnreadCounts } from '@/types/db'
+import { User } from '@/types/user'
+import { memo } from 'react'
 
 console.log('🔥 WorkspaceSidebar: File loaded')
 
 type Channel = BaseChannel & {
   unreadCount?: number
   hasMention?: boolean
-}
-
-type User = {
-  id: string
-  name: string
-  profileImage: string | null
-  status: 'active' | 'away' | 'offline'
-}
-
-type DMChannel = {
-  id: string
-  otherUser: User
 }
 
 type WorkspaceSidebarProps = {
@@ -35,10 +25,10 @@ type WorkspaceSidebarProps = {
   }
   channels: Channel[]
   users: User[]
-  dmChannels: DMChannel[]
+  dmChannels: DirectMessageChannelWithUnreadCounts[]
 }
 
-export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: WorkspaceSidebarProps) {
+function WorkspaceSidebarComponent({ workspace, channels, users, dmChannels }: WorkspaceSidebarProps) {
   console.log('🔄 WorkspaceSidebar: Rendering with channels:', channels.map(c => ({
     id: c.id,
     name: c.name,
@@ -79,4 +69,6 @@ export function WorkspaceSidebar({ workspace, channels, users, dmChannels }: Wor
       </div>
     </div>
   )
-} 
+}
+
+export const WorkspaceSidebar = memo(WorkspaceSidebarComponent) 

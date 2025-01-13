@@ -7,16 +7,17 @@ import { PusherEvent } from '@/types/events'
 import { User } from '@/types/user'
 import { useUser } from '@/contexts/UserContext'
 import { MessageInput } from '@/components/ui/MessageInput'
+import { Timestamp, createTimestamp, now } from '@/types/timestamp'
 
 interface MessageData {
   id: string
   content: string
   sender: User
-  createdAt: string
-  updatedAt: string
+  createdAt: Timestamp
+  updatedAt: Timestamp
   parentId: string | null
   replyCount: number
-  latestReplyAt: string | null
+  latestReplyAt: Timestamp | null
   parentMessageId: string | null
 }
 
@@ -32,10 +33,10 @@ interface NewMessageEvent {
   senderDisplayName: string | null
   senderTitle: string | null
   senderTimeZone: string | null
-  senderCreatedAt: string
-  senderUpdatedAt: string
-  createdAt: string
-  updatedAt: string
+  senderCreatedAt: Timestamp
+  senderUpdatedAt: Timestamp
+  createdAt: Timestamp
+  updatedAt: Timestamp
   parentId: string | null
 }
 
@@ -58,16 +59,6 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
     });
     window.dispatchEvent(event);
   };
-
-  const safeDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return new Date()
-    try {
-      const date = new Date(dateStr)
-      return isNaN(date.getTime()) ? new Date() : date
-    } catch (error) {
-      return new Date()
-    }
-  }
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -105,7 +96,79 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
   }, [messages])
 
   useEffect(() => {
-    if (!user?.id || !userChannel) return
+    if (!channelId || !userChannel || !user?.id) return
+
+    const handleNewMessage = (data: NewMessageEvent) => {
+      console.log('[MessageList] Received new message:', {
+        event: variant === 'channel' ? PusherEvent.NEW_CHANNEL_MESSAGE : PusherEvent.NEW_DIRECT_MESSAGE,
+        data,
+        currentChannelId: channelId,
+        matches: data.channelId === channelId,
+        currentUserId: user.id,
+        senderUserId: data.senderId
+      })
+
+      if (data.channelId !== channelId) {
+        console.log('[MessageList] Message is for different channel')
+        return
+      }
+
+      setMessages(currentMessages => {
+        // Check if we already have this message
+        const messageExists = currentMessages.some(m => m.id === data.id)
+        if (messageExists) {
+          console.log('[MessageList] Message already exists:', data.id)
+          return currentMessages
+        }
+
+        // Don't add thread replies to the main channel
+        if (data.parentId) {
+          console.log('[MessageList] Skipping thread reply:', data.id)
+          return currentMessages
+        }
+
+        const newMessage: MessageData = {
+          id: data.id,
+          content: data.content,
+          sender: {
+            id: data.senderId,
+            clerkId: data.senderClerkId,
+            name: data.senderName,
+            email: data.senderEmail,
+            profileImage: data.senderProfileImage,
+            displayName: data.senderDisplayName,
+            title: data.senderTitle,
+            timeZone: data.senderTimeZone,
+            status: 'active',
+            lastHeartbeat: null,
+            createdAt: data.senderCreatedAt,
+            updatedAt: data.senderUpdatedAt,
+          },
+          createdAt: data.createdAt,
+          updatedAt: data.updatedAt,
+          parentId: data.parentId,
+          replyCount: 0,
+          latestReplyAt: null,
+          parentMessageId: null,
+        }
+
+        // Replace temporary message if it exists
+        const tempMessageIndex = currentMessages.findIndex(m => 
+          m.content === newMessage.content && 
+          m.sender.id === newMessage.sender.id
+        )
+
+        if (tempMessageIndex !== -1) {
+          console.log('[MessageList] Replacing temporary message')
+          const newMessages = [...currentMessages]
+          newMessages[tempMessageIndex] = newMessage
+          return newMessages
+        }
+
+        console.log('[MessageList] Adding new message')
+        return [...currentMessages, newMessage]
+      })
+    }
 
     console.log('[MessageList] Setting up Pusher binding for channel:', channelId)
     console.log('[MessageList] Current user ID:', user.id)
@@ -172,73 +235,13 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
 
     userChannel.bind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
 
-    // Helper function to handle new messages
-    const handleNewMessage = (data: NewMessageEvent) => {
-      console.log('[MessageList] Adding new message to state')
-      setMessages(currentMessages => {
-        // Check if we already have this message
-        const messageExists = currentMessages.some(m => m.id === data.id)
-        if (messageExists) {
-          console.log('[MessageList] Message already exists:', data.id)
-          return currentMessages
-        }
-
-        // Don't add thread replies to the main channel
-        if (data.parentId) {
-          console.log('[MessageList] Skipping thread reply:', data.id)
-          return currentMessages
-        }
-
-        const newMessage: MessageData = {
-          id: data.id,
-          content: data.content,
-          sender: {
-            id: data.senderId,
-            clerkId: data.senderClerkId,
-            name: data.senderName,
-            email: data.senderEmail,
-            profileImage: data.senderProfileImage,
-            displayName: data.senderDisplayName,
-            title: data.senderTitle,
-            timeZone: data.senderTimeZone,
-            status: 'active',
-            createdAt: data.senderCreatedAt,
-            updatedAt: data.senderUpdatedAt,
-          },
-          createdAt: data.createdAt,
-          updatedAt: data.updatedAt,
-          parentId: data.parentId,
-          replyCount: 0,
-          latestReplyAt: null,
-          parentMessageId: null,
-        }
-
-        // Replace temporary message if it exists
-        const tempMessageIndex = currentMessages.findIndex(m => 
-          m.content === newMessage.content && 
-          m.sender.id === newMessage.sender.id &&
-          new Date(m.createdAt).getTime() > Date.now() - 5000 // Within last 5 seconds
-        )
-
-        if (tempMessageIndex !== -1) {
-          console.log('[MessageList] Replacing temporary message')
-          const newMessages = [...currentMessages]
-          newMessages[tempMessageIndex] = newMessage
-          return newMessages
-        }
-
-        console.log('[MessageList] Adding new message')
-        return [...currentMessages, newMessage]
-      })
-    }
-
     return () => {
       if (!userChannel) return
       userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
       userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
       userChannel.unbind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)  // Unbind specific handler
     }
-  }, [user?.id, userChannel, channelId])
+  }, [user?.id, userChannel, channelId, variant])
 
   if (isLoading) {
     return (

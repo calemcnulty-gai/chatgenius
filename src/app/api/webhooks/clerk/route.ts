@@ -3,6 +3,8 @@ import { headers } from 'next/headers'
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { db } from '@/db'
 import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
+import { now } from '@/types/timestamp'
 
 export async function POST(req: Request) {
   // Get the headers
@@ -74,7 +76,7 @@ export async function POST(req: Request) {
           name,
           email,
           profileImage: image_url,
-          updatedAt: new Date(),
+          updatedAt: now(),
         },
       })
   }

@@ -3,6 +3,7 @@ import { workspaces, workspaceMemberships, users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs'
 import { NextResponse } from 'next/server'
+import { WorkspaceMembershipWithUser } from '@/types/db'
 
 export async function GET(
   request: Request,
@@ -30,7 +31,7 @@ export async function GET(
         user: true
       },
       orderBy: (memberships, { asc }) => [asc(memberships.createdAt)]
-    })
+    }) as WorkspaceMembershipWithUser[]
 
     return NextResponse.json(workspaceUsers.map(m => m.user))
   } catch (error) {

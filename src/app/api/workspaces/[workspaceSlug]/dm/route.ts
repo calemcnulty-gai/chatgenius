@@ -3,7 +3,7 @@ import { workspaces, directMessageChannels, directMessageMembers, users, unreadM
 import { eq, and } from 'drizzle-orm'
 import { auth } from '@clerk/nextjs'
 import { NextResponse } from 'next/server'
-import type { DirectMessageChannelWithUnreadCounts, DirectMessageMember } from '@/types/db'
+import type { DirectMessageChannelWithUnreadCounts, DirectMessageChannelWithMembers, DirectMessageChannelWithUnreadMessages } from '@/types/db'
 
 export async function GET(
   request: Request,
@@ -47,7 +47,7 @@ export async function GET(
         }
       },
       orderBy: (channels, { desc }) => [desc(channels.updatedAt)]
-    })
+    }) as DirectMessageChannelWithUnreadMessages[]
 
     // Filter and transform channels
     const userDmChannels = dmChannels
@@ -69,8 +69,8 @@ export async function GET(
         const transformed: DirectMessageChannelWithUnreadCounts = {
           id: channel.id,
           workspaceId: channel.workspaceId,
-          createdAt: channel.createdAt.toISOString(),
-          updatedAt: channel.updatedAt.toISOString(),
+          createdAt: channel.createdAt,
+          updatedAt: channel.updatedAt,
           otherUser: {
             id: otherUser.id,
             name: otherUser.name,

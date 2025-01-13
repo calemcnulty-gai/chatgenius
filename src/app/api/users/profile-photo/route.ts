@@ -4,6 +4,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { put } from '@vercel/blob'
+import { now } from '@/types/timestamp'
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +29,7 @@ export async function POST(request: Request) {
       .update(users)
       .set({
         profileImage: url,
-        updatedAt: new Date()
+        updatedAt: now(),
       })
       .where(eq(users.clerkId, userId))
 
@@ -51,7 +52,7 @@ export async function DELETE(request: Request) {
       .update(users)
       .set({
         profileImage: null,
-        updatedAt: new Date()
+        updatedAt: now(),
       })
       .where(eq(users.clerkId, userId))
 

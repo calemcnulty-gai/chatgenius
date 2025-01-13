@@ -10,6 +10,7 @@ export interface User {
   title: string | null
   timeZone: string | null
   status: 'active' | 'away' | 'offline'
+  lastHeartbeat: Timestamp | null
   createdAt: Timestamp
   updatedAt: Timestamp
 } 

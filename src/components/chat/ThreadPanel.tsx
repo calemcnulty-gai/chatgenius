@@ -7,6 +7,7 @@ import { Message } from '@/components/ui/Message'
 import { MessageInput } from '@/components/ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
+import { Timestamp, createTimestamp, now } from '@/types/timestamp'
 
 type ThreadPanelProps = {
   messageId: string
@@ -20,6 +21,10 @@ type ThreadData = {
     dmChannelId?: string
   }
   replies: MessageType[]
+}
+
+type ThreadReply = MessageType & {
+  channelId: string
 }
 
 export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps) {
@@ -54,20 +59,24 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
       if (data.parentMessageId === messageId) {
         setThread(current => {
           if (!current) return null
+          const newReply: ThreadReply = {
+            id: data.id,
+            content: data.content,
+            createdAt: data.createdAt,
+            editedAt: null,
+            latestReplyAt: null,
+            sender: {
+              id: data.senderId,
+              name: data.senderName,
+              profileImage: data.senderProfileImage,
+            },
+            parentMessageId: data.parentMessageId,
+            channelId: data.channelId,
+            replyCount: 0,
+          }
           return {
             ...current,
-            replies: [...current.replies, {
-              id: data.id,
-              content: data.content,
-              createdAt: new Date(data.createdAt),
-              sender: {
-                id: data.senderId,
-                name: data.senderName,
-                profileImage: data.senderProfileImage,
-              },
-              parentMessageId: data.parentMessageId,
-              channelId: data.channelId,
-            }],
+            replies: [...current.replies, newReply],
           }
         })
       }
@@ -124,7 +133,7 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
           createdAt={thread.parentMessage.createdAt}
           variant="channel"
           replyCount={thread.parentMessage.replyCount}
-          latestReplyAt={thread.parentMessage.latestReplyAt}
+          latestReplyAt={thread.parentMessage.latestReplyAt || undefined}
           channelId={channelId}
         />
 

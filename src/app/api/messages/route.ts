@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
-import { messages, users, channels, directMessageChannels, directMessageMembers, notifications, unreadMessages, workspaceMemberships } from '@/db/schema'
-import { and, eq, or, ne, sql, lt, isNull } from 'drizzle-orm'
+import { messages, channels, directMessageChannels, unreadMessages, workspaceMemberships, users, directMessageMembers } from '@/db/schema'
+import { and, eq, gt, isNull, lt, or, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { pusherServer } from '@/lib/pusher'
+import { getOrCreateUser } from '@/lib/db/users'
 import type { ChannelWithWorkspace, DirectMessageChannelWithMembers, MessageWithSender } from '@/types/db'
 import { PusherEvent } from '@/types/events'
-import { getOrCreateUser } from '@/lib/db/users'
+import { Timestamp, createTimestamp, now } from '@/types/timestamp'
 
 export async function POST(req: Request) {
   try {
@@ -59,14 +60,17 @@ export async function POST(req: Request) {
     }
 
     // Check if this is a regular channel or DM channel
-    const regularChannel = await db.query.channels.findFirst({
+    const rawChannel = await db.query.channels.findFirst({
       where: eq(channels.id, channelId),
       with: {
         workspace: true,
       },
-    }) as ChannelWithWorkspace | null
+    })
 
-    const dmChannel = await db.query.directMessageChannels.findFirst({
+    const regularChannel = rawChannel
+
+    // Get DM channel with all required fields
+    const rawDMChannel = await db.query.directMessageChannels.findFirst({
       where: eq(directMessageChannels.id, channelId),
       with: {
         members: {
@@ -75,11 +79,33 @@ export async function POST(req: Request) {
           },
         },
       },
-    }) as DirectMessageChannelWithMembers | null
+    }) as (typeof directMessageChannels.$inferSelect & {
+      members: (typeof directMessageMembers.$inferSelect & {
+        user: typeof users.$inferSelect
+      })[]
+    }) | null;
+
+    const dmChannel = rawDMChannel ? {
+      ...rawDMChannel,
+      createdAt: rawDMChannel.createdAt,
+      updatedAt: rawDMChannel.updatedAt,
+      members: rawDMChannel.members.map(m => ({
+        ...m,
+        createdAt: m.createdAt,
+        user: {
+          ...m.user,
+          createdAt: m.user.createdAt,
+          updatedAt: m.user.updatedAt,
+        }
+      }))
+    } as DirectMessageChannelWithMembers : null;
 
     if (!regularChannel && !dmChannel) {
       return new NextResponse('Channel not found', { status: 404 })
     }
+
+    // Create timestamps for database and response
+    const timestamp = now()
 
     // Create message with UUID
     const messageId = uuidv4()
@@ -90,18 +116,23 @@ export async function POST(req: Request) {
       senderId: user.id,
       content,
       parentMessageId: parentMessageId || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     }).returning();
 
     // If this is a reply, update the parent message's metadata
-    let updatedParentMessage
+    let updatedParentMessage: typeof message | undefined
     if (parentMessageId) {
-      [updatedParentMessage] = await db.update(messages)
+      const updateTimestamp = now()
+      const [updated] = await db.update(messages)
         .set({
           replyCount: sql`${messages.replyCount} + 1`,
-          latestReplyAt: new Date(),
+          latestReplyAt: updateTimestamp,
+          updatedAt: updateTimestamp,
         })
         .where(eq(messages.id, parentMessageId))
         .returning()
+      updatedParentMessage = updated
     }
 
     // Construct message object for response and Pusher
@@ -129,6 +160,8 @@ export async function POST(req: Request) {
       const workspaceMembers = await db.query.workspaceMemberships.findMany({
         where: eq(workspaceMemberships.workspaceId, regularChannel.workspaceId),
       })
+
+      const currentTimestamp = new Date().toISOString()
 
       // Send the message to each member's user channel
       for (const member of workspaceMembers) {
@@ -177,6 +210,8 @@ export async function POST(req: Request) {
           .filter(id => id !== user.id)
       )]
 
+      const notificationTimestamp = new Date().toISOString()
+
       // Send notifications to all participants
       for (const participantId of participantIds) {
         // Send notification
@@ -184,9 +219,9 @@ export async function POST(req: Request) {
           id: uuidv4(),
           type: 'thread_reply',
           title: `New reply from ${user.name}`,
-          body: content.length > 50 ? content.substring(0, 47) + '...' : content,
+          body: message.content.length > 50 ? message.content.substring(0, 47) + '...' : message.content,
           read: false,
-          createdAt: new Date().toISOString(),
+          createdAt: notificationTimestamp,
           data: {
             channelId,
             messageId: message.id,
@@ -208,7 +243,7 @@ export async function POST(req: Request) {
               id: parentMessageId,
               content: updatedParentMessage?.content || '',
               channelId,
-              updatedAt: updatedParentMessage?.latestReplyAt?.toISOString() || new Date().toISOString()
+              updatedAt: updatedParentMessage?.latestReplyAt || new Date().toISOString()
             })
           }
         }
@@ -223,13 +258,14 @@ export async function POST(req: Request) {
       })
 
       // Check for mentions in the message
-      const mentions = content.match(/@[\w-]+/g) || []
+      const mentions = message.content.match(/@[\w-]+/g) || []
       const mentionedUsers = mentions.map((mention: string) => mention.slice(1))
 
       // Update unread counts for each member except the sender
       for (const member of workspaceMembers) {
         if (member.userId !== user.id) {
           const hasMention = mentionedUsers.includes(member.userId)
+          const currentTimestamp = now()
 
           // Update unread count
           const [updatedUnread] = await db.insert(unreadMessages).values({
@@ -238,12 +274,13 @@ export async function POST(req: Request) {
             channelId,
             unreadCount: 1,
             hasMention,
+            updatedAt: currentTimestamp,
           }).onConflictDoUpdate({
             target: [unreadMessages.userId, unreadMessages.channelId],
             set: {
               unreadCount: sql`${unreadMessages.unreadCount} + 1`,
               hasMention: sql`${unreadMessages.hasMention} OR ${hasMention}`,
-              updatedAt: new Date(),
+              updatedAt: currentTimestamp,
             },
           }).returning()
 
@@ -263,23 +300,26 @@ export async function POST(req: Request) {
           })
         }
       }
-    } else if (dmChannel) {
+    } else if (dmChannel?.members) {
       // For DM channel, update unread count for the other user
       const otherMember = dmChannel.members.find(member => member.userId !== user.id)
       if (otherMember) {
+        const currentTimestamp = now()
+        
         // Update unread count for DM
         await db.insert(unreadMessages).values({
           id: uuidv4(),
           userId: otherMember.userId,
           dmChannelId: channelId,
           unreadCount: 1,
-          hasMention: true, // DMs are always treated as mentions
+          hasMention: true,
+          updatedAt: currentTimestamp,
         }).onConflictDoUpdate({
           target: [unreadMessages.userId, unreadMessages.dmChannelId],
           set: {
             unreadCount: sql`${unreadMessages.unreadCount} + 1`,
             hasMention: true,
-            updatedAt: new Date(),
+            updatedAt: currentTimestamp,
           },
         })
 
@@ -355,27 +395,29 @@ export async function GET(request: Request) {
     })
 
     // Get the next cursor
-    const nextCursor = results.length === 50 ? results[results.length - 1].createdAt.toISOString() : undefined
+    const nextCursor = results.length === 50 ? results[results.length - 1].createdAt : undefined
 
-    // Format messages
-    const formattedMessages = results.map(message => ({
-      id: message.id,
-      content: message.content,
-      createdAt: message.createdAt,
-      sender: {
-        id: message.sender.id,
-        name: message.sender.name,
-        profileImage: message.sender.profileImage,
-      },
-      replyCount: message.replyCount,
-      latestReplyAt: message.latestReplyAt,
-      parentMessageId: message.parentMessageId,
-    }))
+    // Transform and format messages
+    const formattedMessages = results.map(message => {
+      return {
+        id: message.id,
+        content: message.content,
+        createdAt: message.createdAt,
+        sender: {
+          id: message.sender.id,
+          name: message.sender.name,
+          profileImage: message.sender.profileImage,
+        },
+        replyCount: message.replyCount,
+        latestReplyAt: message.latestReplyAt,
+        parentMessageId: message.parentMessageId,
+      }
+    })
 
     return NextResponse.json({
       messages: formattedMessages,
       hasMore: results.length === 50,
-      nextCursor,
+      nextCursor: nextCursor ? createTimestamp(nextCursor) : undefined,
     })
   } catch (error) {
     console.error('Error fetching messages:', error)

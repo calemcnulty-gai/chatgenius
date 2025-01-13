@@ -7,6 +7,7 @@ import { pusherClient } from '@/lib/pusher'
 import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent } from '@/types/events'
 import { useUser } from '@/contexts/UserContext'
 import { UserDisplay } from '@/components/ui/UserDisplay'
+import { Timestamp, now } from '@/types/timestamp'
 
 type Notification = {
   id: string
@@ -14,7 +15,7 @@ type Notification = {
   title: string
   body?: string
   read: boolean
-  createdAt: string
+  createdAt: Timestamp
   data: {
     channelId: string
     messageId: string
@@ -78,7 +79,6 @@ export function NotificationBell() {
             senderId: data.senderId,
             senderName: data.senderName,
             senderDisplayName: data.senderDisplayName,
-            parentMessageId: data.parentMessageId || undefined
           }
         }
         setNotifications(prev => [notification, ...prev])
@@ -141,8 +141,9 @@ export function NotificationBell() {
                           timeZone: null,
                           title: null,
                           clerkId: '',
-                          createdAt: '',
-                          updatedAt: '',
+                          lastHeartbeat: null,
+                          createdAt: now(),
+                          updatedAt: now(),
                         }}
                       />
                       {' '}

@@ -6,6 +6,7 @@ import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceSidebar } from '@/components/workspace/WorkspaceSidebar'
 import { workspaces } from '@/db/schema'
 import { ChannelWithUnreadCounts, DirectMessageChannelWithUnreadCounts, WorkspaceMembershipWithUser } from '@/types/db'
+import { useMemo } from 'react'
 
 interface WorkspaceLayoutClientProps {
   workspace: typeof workspaces.$inferSelect
@@ -28,27 +29,27 @@ export function WorkspaceLayoutClient({
     return null
   }
 
-  const formattedDMChannels = dmChannels.map(channel => ({
-    id: channel.id,
+  const formattedDMChannels = useMemo(() => dmChannels.map(channel => ({
+    ...channel,
     otherUser: {
       id: channel.otherUser.id,
       name: channel.otherUser.name || '',
       profileImage: channel.otherUser.profileImage,
-      status: channel.otherUser.status
+      status: channel.otherUser.status as 'active' | 'away' | 'offline' || 'offline'
     }
-  }))
+  })), [dmChannels])
+
+  const formattedUsers = useMemo(() => users.map(membership => ({
+    ...membership.user,
+    status: membership.user.status as 'active' | 'away' | 'offline' || 'offline'
+  })), [users])
 
   return (
     <div className="flex h-screen overflow-hidden">
       <WorkspaceSidebar
         workspace={workspace}
         channels={channels}
-        users={users.map(membership => ({
-          id: membership.user.id,
-          name: membership.user.name ?? '',
-          profileImage: membership.user.profileImage,
-          status: membership.user.status as 'active' | 'away' | 'offline' || 'offline',
-        }))}
+        users={formattedUsers}
         dmChannels={formattedDMChannels}
       />
       <main className="flex flex-1 flex-col overflow-hidden">

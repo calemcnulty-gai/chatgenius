@@ -97,6 +97,7 @@ export default async function DMChannelPage({
             title: otherMember.user.title,
             timeZone: otherMember.user.timeZone,
             status: otherMember.user.status as 'active' | 'away' | 'offline' || 'offline',
+            lastHeartbeat: otherMember.user.lastHeartbeat,
             createdAt: otherMember.user.createdAt,
             updatedAt: otherMember.user.updatedAt,
           }}

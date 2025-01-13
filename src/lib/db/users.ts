@@ -2,6 +2,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { createTimestamp } from '@/types/timestamp'
 
 export async function getOrCreateUser(clerkUser: {
   id: string
@@ -23,21 +24,35 @@ export async function getOrCreateUser(clerkUser: {
   const email = clerkUser.emailAddresses[0]?.emailAddress
   if (!email) throw new Error('User must have an email address')
 
-  const now = new Date()
-  const newUser = {
-    id: uuidv4(),
-    clerkId: clerkUser.id,
-    name: [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'Anonymous',
-    email,
-    profileImage: clerkUser.imageUrl,
-    displayName: null,
-    title: null,
-    timeZone: 'UTC',
-    status: 'active',
-    createdAt: now,
-    updatedAt: now,
-  }
+  const now = createTimestamp(new Date())
+  const id = uuidv4()
+  const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'Anonymous'
 
-  await db.insert(users).values(newUser)
-  return newUser
+  // Insert the new user
+  const [dbUser] = await db.insert(users)
+    .values({
+      id,
+      clerkId: clerkUser.id,
+      name,
+      email,
+      profileImage: clerkUser.imageUrl,
+      displayName: null,
+      title: null,
+      timeZone: 'UTC',
+      status: 'active',
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: users.clerkId,
+      set: {
+        name,
+        email,
+        profileImage: clerkUser.imageUrl,
+        updatedAt: now,
+      },
+    })
+    .returning()
+
+  return dbUser
 } 

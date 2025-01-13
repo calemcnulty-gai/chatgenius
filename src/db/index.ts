@@ -19,6 +19,4 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 
-export const db = drizzle(pool, { 
-  schema,
-}); 
+export const db = drizzle(pool, { schema }); 
