@@ -1,19 +1,43 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy application files
+COPY . .
+
+# Build application
+RUN npm run build
+
+# Production image
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Install netcat for connection checking
-RUN apk add --no-cache netcat-openbsd
-
-# Install dependencies first (better layer caching)
+# Copy package files
 COPY package*.json ./
-RUN npm ci
 
-# Copy source
-COPY . .
+# Install production dependencies only
+RUN npm ci --production
+
+# Create uploads directory
+RUN mkdir -p public/uploads
+
+# Copy built application
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+
+# Set environment variables
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
 # Expose port
-EXPOSE 3000
+EXPOSE 80
 
-# Run in development mode
-CMD ["npm", "run", "dev"] 
+# Start the application
+CMD ["npm", "start"] 
