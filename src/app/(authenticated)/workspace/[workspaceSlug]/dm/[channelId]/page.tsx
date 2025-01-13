@@ -1,11 +1,12 @@
 import { db } from '@/db'
-import { workspaces, directMessageChannels, directMessageMembers, users } from '@/db/schema'
+import { workspaces, directMessageChannels, directMessageMembers, users, unreadMessages } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { auth, currentUser } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { MessageList } from '@/components/chat/MessageList'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { getOrCreateUser } from '@/lib/db/users'
+import { now } from '@/types/timestamp'
 
 type DMChannel = typeof directMessageChannels.$inferSelect & {
   members: (typeof directMessageMembers.$inferSelect & {
@@ -38,16 +39,16 @@ export default async function DMChannelPage({
     imageUrl: clerkUser.imageUrl,
   })
 
-  // Get workspace by slug
+  // Get workspace
   const workspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, params.workspaceSlug),
   })
 
   if (!workspace) {
-    redirect('/')
+    redirect('/workspace')
   }
 
-  // Get DM channel and verify membership
+  // Get DM channel
   const channel = await db.query.directMessageChannels.findFirst({
     where: eq(directMessageChannels.id, params.channelId),
     with: {
@@ -59,11 +60,26 @@ export default async function DMChannelPage({
     },
   }) as DMChannel | null
 
-  if (!channel || !channel.members.some(member => member.userId === user.id)) {
+  if (!channel) {
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
-  // Get the other user in the DM
+  // Clear unread messages for this channel
+  await db
+    .update(unreadMessages)
+    .set({
+      unreadCount: 0,
+      hasMention: false,
+      updatedAt: now(),
+    })
+    .where(
+      and(
+        eq(unreadMessages.userId, user.id),
+        eq(unreadMessages.dmChannelId, params.channelId)
+      )
+    )
+
+  // Find the other member
   const otherMember = channel.members.find(member => member.userId !== user.id)
   if (!otherMember) {
     redirect(`/workspace/${params.workspaceSlug}`)
@@ -110,7 +126,7 @@ export default async function DMChannelPage({
 
       {/* Messages area */}
       <div className="flex-1">
-        <MessageList channelId={channel.id} />
+        <MessageList channelId={channel.id} variant="dm" />
       </div>
     </div>
   )

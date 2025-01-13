@@ -15,44 +15,40 @@ import { up as addMessageAttachments } from './migrations/0017_add_message_attac
 import { up as addMessageThreadingColumns } from './migrations/0018_add_message_threading_columns'
 import { addLastHeartbeat } from './migrations/0022_add_last_heartbeat'
 import { standardizeAllTimestamps } from './migrations/0024_standardize_all_timestamps'
+import { up as addInvites } from './migrations/0025_add_invites'
+import { addGauntletWorkspace } from './migrations/0026_add_gauntlet_workspace'
 import * as dotenv from 'dotenv'
+import { db, pool } from '.'
 
 // Load environment variables before anything else
 dotenv.config()
 
 async function createDatabaseIfNotExists() {
-  // Connect to postgres database to create our database
-  const pool = new Pool({
-    connectionString: 'postgresql://calemcnulty:@localhost:5432/postgres',
+  // For database creation, we need a temporary connection to postgres database
+  const tempPool = new Pool({
+    connectionString: process.env.DATABASE_URL?.replace('/chatgenius', '/postgres'),
   })
 
   try {
-    const result = await pool.query(
+    const result = await tempPool.query(
       "SELECT 1 FROM pg_database WHERE datname = 'chatgenius'"
     )
 
     if (result.rows.length === 0) {
       console.log('Creating database...')
-      await pool.query('CREATE DATABASE chatgenius')
+      await tempPool.query('CREATE DATABASE chatgenius')
       console.log('Database created successfully')
     } else {
       console.log('Database already exists')
     }
   } finally {
-    await pool.end()
+    await tempPool.end()
   }
 }
 
 async function main() {
   // First ensure the database exists
   await createDatabaseIfNotExists()
-
-  // Now connect to our database
-  const pool = new Pool({
-    connectionString: 'postgresql://calemcnulty:@localhost:5432/chatgenius',
-  })
-
-  const db = drizzle(pool)
 
   try {
     // Test the connection
@@ -108,12 +104,16 @@ async function main() {
     console.log('Standardizing timestamps...')
     await standardizeAllTimestamps()
 
+    console.log('Adding invites table...')
+    await addInvites()
+
+    console.log('Adding Gauntlet workspace...')
+    await addGauntletWorkspace()
+
     console.log('All migrations completed successfully')
   } catch (error) {
     console.error('Error running migrations:', error)
     process.exit(1)
-  } finally {
-    await pool.end()
   }
 }
 

@@ -59,7 +59,7 @@ export function MessageInput({
   }
 
   return (
-    <form onSubmit={handleSubmit} className={cn("border-t border-gray-800 p-4", className)}>
+    <form onSubmit={handleSubmit} className={cn("border-t border-gray-700 bg-gray-900 p-4", className)}>
       <div className="flex items-center gap-2">
         <input
           type="text"

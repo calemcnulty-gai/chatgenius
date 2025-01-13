@@ -120,26 +120,6 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     }
   }
 
-  useEffect(() => {
-    // Update heartbeat
-    const interval = setInterval(() => {
-      if (user?.id) {
-        fetch('/api/users/heartbeat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            timestamp: now()
-          }),
-        }).catch(console.error)
-      }
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [user?.id])
-
   return (
     <div className="flex flex-col">
       <div className="flex items-center justify-between px-2 py-2">

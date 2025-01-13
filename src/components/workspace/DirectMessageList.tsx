@@ -49,60 +49,35 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
       }
 
       setChannels(currentChannels => {
-        console.log('[DirectMessageList] State update starting:', {
-          currentChannels,
-          eventChannelId: data.channelId,
-          activeChannelId: params.channelId
-        })
-        
         // Don't increment unread count if we're currently viewing this channel
         const isActiveChannel = params.channelId === data.channelId
-        console.log(`[DirectMessageList] Active channel check:`, {
-          isActive: isActiveChannel,
-          current: params.channelId,
-          event: data.channelId
+        console.log('[DirectMessageList] Active channel check:', {
+          paramsChannelId: params.channelId,
+          messageChannelId: data.channelId,
+          isActiveChannel,
+          params
         })
-        
         if (isActiveChannel) {
-          console.log(`[DirectMessageList] Skipping update for active channel`)
+          console.log(`[DirectMessageList] Skipping update for active channel ${data.channelId}`)
           return currentChannels
         }
 
         // Find the channel if it exists
         const existingChannel = currentChannels.find(channel => channel.id === data.channelId)
-        console.log(`[DirectMessageList] Channel lookup:`, {
-          found: !!existingChannel,
-          channelId: data.channelId,
-          existingChannelIds: currentChannels.map(c => c.id)
-        })
         
         if (existingChannel) {
-          console.log(`[DirectMessageList] Updating existing channel:`, {
-            channelId: data.channelId,
-            currentUnreadCount: existingChannel.unreadCount
-          })
-          
-          const updatedChannels = currentChannels.map(channel => {
+          console.log(`[DirectMessageList] Updating existing channel ${data.channelId}`)
+          return currentChannels.map(channel => {
             if (channel.id === data.channelId) {
-              const updatedChannel = {
+              return {
                 ...channel,
-                unreadCount: (channel.unreadCount || 0) + 1
+                unreadCount: (channel.unreadCount || 0) + 1,
+                hasMention: true, // DMs always count as mentions
+                updatedAt: data.createdAt // Update the channel's timestamp
               }
-              console.log(`[DirectMessageList] Channel updated:`, {
-                channelId: channel.id,
-                oldUnreadCount: channel.unreadCount,
-                newUnreadCount: updatedChannel.unreadCount
-              })
-              return updatedChannel
             }
             return channel
           })
-          
-          console.log(`[DirectMessageList] Channels after update:`, {
-            channelCount: updatedChannels.length,
-            channels: updatedChannels.map(c => ({ id: c.id, unreadCount: c.unreadCount }))
-          })
-          return updatedChannels
         } else {
           // Create new channel
           console.log(`[DirectMessageList] Creating new channel ${data.channelId}`)
@@ -121,9 +96,7 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
             unreadCount: 1,
             hasMention: true
           }
-          const updatedChannels = [...currentChannels, newChannel]
-          console.log(`[DirectMessageList] Final channels after adding new:`, updatedChannels)
-          return updatedChannels
+          return [...currentChannels, newChannel]
         }
       })
     }
@@ -135,25 +108,16 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
       console.log('[DirectMessageList] Cleaning up event listener')
       userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE, handleNewDirectMessage)
     }
-  }, [user?.id, userChannel])
+  }, [user?.id, userChannel, workspaceId, users])
 
   // Handle active channel changes in a separate effect
   useEffect(() => {
     const currentChannelId = params.channelId
     if (currentChannelId) {
-      console.log(`[DirectMessageList] Channel change detected:`, {
-        newChannelId: currentChannelId,
-        currentChannels: channels.map(c => ({ id: c.id, unreadCount: c.unreadCount }))
-      })
-      
+      // Update local state immediately for smooth UI
       setChannels(currentChannels => {
-        const updatedChannels = currentChannels.map(channel => {
+        return currentChannels.map(channel => {
           if (channel.id === currentChannelId) {
-            console.log(`[DirectMessageList] Resetting unread count:`, {
-              channelId: channel.id,
-              oldCount: channel.unreadCount,
-              newCount: 0
-            })
             return {
               ...channel,
               unreadCount: 0,
@@ -162,28 +126,13 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
           }
           return channel
         })
-        console.log(`[DirectMessageList] Channels after reset:`, {
-          channelCount: updatedChannels.length,
-          channels: updatedChannels.map(c => ({ id: c.id, unreadCount: c.unreadCount }))
-        })
-        return updatedChannels
       })
     }
   }, [params.channelId])
 
-  // Update channels when initial data changes, but preserve local state
+  // Update channels when initial data changes
   useEffect(() => {
-    setChannels(currentChannels => {
-      // Create a map of current channels for easy lookup
-      const currentChannelsMap = new Map(currentChannels.map(channel => [channel.id, channel]))
-      
-      // Update or add channels from initialChannels
-      return initialChannels.map(channel => ({
-        ...channel,
-        // Preserve unread count from current state if it exists
-        unreadCount: currentChannelsMap.get(channel.id)?.unreadCount || channel.unreadCount || 0
-      }))
-    })
+    setChannels(initialChannels)
   }, [initialChannels])
 
   return (

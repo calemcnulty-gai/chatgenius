@@ -7,7 +7,6 @@ import { Message } from '@/components/ui/Message'
 import { MessageInput } from '@/components/ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
-import { Timestamp, createTimestamp, now } from '@/types/timestamp'
 
 type ThreadPanelProps = {
   messageId: string
@@ -116,15 +115,15 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b">
-        <h2 className="text-lg font-semibold">Thread</h2>
-        <button onClick={onClose}>
+    <div className="flex flex-col h-full bg-gray-900 border-l border-gray-700 w-96">
+      <div className="flex items-center justify-between p-4 border-gray-700">
+        <h2 className="text-lg font-semibold text-gray-200">Thread</h2>
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-300">
           <XMarkIcon className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto space-y-4 p-4">
         {/* Parent message */}
         <Message
           id={thread.parentMessage.id}
@@ -138,7 +137,7 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
         />
 
         {/* Thread replies */}
-        <div className="pl-8 space-y-4">
+        <div className="space-y-4">
           {thread.replies.map((reply) => (
             <Message
               key={reply.id}
@@ -155,13 +154,11 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
       </div>
 
       {/* Message input for thread */}
-      <div className="p-4 border-t">
-        <MessageInput
-          channelId={channelId}
-          parentMessageId={messageId}
-          placeholder="Reply to thread..."
-        />
-      </div>
+      <MessageInput
+        channelId={channelId}
+        parentMessageId={messageId}
+        placeholder="Reply to thread..."
+      />
     </div>
   )
 } 

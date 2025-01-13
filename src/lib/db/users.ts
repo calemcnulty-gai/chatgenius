@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { users } from '@/db/schema'
+import { users, workspaceMemberships, workspaces } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createTimestamp } from '@/types/timestamp'
@@ -53,6 +53,27 @@ export async function getOrCreateUser(clerkUser: {
       },
     })
     .returning()
+
+  // Get the Gauntlet workspace
+  const gauntletWorkspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.slug, 'gauntlet'),
+  })
+
+  if (gauntletWorkspace) {
+    // Add user to the Gauntlet workspace
+    await db.insert(workspaceMemberships)
+      .values({
+        id: uuidv4(),
+        workspaceId: gauntletWorkspace.id,
+        userId: dbUser.id,
+        role: 'member',
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing({
+        target: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+      })
+  }
 
   return dbUser
 } 

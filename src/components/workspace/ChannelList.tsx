@@ -115,11 +115,12 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
 
   return (
     <div>
-      <div className="flex items-center justify-between px-3 py-2">
-        <h2 className="text-sm font-semibold text-gray-400">Channels</h2>
+      <div className="flex items-center justify-between px-2 mb-2">
+        <h2 className="text-sm font-semibold uppercase text-gray-400">Channels</h2>
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="text-gray-400 hover:text-gray-200"
+          className="text-gray-400 hover:text-gray-300"
+          title="Create Channel"
         >
           <PlusIcon className="h-4 w-4" />
         </button>

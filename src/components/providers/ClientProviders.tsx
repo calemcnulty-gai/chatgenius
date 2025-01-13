@@ -11,25 +11,26 @@ function AuthSyncWrapper({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  // Get initial user data
   useEffect(() => {
-    // Get initial user data
-    setIsLoading(true)
-    fetch('/api/auth/sync', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-      .then(response => response.json())
-      .then(data => {
+    const syncUser = async () => {
+      try {
+        const response = await fetch('/api/auth/sync', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        const data = await response.json()
         setUser(data)
-      })
-      .catch(error => {
+      } catch (error) {
         console.error('Error syncing user:', error)
-      })
-      .finally(() => {
+      } finally {
         setIsLoading(false)
-      })
+      }
+    }
+
+    syncUser()
   }, [])
 
   // Show loading state while we fetch user data

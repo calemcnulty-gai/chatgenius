@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
-import { workspaces, workspaceMemberships } from '@/db/schema'
+import { workspaces, workspaceMemberships, channels } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getOrCreateUser } from '@/lib/db/users'
@@ -88,6 +88,15 @@ export async function POST(req: Request) {
       workspaceId: workspace.id,
       userId: user.id,
       role: 'owner',
+    })
+
+    // Create #general channel
+    await db.insert(channels).values({
+      id: uuidv4(),
+      workspaceId: workspace.id,
+      name: 'general',
+      slug: 'general',
+      type: 'public',
     })
 
     return NextResponse.json(workspace)
