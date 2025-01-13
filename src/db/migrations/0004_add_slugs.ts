@@ -3,7 +3,13 @@ import { v4 as uuidv4 } from 'uuid'
 import { db } from '..'
 import { workspaces, channels } from '../schema'
 import { eq, and } from 'drizzle-orm'
-import { generateSlug } from '@/lib/utils'
+
+function generateSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
 
 async function generateUniqueSlug(name: string, table: 'workspaces' | 'channels', workspaceId?: string) {
   let baseSlug = generateSlug(name);
