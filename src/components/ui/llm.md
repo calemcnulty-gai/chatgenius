@@ -79,12 +79,15 @@ Key features:
   - Handles message submission
   - Supports parent messages for threads
   - Context-agnostic (works in any messaging context)
+  - Supports AI commands with RAG integration
   - Props:
     - `channelId`: Target channel identifier
     - `parentMessageId`: Optional parent message for threads
     - `onMessageSent`: Callback after successful message send
     - `placeholder`: Custom input placeholder
     - `className`: Additional styling classes
+  - Commands:
+    - `/ai [query]`: Retrieves relevant documents and generates AI responses using RAG
 
 ### Layout Components
 - `Skeleton`: Loading state placeholders

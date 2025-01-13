@@ -56,11 +56,19 @@ Props:
 3. Real-time updates are received via Pusher
 4. Messages are rendered with proper threading support
 
+### AI Integration
+1. Users can trigger AI responses using the `/ai` command
+2. The command is processed by the RAG endpoint
+3. Relevant documents are retrieved from Pinecone
+4. AI generates a response using the context
+5. Response and sources are formatted and sent as a message
+
 ### Component Relationships
 - MessageList uses shared MessageInput for composition
 - ThreadPanel uses shared MessageInput for replies
 - Message components handle individual message display
 - All components use shared UI elements from @/components/ui
+- AI responses are formatted and displayed as regular messages
 
 ### State Management
 - Real-time updates through PusherContext

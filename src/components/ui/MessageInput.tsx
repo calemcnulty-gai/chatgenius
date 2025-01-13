@@ -28,6 +28,45 @@ export function MessageInput({
 
     setIsSubmitting(true)
     try {
+      // Check if this is an /ai command
+      if (content.trim().startsWith('/ai ')) {
+        const query = content.trim().slice(4) // Remove '/ai ' prefix
+        const response = await fetch('/api/rag', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ query }),
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to process AI command')
+        }
+
+        const result = await response.json()
+        
+        // Send the AI response as a message
+        const messageResponse = await fetch('/api/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            content: `Query: ${query}\n\nResponse: ${result.response}\n\nSources:\n${result.context.map((ctx: any) => `- ${ctx.source}: ${ctx.content}`).join('\n')}`,
+            channelId,
+            parentMessageId
+          }),
+        })
+
+        if (!messageResponse.ok) {
+          throw new Error('Failed to send AI response message')
+        }
+
+        setContent('')
+        onMessageSent?.()
+        return
+      }
+
       // If this is a thread reply, use the thread endpoint
       const endpoint = parentMessageId 
         ? `/api/messages/${parentMessageId}/replies`
