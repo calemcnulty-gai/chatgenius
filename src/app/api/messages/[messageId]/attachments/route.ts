@@ -2,24 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/db'
 import { messages } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
 
-const UPLOAD_DIR = 'public/uploads'
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+
+// Initialize S3 client
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION!,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+})
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { messageId: string } }
 ) {
   try {
-    // Ensure upload directory exists
-    if (!existsSync(UPLOAD_DIR)) {
-      await mkdir(UPLOAD_DIR, { recursive: true })
-    }
-
     const formData = await request.formData()
     const file = formData.get('file') as File
 
@@ -48,13 +50,24 @@ export async function POST(
 
     // Generate unique filename
     const ext = file.type.split('/')[1]
-    const filename = `${params.messageId}-${Date.now()}.${ext}`
-    const filepath = join(UPLOAD_DIR, filename)
+    const filename = `messages/${params.messageId}/${Date.now()}.${ext}`
 
-    // Save file
+    // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
+
+    // Upload to S3
+    const putCommand = new PutObjectCommand({
+      Bucket: process.env.AWS_BUCKET_NAME!,
+      Key: filename,
+      Body: buffer,
+      ContentType: file.type,
+    })
+
+    await s3Client.send(putCommand)
+
+    // Generate a signed URL for immediate access
+    const url = await getSignedUrl(s3Client, putCommand, { expiresIn: 3600 })
 
     // Update message attachments in database
     const message = await db.query.messages.findFirst({
@@ -77,7 +90,7 @@ export async function POST(
       .set({ attachments: updatedAttachments })
       .where(eq(messages.id, params.messageId))
 
-    return NextResponse.json({ filename })
+    return NextResponse.json({ filename, url })
 
   } catch (error) {
     console.error('Error handling file upload:', error)
@@ -105,7 +118,20 @@ export async function GET(
     }
 
     const attachments = message.attachments as { files?: string[] } || { files: [] }
-    return NextResponse.json(attachments)
+
+    // Generate signed URLs for each attachment
+    const filesWithUrls = await Promise.all(
+      (attachments.files || []).map(async (filename) => {
+        const command = new PutObjectCommand({
+          Bucket: process.env.AWS_BUCKET_NAME!,
+          Key: filename,
+        })
+        const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 })
+        return { filename, url }
+      })
+    )
+
+    return NextResponse.json({ files: filesWithUrls })
 
   } catch (error) {
     console.error('Error fetching attachments:', error)

@@ -6,6 +6,7 @@ import { UserDisplay } from "./UserDisplay";
 import { format } from "date-fns";
 import { ChatBubbleLeftRightIcon } from '@heroicons/react/24/outline';
 import { Timestamp, parseTimestamp } from '@/types/timestamp';
+import { MessageAttachments } from './MessageAttachments';
 
 export type MessageVariant = 'channel' | 'thread' | 'dm';
 
@@ -90,17 +91,9 @@ export function Message({
             </span>
           </div>
           <p className="text-sm text-gray-300 mt-0.5">{content}</p>
+          {/* Display attachments */}
           {attachments?.files && attachments.files.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-2">
-              {attachments.files.map((filename) => (
-                <img
-                  key={filename}
-                  src={`/uploads/${filename}`}
-                  alt="Attached image"
-                  className="max-w-sm rounded-lg border border-gray-700 hover:border-gray-600 transition-colors"
-                />
-              ))}
-            </div>
+            <MessageAttachments messageId={id} className="mt-2" />
           )}
           {/* Show thread UI for channel messages that aren't already in a thread */}
           {variant === 'channel' && !parentMessageId && (
