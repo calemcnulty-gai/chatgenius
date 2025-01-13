@@ -5,19 +5,14 @@ WORKDIR /app
 # Copy package files and env
 COPY package*.json .env ./
 
-# Install dependencies including TypeScript
-RUN npm ci && npm install typescript @types/node
+# Install dependencies
+RUN npm ci
 
 # Copy application files
 COPY . .
 
-# Build application and compile migrations
-RUN npm run build && \
-    mkdir -p dist && \
-    echo "Compiling migrations..." && \
-    npx tsc src/db/migrate.ts --outDir dist --esModuleInterop true --skipLibCheck true --module commonjs && \
-    ls -la dist && \
-    cat dist/migrate.js
+# Build application
+RUN npm run build
 
 # Production image
 FROM node:20-alpine
@@ -33,11 +28,10 @@ RUN npm ci --production
 # Create uploads directory
 RUN mkdir -p public/uploads
 
-# Copy built application and migrations
+# Copy built application
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/src/db ./src/db
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/src ./src
 
 # Set environment variables
 ENV NODE_ENV=production
