@@ -8,7 +8,21 @@ const GAUNTLET_WORKSPACE_ID = '00000000-0000-0000-0000-000000000002'
 const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000003'
 
 export async function addGauntletWorkspace() {
-  // Get or create the system user
+  // First, get the current system user's ID if it exists
+  const { rows: [existingUser] } = await pool.query<{ id: string }>(`
+    SELECT id FROM users WHERE clerk_id = 'system';
+  `)
+
+  if (existingUser) {
+    // Update any workspaces owned by the current system user to use our fixed UUID
+    await pool.query(`
+      UPDATE workspaces 
+      SET owner_id = $1 
+      WHERE owner_id = $2;
+    `, [SYSTEM_USER_ID, existingUser.id])
+  }
+
+  // Now we can safely update or create the system user
   await db.execute(sql`
     INSERT INTO users (id, clerk_id, name, email, time_zone, status, created_at, updated_at)
     VALUES (
