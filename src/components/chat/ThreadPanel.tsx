@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { MessageWithSender as MessageType } from '@/types/db'
+import type { User } from '@/types/user'
+import type { Timestamp } from '@/types/timestamp'
 import { Message } from '@/components/ui/Message'
 import { MessageInput } from '@/components/ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
@@ -15,15 +16,30 @@ type ThreadPanelProps = {
 }
 
 type ThreadData = {
-  parentMessage: MessageType & {
+  parentMessage: {
+    id: string
+    content: string
+    createdAt: Timestamp
     channelId?: string
     dmChannelId?: string
+    replyCount: number
+    latestReplyAt?: Timestamp | null
+    sender: User
   }
-  replies: MessageType[]
+  replies: {
+    id: string
+    content: string
+    createdAt: Timestamp
+    sender: User
+  }[]
 }
 
-type ThreadReply = MessageType & {
+type ThreadReply = {
+  id: string
+  content: string
+  createdAt: Timestamp
   channelId: string
+  sender: User
 }
 
 export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps) {
@@ -62,12 +78,7 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
             id: data.id,
             content: data.content,
             createdAt: data.createdAt,
-            editedAt: null,
-            latestReplyAt: null,
-            senderId: data.senderId,
-            parentMessageId: data.parentMessageId,
             channelId: data.channelId,
-            replyCount: 0,
             sender: {
               id: data.senderId,
               name: data.senderName,
@@ -76,6 +87,11 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
               createdAt: data.createdAt,
               updatedAt: data.createdAt,
               profileImage: data.senderProfileImage,
+              status: 'offline' as const,
+              displayName: null,
+              title: null,
+              timeZone: null,
+              lastHeartbeat: null
             }
           }
           return {

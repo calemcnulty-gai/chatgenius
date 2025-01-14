@@ -1,9 +1,11 @@
 import { auth } from '@clerk/nextjs'
 import { db } from '@/db'
-import { messages, users, workspaceMemberships } from '@/db/schema'
+import { messages, users, workspaceMemberships, channels, workspaces } from '@/db/schema'
 import { eq, sql } from 'drizzle-orm'
 import { pusherServer } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
+import { v4 as uuidv4 } from 'uuid'
+import { now } from '@/types/timestamp'
 
 export async function POST(
   req: Request,
@@ -40,7 +42,11 @@ export async function POST(
           }
         }
       }
-    })
+    }) as (typeof messages.$inferSelect & {
+      channel: typeof channels.$inferSelect & {
+        workspace: typeof workspaces.$inferSelect
+      }
+    }) | null
 
     if (!parentMessage) {
       return Response.json({ error: 'Parent message not found' }, { status: 404 })
@@ -57,13 +63,11 @@ export async function POST(
     const [reply] = await db.insert(messages).values({
       content: content.trim(),
       channelId,
+      dmChannelId: null,
       senderId: user.id,
       parentMessageId: params.messageId,
-      createdAt: timestamp,
-      updatedAt: timestamp,
       replyCount: 0,
-      latestReplyAt: null,
-      editedAt: null,
+      attachments: null,
     }).returning()
 
     // Update the parent message's reply count and latest reply timestamp
@@ -71,8 +75,8 @@ export async function POST(
       .update(messages)
       .set({
         replyCount: (parentMessage.replyCount || 0) + 1,
-        latestReplyAt: timestamp,
-        updatedAt: timestamp,
+        latestReplyAt: now(),
+        updatedAt: now(),
       })
       .where(eq(messages.id, params.messageId))
 

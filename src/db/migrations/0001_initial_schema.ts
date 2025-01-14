@@ -24,6 +24,7 @@ export async function up() {
       id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
       name TEXT NOT NULL,
       slug TEXT NOT NULL UNIQUE,
+      description TEXT,
       owner_id UUID NOT NULL REFERENCES users(id),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
@@ -37,7 +38,8 @@ export async function up() {
       slug TEXT NOT NULL,
       workspace_id UUID NOT NULL REFERENCES workspaces(id),
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      UNIQUE (workspace_id, slug)
     );
 
     -- Create direct_message_channels table
@@ -68,7 +70,8 @@ export async function up() {
       reply_count INTEGER DEFAULT 0 NOT NULL,
       latest_reply_at TIMESTAMP WITH TIME ZONE,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      edited_at TIMESTAMP WITH TIME ZONE
+      edited_at TIMESTAMP WITH TIME ZONE,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
     );
 
     -- Create workspace_memberships table
@@ -87,7 +90,8 @@ export async function up() {
       user_id UUID NOT NULL REFERENCES users(id),
       type TEXT NOT NULL,
       read BOOLEAN NOT NULL DEFAULT false,
-      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
     );
 
     -- Create unread_messages table
@@ -110,6 +114,8 @@ export async function up() {
       inviter_id UUID NOT NULL REFERENCES users(id),
       email TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
+      token TEXT NOT NULL,
+      expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
     );

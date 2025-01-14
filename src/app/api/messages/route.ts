@@ -143,6 +143,7 @@ export async function POST(req: Request) {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
       editedAt: message.editedAt,
       latestReplyAt: message.latestReplyAt,
       senderId: user.id,
@@ -150,6 +151,7 @@ export async function POST(req: Request) {
       dmChannelId: message.dmChannelId,
       parentMessageId: message.parentMessageId,
       replyCount: message.replyCount,
+      attachments: message.attachments,
       sender: {
         id: user.id,
         name: user.name,
@@ -158,6 +160,11 @@ export async function POST(req: Request) {
         profileImage: user.profileImage,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        status: 'offline' as const,
+        displayName: null,
+        title: null,
+        timeZone: null,
+        lastHeartbeat: null
       }
     }
 
@@ -208,7 +215,9 @@ export async function POST(req: Request) {
         with: {
           sender: true
         }
-      })
+      }) as (typeof messages.$inferSelect & {
+        sender: typeof users.$inferSelect
+      })[]
 
       // Get unique participant IDs (excluding the current sender)
       const participantIds = [...new Set(
@@ -399,7 +408,9 @@ export async function GET(request: Request) {
       },
       orderBy: (messages, { asc }) => [asc(messages.createdAt)],
       limit: 50,
-    })
+    }) as (typeof messages.$inferSelect & {
+      sender: typeof users.$inferSelect
+    })[]
 
     // Get the next cursor
     const nextCursor = results.length === 50 ? results[results.length - 1].createdAt : undefined
@@ -424,7 +435,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       messages: formattedMessages,
       hasMore: results.length === 50,
-      nextCursor: nextCursor ? createTimestamp(nextCursor) : undefined,
+      nextCursor: nextCursor || undefined,
     })
   } catch (error) {
     console.error('Error fetching messages:', error)

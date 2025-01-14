@@ -55,13 +55,15 @@ export async function up() {
           channel_id,
           sender_id,
           content,
-          created_at
+          created_at,
+          updated_at
         )
         VALUES (
           ${uuidv4()},
           ${channel.id},
           ${sender.id},
           ${message.content},
+          CURRENT_TIMESTAMP,
           CURRENT_TIMESTAMP
         );
       `)
