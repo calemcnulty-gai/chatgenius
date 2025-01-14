@@ -225,6 +225,7 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         isOpen={isStartDMModalOpen}
         onClose={() => setIsStartDMModalOpen(false)}
         workspaceId={workspaceId}
+        workspaceSlug={params.workspaceSlug as string}
         users={users}
       />
     </>

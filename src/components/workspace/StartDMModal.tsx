@@ -12,10 +12,11 @@ type StartDMModalProps = {
   isOpen: boolean
   onClose: () => void
   workspaceId: string
+  workspaceSlug: string
   users: User[]
 }
 
-export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMModalProps) {
+export function StartDMModal({ isOpen, onClose, workspaceId, workspaceSlug, users }: StartDMModalProps) {
   const router = useRouter()
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -28,6 +29,7 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
     setError(null)
 
     try {
+      console.log('Starting DM creation...')
       const response = await fetch('/api/dm/create', {
         method: 'POST',
         headers: {
@@ -45,11 +47,10 @@ export function StartDMModal({ isOpen, onClose, workspaceId, users }: StartDMMod
       }
 
       const { channelId } = await response.json()
+      console.log('DM channel created:', channelId)
       
-      // Wait for a short delay to allow Pusher to deliver the channel data
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      router.push(`/workspace/${workspaceId}/dm/${channelId}`)
+      console.log('Navigating to channel:', `/workspace/${workspaceSlug}/dm/${channelId}`)
+      router.push(`/workspace/${workspaceSlug}/dm/${channelId}`)
       onClose()
     } catch (error) {
       console.error('Error starting DM:', error)
