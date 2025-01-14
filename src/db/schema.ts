@@ -56,23 +56,26 @@ export const directMessageChannels = pgTable('direct_message_channels', {
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
-// Define messages table reference first to break circular dependency
-const messagesTable = 'messages'
-
-// Initialize messages table
-export const messages = pgTable(messagesTable, {
+// Define table structure first
+const messagesConfig = {
   id: uuid('id').primaryKey().defaultRandom(),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
   senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   attachments: jsonb('attachments'),
-  parentMessageId: uuid('parent_message_id').references(() => messages.id),
+  parentMessageId: uuid('parent_message_id'),  // Add reference after table creation
   replyCount: integer('reply_count').notNull().default(0),
   latestReplyAt: timestampString('latest_reply_at'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   editedAt: timestampString('edited_at'),
-})
+} as const;
+
+// Create table
+export const messages = pgTable('messages', messagesConfig);
+
+// Add self-reference after table creation
+messagesConfig.parentMessageId.references(() => messages.id);
 
 export const messagesRelations = relations(messages, ({ one }) => ({
   sender: one(users, {
