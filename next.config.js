@@ -12,7 +12,7 @@ const nextConfig = {
     workerThreads: true
   },
   compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
+    removeConsole: false,
   },
   poweredByHeader: false,
   reactStrictMode: true,
