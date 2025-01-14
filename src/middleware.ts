@@ -37,4 +37,5 @@ export const config = {
     "/",
     "/api/((?!webhooks).*)"
   ],
+  runtime: 'nodejs'
 }; 
