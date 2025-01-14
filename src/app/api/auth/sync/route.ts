@@ -3,16 +3,36 @@ import { auth, currentUser } from '@clerk/nextjs'
 import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST() {
+  console.log('🔍 Sync route called')
   try {
-    const { userId } = auth()
+    console.log('🔑 Getting auth...')
+    const authResult = auth()
+    console.log('📦 Auth result:', authResult)
+    
+    const { userId } = authResult
+    console.log('👤 UserId from auth:', userId)
+
     if (!userId) {
+      console.log('❌ No userId found in auth result')
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
+    console.log('🔎 Getting current user...')
     const user = await currentUser()
+    console.log('📦 Current user result:', JSON.stringify(user, null, 2))
+
     if (!user) {
+      console.log('❌ No user found from currentUser()')
       return new NextResponse('User not found', { status: 404 })
     }
+
+    console.log('💾 Calling getOrCreateUser with params:', {
+      id: userId,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      emailAddresses: user.emailAddresses,
+      imageUrl: user.imageUrl,
+    })
 
     // Get or create user in our database
     const dbUser = await getOrCreateUser({
@@ -23,13 +43,16 @@ export async function POST() {
       imageUrl: user.imageUrl,
     })
 
+    console.log('✅ DB User result:', dbUser)
+
     // Return the user with the internal database ID as the id field
     return NextResponse.json({
       ...dbUser,
       id: dbUser.id,
     })
   } catch (error) {
-    console.error('Error syncing user:', error)
+    console.error('🚨 Error in sync route:', error)
+    console.error('Error stack:', error.stack)
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 
