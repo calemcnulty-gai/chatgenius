@@ -1,32 +1,36 @@
 import { sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { db } from '..'
-import { workspaces, channels } from '../schema'
-import { eq, and } from 'drizzle-orm'
-import { generateSlug } from '@/lib/utils'
 
-export async function addGeneralChannels() {
+export async function up(db: any) {
   // Get all workspaces
-  const existingWorkspaces = await db.select().from(workspaces)
+  const { rows: workspaces } = await db.execute(sql`
+    SELECT id FROM workspaces;
+  `)
 
-  // For each workspace, check if it has a general channel
-  for (const workspace of existingWorkspaces) {
-    const existingChannel = await db.query.channels.findFirst({
-      where: and(
-        eq(channels.workspaceId, workspace.id),
-        eq(channels.name, 'general')
-      ),
-    })
-
-    if (!existingChannel) {
-      // Create general channel if it doesn't exist
-      await db.insert(channels).values({
-        id: uuidv4(),
-        workspaceId: workspace.id,
-        name: 'general',
-        slug: 'general',
-        type: 'public',
-      })
-    }
+  // Add a general channel to each workspace
+  for (const workspace of workspaces) {
+    await db.execute(sql`
+      INSERT INTO channels (
+        id,
+        workspace_id,
+        name,
+        slug,
+        type
+      )
+      VALUES (
+        ${uuidv4()},
+        ${workspace.id},
+        'general',
+        'general',
+        'public'
+      )
+      ON CONFLICT (workspace_id, slug) DO NOTHING;
+    `)
   }
+}
+
+export async function down(db: any) {
+  await db.execute(sql`
+    DELETE FROM channels WHERE name = 'general';
+  `)
 } 
