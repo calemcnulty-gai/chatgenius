@@ -19,6 +19,8 @@ import { up as addInvites } from './migrations/0025_add_invites'
 import { addGauntletWorkspace } from './migrations/0026_add_gauntlet_workspace'
 import { up as addAiUsers } from './migrations/0028_add_ai_users'
 import { up as addAiTrashTalk } from './migrations/0029_add_ai_trash_talk'
+import { up as fixGauntletWorkspace } from './migrations/0030_fix_gauntlet_workspace'
+import { up as fixAiMessages } from './migrations/0031_fix_ai_messages'
 import * as dotenv from 'dotenv'
 import { db, pool } from '.'
 import { sql } from 'drizzle-orm'
@@ -110,6 +112,12 @@ async function main() {
 
     console.log('Adding AI trash talk...')
     await addAiTrashTalk()
+
+    console.log('Fixing Gauntlet workspace...')
+    await fixGauntletWorkspace()
+
+    console.log('Fixing AI messages...')
+    await fixAiMessages()
 
     console.log('All migrations completed successfully')
   } catch (error) {
