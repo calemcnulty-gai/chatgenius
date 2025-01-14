@@ -36,7 +36,21 @@ export async function up() {
     );
   `, [generalChannel.id])
 
-  // Then delete the old general channels
+  // Then update unread messages to point to the correct channel
+  await pool.query(`
+    UPDATE unread_messages 
+    SET channel_id = $1
+    WHERE channel_id IN (
+      SELECT c.id 
+      FROM channels c
+      JOIN workspaces w ON c.workspace_id = w.id
+      WHERE w.slug LIKE 'gauntlet%'
+      AND c.id != $1
+      AND (c.slug = 'general' OR c.slug = 'general-2')
+    );
+  `, [generalChannel.id])
+
+  // Finally delete the old general channels
   await pool.query(`
     DELETE FROM channels 
     WHERE id IN (
