@@ -16,17 +16,15 @@ services:
       retries: 5
     ports:
       - "5432:5432"
-    command: >
-      bash -c "
-        echo 'Starting PostgreSQL...' &&
-        docker-entrypoint.sh postgres 2>&1 | tee /var/log/postgres.log"
+    command: |
+      bash -c "echo 'Starting PostgreSQL...' && docker-entrypoint.sh postgres 2>&1 | tee /var/log/postgres.log"
 
   db_setup:
     image: postgres:15
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-    command: >
+    command: |
       bash -c "
         echo 'Starting db_setup...' &&
         until pg_isready -h db -U postgres; do 
@@ -73,13 +71,8 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
-    command: >
-      sh -c "
-        echo 'Starting web service...' &&
-        (npm start 2>&1 | tee /app/web.log) || (
-          echo 'Web service failed with exit code $?' &&
-          tail -f /app/web.log
-        )"
+    command: |
+      sh -c "echo 'Starting web service...' && (npm start 2>&1 | tee /app/web.log) || (echo 'Web service failed with exit code $?' && tail -f /app/web.log)"
 
   nginx:
     image: nginx:alpine
@@ -91,13 +84,8 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - web
-    command: >
-      sh -c "
-        echo 'Starting nginx...' &&
-        (nginx -g 'daemon off;' 2>&1 | tee /var/log/nginx.log) || (
-          echo 'Nginx failed with exit code $?' &&
-          tail -f /var/log/nginx.log
-        )"
+    command: |
+      sh -c "echo 'Starting nginx...' && (nginx -g 'daemon off;' 2>&1 | tee /var/log/nginx.log) || (echo 'Nginx failed with exit code $?' && tail -f /var/log/nginx.log)"
 
 volumes:
   postgres_data: 
