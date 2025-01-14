@@ -72,23 +72,39 @@ export const workspaceMemberships = pgTable('workspace_memberships', {
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
-// Declare messages type to avoid circular reference
-let messages: PgTableWithColumns<any>
-
 // Initialize messages table
-messages = pgTable('messages', {
+export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
-  senderId: uuid('sender_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   attachments: jsonb('attachments'),
+  parentMessageId: uuid('parent_message_id').references(() => messages.id),
+  replyCount: integer('reply_count').notNull().default(0),
+  latestReplyAt: timestampString('latest_reply_at'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   editedAt: timestampString('edited_at'),
-  parentMessageId: uuid('parent_message_id'),
-  replyCount: integer('reply_count').default(0).notNull(),
-  latestReplyAt: timestampString('latest_reply_at'),
 })
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  sender: one(users, {
+    fields: [messages.senderId],
+    references: [users.id],
+  }),
+  channel: one(channels, {
+    fields: [messages.channelId],
+    references: [channels.id],
+  }),
+  dmChannel: one(directMessageChannels, {
+    fields: [messages.dmChannelId],
+    references: [directMessageChannels.id],
+  }),
+  parentMessage: one(messages, {
+    fields: [messages.parentMessageId],
+    references: [messages.id],
+  }),
+}))
 
 export { messages }
 
@@ -124,14 +140,12 @@ export const notifications = pgTable('notifications', {
 
 export const invites = pgTable('invites', {
   id: uuid('id').primaryKey().defaultRandom(),
-  workspaceId: uuid('workspace_id')
-    .notNull()
-    .references(() => workspaces.id),
-  inviterId: uuid('inviter_id')
-    .notNull()
-    .references(() => users.id),
+  workspaceId: uuid('workspace_id').notNull().references(() => workspaces.id),
+  inviterId: uuid('inviter_id').notNull().references(() => users.id),
   email: text('email').notNull(),
   status: text('status').notNull().default('pending'),
+  token: text('token').notNull(),
+  expiresAt: timestampString('expires_at').notNull(),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
@@ -187,27 +201,6 @@ export const directMessageMembersRelations = relations(directMessageMembers, ({ 
     fields: [directMessageMembers.userId],
     references: [users.id],
   }),
-}))
-
-export const messagesRelations = relations(messages, ({ one, many }) => ({
-  sender: one(users, {
-    fields: [messages.senderId],
-    references: [users.id],
-  }),
-  channel: one(channels, {
-    fields: [messages.channelId],
-    references: [channels.id],
-  }),
-  dmChannel: one(directMessageChannels, {
-    fields: [messages.dmChannelId],
-    references: [directMessageChannels.id],
-  }),
-  // Add thread relations with correct field mappings
-  parentMessage: one(messages, {
-    fields: [messages.parentMessageId],
-    references: [messages.id],
-  }),
-  replies: many(messages),
 }))
 
 export const unreadMessagesRelations = relations(unreadMessages, ({ one }) => ({
