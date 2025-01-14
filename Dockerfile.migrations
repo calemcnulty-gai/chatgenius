@@ -2,6 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Install wait-for-it
+RUN apk add --no-cache bash postgresql-client
+
 # Copy package files and env
 COPY package*.json .env ./
 
@@ -11,5 +14,5 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Run migrations and generate types
-CMD sh -c "npm run db:migrate && npm run db:generate" 
+# Run migrations and generate types with retry
+CMD sh -c "until pg_isready -h db -U postgres; do echo 'Waiting for postgres...'; sleep 2; done; npm run db:migrate && npm run db:generate" 

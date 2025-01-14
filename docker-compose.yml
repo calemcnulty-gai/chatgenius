@@ -6,16 +6,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=chatgenius
-    command: >
-      bash -c "
-        echo 'Dropping existing connections...' &&
-        psql -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'' AND pid <> pg_backend_pid();' &&
-        echo 'Dropping and recreating database...' &&
-        dropdb -U postgres --if-exists chatgenius &&
-        createdb -U postgres chatgenius &&
-        echo 'Database reset complete.' &&
-        postgres"
+      - POSTGRES_DB=postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -26,6 +17,25 @@ services:
     ports:
       - "5432:5432"
 
+  db_setup:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    command: >
+      bash -c "
+        echo 'Waiting for postgres...' &&
+        until pg_isready -h db -U postgres; do sleep 1; done &&
+        echo 'Dropping existing connections...' &&
+        psql -h db -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'' AND pid <> pg_backend_pid();' &&
+        echo 'Dropping and recreating database...' &&
+        dropdb -h db -U postgres --if-exists chatgenius &&
+        createdb -h db -U postgres chatgenius &&
+        echo 'Database reset complete.'"
+    depends_on:
+      db:
+        condition: service_healthy
+
   migrations:
     build:
       context: .
@@ -33,8 +43,8 @@ services:
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
     depends_on:
-      db:
-        condition: service_healthy
+      db_setup:
+        condition: service_completed_successfully
 
   web:
     build:
