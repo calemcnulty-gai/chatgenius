@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { createTimestamp } from './utils'
 
 // Import the messages from the JSON file
-import trashTalk from './trash_talk.json'
+import trashTalk from './data/trash_talk.json'
 
 export async function up() {
     // Get the Gauntlet workspace ID
@@ -59,18 +59,20 @@ export async function down() {
         SELECT id FROM workspaces WHERE slug = 'gauntlet';
     `)
 
-    // Get the general channel ID
-    const { rows: [generalChannel] } = await pool.query<{ id: string }>(`
+    // Get all general channels
+    const { rows: generalChannels } = await pool.query<{ id: string }>(`
         SELECT id FROM channels 
         WHERE workspace_id = $1 AND slug = 'general';
     `, [gauntletWorkspace.id])
 
-    // Delete all messages from AI users in the general channel
-    await pool.query(`
-        DELETE FROM messages
-        WHERE channel_id = $1
-        AND sender_id IN (
-            SELECT id FROM users WHERE clerk_id LIKE 'ai-%'
-        );
-    `, [generalChannel.id])
+    // Delete all messages from AI users in all general channels
+    for (const channel of generalChannels) {
+        await pool.query(`
+            DELETE FROM messages
+            WHERE channel_id = $1
+            AND sender_id IN (
+                SELECT id FROM users WHERE clerk_id LIKE 'ai-%'
+            );
+        `, [channel.id])
+    }
 } 
