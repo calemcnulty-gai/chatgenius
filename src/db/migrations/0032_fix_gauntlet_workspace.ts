@@ -29,6 +29,35 @@ export async function up() {
     );
   `)
 
+  // Move unread messages to the correct channel
+  await db.execute(sql`
+    WITH old_channels AS (
+      SELECT c.id
+      FROM channels c
+      JOIN workspaces w ON c.workspace_id = w.id
+      WHERE w.slug = 'gauntlet'
+      AND c.slug IN ('general', 'general-2')
+      AND c.id != (
+        SELECT id 
+        FROM channels 
+        WHERE workspace_id = ${GAUNTLET_WORKSPACE_ID} 
+        AND slug = 'general'
+        ORDER BY created_at DESC 
+        LIMIT 1
+      )
+    )
+    UPDATE unread_messages
+    SET channel_id = (
+      SELECT id 
+      FROM channels 
+      WHERE workspace_id = ${GAUNTLET_WORKSPACE_ID} 
+      AND slug = 'general'
+      ORDER BY created_at DESC 
+      LIMIT 1
+    )
+    WHERE channel_id IN (SELECT id FROM old_channels);
+  `)
+
   // Delete all other Gauntlet workspaces
   await db.execute(sql`
     DELETE FROM workspaces 
