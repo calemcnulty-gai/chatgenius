@@ -22,10 +22,6 @@ RUN npm run db:generate
 # Build the application
 RUN set -ex; \
     npm run build \
-    --loglevel verbose \
-    -- \
-    --debug \
-    --trace-warnings \
     2>&1 | tee build.log; \
     if [ ! -d .next ]; then \
         echo "Build failed - .next directory not created"; \
