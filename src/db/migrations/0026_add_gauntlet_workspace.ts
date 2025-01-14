@@ -8,7 +8,7 @@ const GAUNTLET_WORKSPACE_ID = '00000000-0000-0000-0000-000000000002'
 const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000003'
 
 export async function addGauntletWorkspace() {
-  // Create the system user first
+  // Get or create the system user
   await db.execute(sql`
     INSERT INTO users (id, clerk_id, name, email, time_zone, status, created_at, updated_at)
     VALUES (
@@ -21,7 +21,13 @@ export async function addGauntletWorkspace() {
       ${createTimestamp(new Date())},
       ${createTimestamp(new Date())}
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (clerk_id) 
+    DO UPDATE SET 
+      id = ${SYSTEM_USER_ID},
+      name = 'System',
+      email = 'system@chatgenius.local',
+      time_zone = 'UTC',
+      status = 'active';
   `)
 
   // Create the Gauntlet workspace if it doesn't exist
