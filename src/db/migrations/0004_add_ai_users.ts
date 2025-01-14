@@ -39,9 +39,8 @@ export async function up() {
   ]
 
   for (const fighter of fighters) {
-    // Create the user
-    const userId = uuidv4()
-    await db.execute(sql`
+    // Create or get the user
+    const { rows: [user] } = await db.execute(sql`
       INSERT INTO users (
         id,
         clerk_id,
@@ -54,7 +53,7 @@ export async function up() {
         status
       )
       VALUES (
-        ${userId},
+        ${uuidv4()},
         ${`ai-${fighter.name.toLowerCase().replace(/\s+/g, '-')}`},
         ${fighter.name},
         ${fighter.email},
@@ -64,9 +63,20 @@ export async function up() {
         'UTC',
         'online'
       )
-      ON CONFLICT (clerk_id) DO NOTHING
+      ON CONFLICT (clerk_id) 
+      DO UPDATE SET
+        name = EXCLUDED.name,
+        email = EXCLUDED.email,
+        profile_image = EXCLUDED.profile_image,
+        display_name = EXCLUDED.display_name,
+        title = EXCLUDED.title
       RETURNING id;
     `)
+
+    if (!user) {
+      console.log(`Failed to create or get user ${fighter.name}`)
+      continue
+    }
 
     // Add user to workspace
     await db.execute(sql`
@@ -79,7 +89,7 @@ export async function up() {
       VALUES (
         ${uuidv4()},
         ${workspace.id},
-        ${userId},
+        ${user.id},
         'member'
       )
       ON CONFLICT (workspace_id, user_id) DO NOTHING;

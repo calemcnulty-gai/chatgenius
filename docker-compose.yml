@@ -7,6 +7,15 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=chatgenius
+    command: >
+      bash -c "
+        echo 'Dropping existing connections...' &&
+        psql -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'' AND pid <> pg_backend_pid();' &&
+        echo 'Dropping and recreating database...' &&
+        dropdb -U postgres --if-exists chatgenius &&
+        createdb -U postgres chatgenius &&
+        echo 'Database reset complete.' &&
+        postgres"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

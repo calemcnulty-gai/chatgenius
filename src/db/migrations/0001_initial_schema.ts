@@ -81,7 +81,8 @@ export async function up() {
       user_id UUID NOT NULL REFERENCES users(id),
       role TEXT NOT NULL DEFAULT 'member',
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
-      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+      UNIQUE (workspace_id, user_id)
     );
 
     -- Create notifications table

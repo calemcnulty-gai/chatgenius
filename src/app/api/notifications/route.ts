@@ -5,6 +5,8 @@ import { notifications } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { getOrCreateUser } from '@/lib/db/users'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET(request: Request) {
   try {
     const { userId: clerkUserId } = auth()
