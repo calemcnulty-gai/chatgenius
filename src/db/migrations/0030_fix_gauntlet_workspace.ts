@@ -48,17 +48,24 @@ export async function up() {
     `, [oldGauntlet.id])
   }
 
-  // Add unique constraint on slug
-  await pool.query(`
-    ALTER TABLE workspaces 
-    ADD CONSTRAINT workspaces_slug_unique UNIQUE (slug);
+  // Verify the unique constraint exists
+  const { rows: [constraint] } = await pool.query<{ exists: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 
+      FROM pg_constraint 
+      WHERE conname = 'workspaces_slug_unique'
+    ) as exists;
   `)
+
+  if (!constraint.exists) {
+    await pool.query(`
+      ALTER TABLE workspaces 
+      ADD CONSTRAINT workspaces_slug_unique UNIQUE (slug);
+    `)
+  }
 }
 
 export async function down() {
-  // Remove the unique constraint
-  await pool.query(`
-    ALTER TABLE workspaces 
-    DROP CONSTRAINT IF EXISTS workspaces_slug_unique;
-  `)
+  // No down migration needed as we can't restore deleted workspaces
+  console.log('No down migration for fix_gauntlet_workspace')
 } 
