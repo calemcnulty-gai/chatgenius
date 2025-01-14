@@ -8,8 +8,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb'
     },
-    optimizePackageImports: ['@heroicons/react', '@clerk/nextjs'],
-    workerThreads: true
+    optimizePackageImports: ['@heroicons/react', '@clerk/nextjs']
   },
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
@@ -21,6 +20,10 @@ const nextConfig = {
   // Disable static page generation for all routes
   // generateStaticParams: () => [],
   generateBuildId: () => 'build',
+  // Set runtime to nodejs for all routes
+  serverComponents: {
+    defaultRuntime: 'nodejs'
+  },
   async headers() {
     return [
       {

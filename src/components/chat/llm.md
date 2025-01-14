@@ -1,79 +1,197 @@
 # Chat Components
 
-This directory contains components related to chat functionality in the ChatGenius application.
+This directory contains components related to chat functionality in the ChatGenius application, including message display, threading, and real-time updates.
 
 ## Components Overview
 
-### Message
-A component that displays individual chat messages with user information, thread functionality, and image attachments.
-
-Props:
-- `id`: Message identifier
-- `content`: Message content
-- `sender`: User who sent the message
-- `createdAt`: Message timestamp
-- `replyCount`: Number of replies (optional)
-- `latestReplyAt`: Latest reply timestamp (optional)
-- `parentMessageId`: ID of parent message if this is a reply (optional)
-- `channelId`: Channel identifier
-- `className`: Additional CSS classes (optional)
-- `attachments`: Object containing array of file names for attached images (optional)
-
 ### MessageList
-A component that displays a list of messages and handles real-time updates.
+A core component that displays and manages messages in channels and DMs.
 
 Features:
 - Real-time message updates via Pusher
-- Infinite scroll for message history
-- Temporary message display while sending
-- Integration with shared MessageInput component
-- Handles both channel messages and DMs
-- Thread support
+- Infinite scroll with virtualization
+- Optimistic updates for sent messages
+- Thread integration
+- File attachment support
+- AI command integration
+- Message reactions
+- Read receipts
 
 Props:
-- `channelId`: Channel or DM channel identifier
+```typescript
+interface MessageListProps {
+  channelId: string
+  isDm?: boolean
+  className?: string
+  onThreadOpen?: (messageId: string) => void
+}
+```
 
 ### ThreadPanel
-A component that displays a message thread with its replies.
+A component for displaying and managing message threads.
 
 Features:
-- Shows parent message
-- Lists all replies
-- Real-time updates for new replies
-- Integration with shared MessageInput component
-- Reply count tracking
+- Parent message context
+- Real-time reply updates
+- Reply composition
+- File attachments in replies
+- Participant tracking
+- Reply count updates
+- Thread activity indicators
 
 Props:
-- `messageId`: Parent message identifier
-- `channelId`: Channel identifier
-- `onClose`: Callback when thread panel is closed
+```typescript
+interface ThreadPanelProps {
+  messageId: string
+  channelId: string
+  onClose: () => void
+  className?: string
+}
+```
 
-## Architecture
+## Component Architecture
 
 ### Message Flow
-1. Messages are composed using the shared MessageInput component
-2. Messages are sent to the API
-3. Real-time updates are received via Pusher
-4. Messages are rendered with proper threading support
+1. **Message Composition**
+   ```typescript
+   async function handleSend(content: string, attachments?: File[]) {
+     // Optimistic update
+     const tempId = generateTempId()
+     addTempMessage({ id: tempId, content, attachments })
+     
+     // Send to server
+     const result = await sendMessage({ content, attachments })
+     
+     // Update with real message
+     replaceTempMessage(tempId, result)
+   }
+   ```
+
+2. **Real-time Updates**
+   ```typescript
+   useEffect(() => {
+     const channel = pusherClient.subscribe(`channel-${channelId}`)
+     channel.bind('new-message', handleNewMessage)
+     channel.bind('update-message', handleUpdateMessage)
+     channel.bind('delete-message', handleDeleteMessage)
+     // ... more event handlers
+   }, [channelId])
+   ```
+
+### Threading System
+
+1. **Thread Management**
+   - Parent-child message relationships
+   - Reply count tracking
+   - Latest reply timestamps
+   - Participant tracking
+   - Activity indicators
+
+2. **Thread Navigation**
+   ```typescript
+   function handleThreadClick(messageId: string) {
+     setActiveThread(messageId)
+     updateThreadPanel(true)
+     fetchThreadMessages(messageId)
+   }
+   ```
 
 ### AI Integration
-1. Users can trigger AI responses using the `/ai` command
-2. The command is processed by the RAG endpoint
-3. Relevant documents are retrieved from Pinecone
-4. AI generates a response using the context
-5. Response and sources are formatted and sent as a message
 
-### Component Relationships
-- MessageList uses shared MessageInput for composition
-- ThreadPanel uses shared MessageInput for replies
-- Message components handle individual message display
-- All components use shared UI elements from @/components/ui
-- AI responses are formatted and displayed as regular messages
+1. **Command Processing**
+   ```typescript
+   async function handleAiCommand(query: string) {
+     // Send to RAG endpoint
+     const response = await fetch('/api/rag', {
+       method: 'POST',
+       body: JSON.stringify({ query })
+     })
+     
+     // Format and display response
+     const { answer, sources } = await response.json()
+     sendFormattedAiResponse(answer, sources)
+   }
+   ```
 
-### State Management
-- Real-time updates through PusherContext
-- User data through UserContext
-- Local state for temporary messages and loading
-- Thread state managed by parent components
+2. **Source Display**
+   - Relevant document snippets
+   - Source attribution
+   - Confidence scores
+   - Follow-up suggestions
 
-See individual component files for detailed implementation. 
+## Features
+
+1. **Message Handling**
+   - Text formatting
+   - Code blocks
+   - Link previews
+   - Image attachments
+   - File uploads
+   - Reactions
+   - Editing
+   - Deletion
+
+2. **Thread Features**
+   - Reply composition
+   - Participant list
+   - Activity tracking
+   - Notification settings
+   - Thread summary
+   - Jump to thread
+
+3. **AI Capabilities**
+   - Document retrieval
+   - Context-aware responses
+   - Source citations
+   - Follow-up handling
+   - Command suggestions
+
+## Best Practices
+
+1. **Performance**
+   - Message virtualization
+   - Optimistic updates
+   - Efficient re-renders
+   - Image optimization
+   - Lazy loading
+
+2. **User Experience**
+   - Smooth scrolling
+   - Loading states
+   - Error handling
+   - Keyboard shortcuts
+   - Mobile support
+
+3. **Data Management**
+   - Local caching
+   - State persistence
+   - Proper cleanup
+   - Type safety
+
+4. **Error Handling**
+   - Network failures
+   - Upload errors
+   - API errors
+   - Retry logic
+
+## State Management
+
+1. **Global State**
+   - User context
+   - Channel data
+   - Online presence
+   - Preferences
+
+2. **Local State**
+   - Message cache
+   - Thread state
+   - UI state
+   - Form data
+
+3. **Real-time State**
+   - Message updates
+   - Thread activity
+   - User presence
+   - Typing indicators
+
+See individual component files for detailed implementation examples. 

@@ -17,8 +17,11 @@ import { addLastHeartbeat } from './migrations/0022_add_last_heartbeat'
 import { standardizeAllTimestamps } from './migrations/0024_standardize_all_timestamps'
 import { up as addInvites } from './migrations/0025_add_invites'
 import { addGauntletWorkspace } from './migrations/0026_add_gauntlet_workspace'
+import { up as addAiUsers } from './migrations/0028_add_ai_users'
+import { up as addAiTrashTalk } from './migrations/0029_add_ai_trash_talk'
 import * as dotenv from 'dotenv'
 import { db, pool } from '.'
+import { sql } from 'drizzle-orm'
 
 // Load environment variables before anything else
 dotenv.config()
@@ -47,17 +50,9 @@ async function createDatabaseIfNotExists() {
 }
 
 async function main() {
-  // First ensure the database exists
-  await createDatabaseIfNotExists()
-
   try {
-    // Test the connection
-    await pool.query('SELECT NOW()')
-    console.log('Database connection successful')
-
-    // Create the extension for UUID generation
-    await pool.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"')
-    console.log('Enabled pgcrypto extension')
+    console.log('Creating database if it does not exist...')
+    await createDatabaseIfNotExists()
 
     console.log('Creating initial schema...')
     await initialSchema()
@@ -65,13 +60,13 @@ async function main() {
     console.log('Adding indexes...')
     await addIndexes()
 
-    console.log('Adding slugs...')
-    await addSlugs()
-
     console.log('Adding general channels...')
     await addGeneralChannels()
 
-    console.log('Adding messages table...')
+    console.log('Adding slugs...')
+    await addSlugs()
+
+    console.log('Adding messages...')
     await addMessages()
 
     console.log('Adding direct messages...')
@@ -89,7 +84,7 @@ async function main() {
     console.log('Adding status history...')
     await addStatusHistory()
 
-    console.log('Adding clerk ID column...')
+    console.log('Adding clerk ID...')
     await addClerkId()
 
     console.log('Adding message attachments...')
@@ -109,6 +104,12 @@ async function main() {
 
     console.log('Adding Gauntlet workspace...')
     await addGauntletWorkspace()
+
+    console.log('Adding AI users...')
+    await addAiUsers(db)
+
+    console.log('Adding AI trash talk...')
+    await addAiTrashTalk()
 
     console.log('All migrations completed successfully')
   } catch (error) {
