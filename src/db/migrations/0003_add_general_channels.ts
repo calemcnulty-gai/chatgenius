@@ -1,7 +1,8 @@
 import { sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { db } from '..'
 
-export async function up(db: any) {
+export async function up() {
   // Get all workspaces
   const { rows: workspaces } = await db.execute(sql`
     SELECT id FROM workspaces;
@@ -29,7 +30,7 @@ export async function up(db: any) {
   }
 }
 
-export async function down(db: any) {
+export async function down() {
   await db.execute(sql`
     DELETE FROM channels WHERE name = 'general';
   `)

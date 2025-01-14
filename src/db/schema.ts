@@ -1,4 +1,5 @@
 import { relations, sql } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/node-postgres'
 import {
   pgTable,
   text,
@@ -37,7 +38,7 @@ export const workspaces = pgTable('workspaces', {
 export const channels = pgTable('channels', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  type: text('type').notNull().default('public'),
+  type: text('type', { enum: ['public', 'private'] }).notNull().default('public'),
   slug: text('slug').notNull(),
   workspaceId: uuid('workspace_id')
     .notNull()
@@ -84,7 +85,6 @@ messages = pgTable('messages', {
   attachments: jsonb('attachments'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   editedAt: timestampString('edited_at'),
-  // New columns for threading
   parentMessageId: uuid('parent_message_id'),
   replyCount: integer('reply_count').default(0).notNull(),
   latestReplyAt: timestampString('latest_reply_at'),
@@ -118,10 +118,7 @@ export const notifications = pgTable('notifications', {
     .notNull()
     .references(() => users.id),
   type: text('type').notNull(),
-  title: text('title').notNull(),
-  body: text('body'),
   read: boolean('read').notNull().default(false),
-  data: jsonb('data'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
@@ -244,4 +241,18 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.userId],
     references: [users.id],
   }),
-})) 
+}))
+
+// Export query config
+export const queryConfig = {
+  workspaces,
+  users,
+  channels,
+  messages,
+  workspaceMemberships,
+  directMessageChannels,
+  directMessageMembers,
+  notifications,
+  invites,
+  unreadMessages,
+} as const 

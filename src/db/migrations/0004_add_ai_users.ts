@@ -1,51 +1,46 @@
 import { sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
+import { db } from '..'
 
-const GAUNTLET_WORKSPACE_SLUG = 'gauntlet'
-
-const AI_USERS = [
-  {
-    name: 'Khabib Nurmagomedov',
-    displayName: 'The Eagle',
-    title: 'Undefeated Lightweight Champion',
-    profileImage: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/Khabib_Nurmagomedov_2019.jpg/800px-Khabib_Nurmagomedov_2019.jpg'
-  },
-  {
-    name: 'Conor McGregor',
-    displayName: 'The Notorious',
-    title: 'Double Champion',
-    profileImage: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2b/Conor_McGregor_2018.jpg/800px-Conor_McGregor_2018.jpg'
-  },
-  {
-    name: 'Chael Sonnen',
-    displayName: 'The American Gangster',
-    title: 'Undefeated and Undisputed',
-    profileImage: 'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/Chael_Sonnen.jpg/800px-Chael_Sonnen.jpg'
-  },
-  {
-    name: 'Don Frye',
-    displayName: 'The Predator',
-    title: 'UFC Hall of Famer',
-    profileImage: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3b/Don_Frye_2009.jpg/800px-Don_Frye_2009.jpg'
-  }
-]
-
-export async function up(db: any) {
-  // Get the Gauntlet workspace ID
-  const { rows: [gauntletWorkspace] } = await db.execute(sql`
-    SELECT id FROM workspaces WHERE slug = ${GAUNTLET_WORKSPACE_SLUG};
+export async function up() {
+  // Get the Gauntlet workspace
+  const { rows: [workspace] } = await db.execute(sql`
+    SELECT id FROM workspaces WHERE slug = 'gauntlet';
   `)
 
-  if (!gauntletWorkspace) {
-    throw new Error('Gauntlet workspace not found')
+  if (!workspace) {
+    console.log('Gauntlet workspace not found')
+    return
   }
 
-  // Add each AI user
-  for (const user of AI_USERS) {
-    // Create unique clerk_id for AI users
-    const clerkId = `ai-${user.name.toLowerCase().replace(/\s+/g, '-')}`
+  // Create AI users
+  const fighters = [
+    {
+      name: 'Conor McGregor',
+      email: 'conor@chatgenius.local',
+      displayName: 'The Notorious',
+      title: 'Double Champ',
+      profileImage: 'https://example.com/conor.jpg'
+    },
+    {
+      name: 'Chael Sonnen',
+      email: 'chael@chatgenius.local',
+      displayName: 'The American Gangster',
+      title: 'Undefeated and Undisputed',
+      profileImage: 'https://example.com/chael.jpg'
+    },
+    {
+      name: 'Don Frye',
+      email: 'don@chatgenius.local',
+      displayName: 'The Predator',
+      title: 'Ultimate Fighter',
+      profileImage: 'https://example.com/don.jpg'
+    }
+  ]
 
-    // Insert user
+  for (const fighter of fighters) {
+    // Create the user
+    const userId = uuidv4()
     await db.execute(sql`
       INSERT INTO users (
         id,
@@ -59,13 +54,13 @@ export async function up(db: any) {
         status
       )
       VALUES (
-        ${uuidv4()},
-        ${clerkId},
-        ${user.name},
-        ${`${clerkId}@chatgenius.local`},
-        ${user.profileImage},
-        ${user.displayName},
-        ${user.title},
+        ${userId},
+        ${`ai-${fighter.name.toLowerCase().replace(/\s+/g, '-')}`},
+        ${fighter.name},
+        ${fighter.email},
+        ${fighter.profileImage},
+        ${fighter.displayName},
+        ${fighter.title},
         'UTC',
         'online'
       )
@@ -73,12 +68,7 @@ export async function up(db: any) {
       RETURNING id;
     `)
 
-    // Get the user ID
-    const { rows: [aiUser] } = await db.execute(sql`
-      SELECT id FROM users WHERE clerk_id = ${clerkId};
-    `)
-
-    // Add user to Gauntlet workspace
+    // Add user to workspace
     await db.execute(sql`
       INSERT INTO workspace_memberships (
         id,
@@ -88,8 +78,8 @@ export async function up(db: any) {
       )
       VALUES (
         ${uuidv4()},
-        ${gauntletWorkspace.id},
-        ${aiUser.id},
+        ${workspace.id},
+        ${userId},
         'member'
       )
       ON CONFLICT (workspace_id, user_id) DO NOTHING;
@@ -97,28 +87,8 @@ export async function up(db: any) {
   }
 }
 
-export async function down(db: any) {
-  // Remove AI users and their workspace memberships
-  for (const user of AI_USERS) {
-    const clerkId = `ai-${user.name.toLowerCase().replace(/\s+/g, '-')}`
-    
-    // Get user ID
-    const { rows: [aiUser] } = await db.execute(sql`
-      SELECT id FROM users WHERE clerk_id = ${clerkId};
-    `)
-
-    if (aiUser) {
-      // Remove workspace memberships
-      await db.execute(sql`
-        DELETE FROM workspace_memberships
-        WHERE user_id = ${aiUser.id};
-      `)
-
-      // Remove user
-      await db.execute(sql`
-        DELETE FROM users
-        WHERE id = ${aiUser.id};
-      `)
-    }
-  }
-} 
+export async function down() {
+  await db.execute(sql`
+    DELETE FROM users WHERE clerk_id LIKE 'ai-%';
+  `)
+}
