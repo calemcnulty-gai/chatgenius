@@ -56,15 +56,15 @@ export const directMessageChannels = pgTable('direct_message_channels', {
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
-// Initialize messages table with explicit type annotation
-export const messages: PgTableWithColumns<any> = pgTable('messages', {
+// Initialize messages table
+export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
   senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   attachments: jsonb('attachments'),
-  parentMessageId: uuid('parent_message_id').references((): any => messages.id),
+  parentMessageId: uuid('parent_message_id').references(() => messages.id),
   replyCount: integer('reply_count').notNull().default(0),
   latestReplyAt: timestampString('latest_reply_at'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),

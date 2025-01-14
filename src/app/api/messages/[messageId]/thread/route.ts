@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs'
 import { db } from '@/db'
-import { messages } from '@/db/schema'
+import { messages, users } from '@/db/schema'
 import { eq, asc } from 'drizzle-orm'
 
 export async function GET(
@@ -22,7 +22,9 @@ export async function GET(
       with: {
         sender: true,
       },
-    })
+    }) as (typeof messages.$inferSelect & {
+      sender: typeof users.$inferSelect
+    }) | null
 
     if (!parentMessage) {
       console.log('[Thread API] Message not found:', params.messageId)
@@ -42,7 +44,9 @@ export async function GET(
         sender: true,
       },
       orderBy: (messages, { asc }) => [asc(messages.createdAt)],
-    })
+    }) as (typeof messages.$inferSelect & {
+      sender: typeof users.$inferSelect
+    })[]
 
     console.log('[Thread API] Found replies:', replies.length)
 

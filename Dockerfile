@@ -16,7 +16,7 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Generate database types only
+# Generate database types and schema
 RUN npm run db:generate
 
 # Build the application
@@ -45,8 +45,8 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Copy package files and env
 COPY package*.json .env ./
 
-# Install dependencies (including those needed for build)
-RUN npm ci
+# Install production dependencies only
+RUN npm ci --only=production
 
 # Create uploads directory
 RUN mkdir -p public/uploads

@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs'
 import { currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { workspaces, workspaceMemberships, invites } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { Resend } from 'resend'
 import { getOrCreateUser } from '@/lib/db/users'
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
       inviterId: user.id,
       token,
       status: 'pending',
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      expiresAt: sql`CURRENT_TIMESTAMP + INTERVAL '7 days'`,
     }).returning().execute()
     console.log('Created invite:', invite)
 
