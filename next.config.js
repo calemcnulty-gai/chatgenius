@@ -19,28 +19,22 @@ const nextConfig = {
   swcMinify: true,
   output: 'standalone',
 
-  // If you want to skip ESlint errors so they don't break builds:
-  eslint: {
-    ignoreDuringBuilds: false, // or true if you just want to ignore lint errors
-  },
-
-  // If you want to skip TS errors:
+  // TypeScript error handling
   typescript: {
+    // Don't ignore build errors
     ignoreBuildErrors: false,
+    // Show more verbose type errors
+    tsconfigPath: './tsconfig.json'
   },
 
-  // This is not valid — remove it:
-  // onError: (err) => { console.error('Build error:', err); },
-
-  webpack: (config, { isServer }) => {
-    // If you’d like to hide the “unsupported APIs for edge runtime” warnings
-    // and you’re sure you’re deploying to Node only:
+  // Webpack configuration
+  webpack: (config, { isServer, dev }) => {
+    // Suppress Edge runtime warnings from dependencies
     config.ignoreWarnings = [
       { message: /MessageChannel|setImmediate|scheduler|MessageEvent/ }
     ];
 
     if (!isServer) {
-      // Fallback for certain Node APIs in the client bundle
       config.resolve.fallback = {
         ...config.resolve.fallback,
         setImmediate: false,
@@ -49,8 +43,16 @@ const nextConfig = {
       };
     }
 
-    // More verbose webpack build stats
-    config.stats = 'verbose';
+    // More verbose webpack build stats in development
+    if (dev) {
+      config.stats = {
+        colors: true,
+        reasons: true,
+        errorDetails: true,
+        modules: true,
+        moduleTrace: true
+      };
+    }
 
     return config;
   },
