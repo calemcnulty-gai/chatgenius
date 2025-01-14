@@ -56,8 +56,11 @@ export const directMessageChannels = pgTable('direct_message_channels', {
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
+// Define messages table reference first to break circular dependency
+const messagesTable = 'messages'
+
 // Initialize messages table
-export const messages = pgTable('messages', {
+export const messages = pgTable(messagesTable, {
   id: uuid('id').primaryKey().defaultRandom(),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),

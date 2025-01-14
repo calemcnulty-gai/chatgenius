@@ -16,9 +16,6 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Generate database types and schema
-RUN npm run db:generate
-
 # Build the application
 RUN set -ex; \
     npm run build \
@@ -60,5 +57,5 @@ COPY --from=builder /app/drizzle ./drizzle
 # Expose port
 EXPOSE 3000
 
-# Run migrations and start
-CMD sh -c "npm run db:migrate && npm start" 
+# Start the application
+CMD ["npm", "start"] 
