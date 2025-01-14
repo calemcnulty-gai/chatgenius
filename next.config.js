@@ -21,18 +21,8 @@ const nextConfig = {
   // Disable static page generation for all routes
   // generateStaticParams: () => [],
   generateBuildId: () => 'build',
-  // Set runtime to nodejs for all routes
   serverRuntimeConfig: {
     runtime: 'nodejs'
-  },
-  // Explicitly set runtime to nodejs
-  experimental: {
-    runtime: 'nodejs',
-    serverActions: {
-      bodySizeLimit: '2mb'
-    },
-    optimizePackageImports: ['@heroicons/react', '@clerk/nextjs'],
-    workerThreads: true
   },
   async headers() {
     return [

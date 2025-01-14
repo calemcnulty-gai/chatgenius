@@ -69,25 +69,25 @@ async function main() {
   await addStatusHistory()
 
   console.log('Adding clerk ID...')
-  await addClerkId(db)
+  await addClerkId()
 
   console.log('Adding AI generated flag...')
-  await addAiGenerated(db)
+  await addAiGenerated()
 
   console.log('Adding message attachments...')
-  await addMessageAttachments(db)
+  await addMessageAttachments()
 
   console.log('Adding message threading columns...')
-  await addMessageThreadingColumns(db)
+  await addMessageThreadingColumns()
 
   console.log('Adding user profile fields...')
   await addUserProfileFields()
 
   console.log('Adding user timezone...')
-  await addUserTimezone(db)
+  await addUserTimezone()
 
   console.log('Adding invites table...')
-  await addInvitesTable(db)
+  await addInvitesTable()
 
   console.log('Adding last heartbeat...')
   await addLastHeartbeat()
@@ -96,13 +96,13 @@ async function main() {
   await standardizeAllTimestamps()
 
   console.log('Adding invites...')
-  await addInvites(db)
+  await addInvites()
 
   console.log('Adding Gauntlet workspace...')
   await addGauntletWorkspace()
 
   console.log('Removing NextAuth columns...')
-  await removeNextAuthColumns(db)
+  await removeNextAuthColumns()
 
   console.log('Adding AI users...')
   await addAiUsers(db)
