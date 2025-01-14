@@ -16,6 +16,9 @@ RUN npm ci
 # Copy application files
 COPY . .
 
+# Generate database types
+RUN npm run db:generate
+
 # Build application with error checking
 RUN set -ex; \
     npm run build \
@@ -42,16 +45,17 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Copy package files and env
 COPY package*.json .env ./
 
-# Install production dependencies
-RUN npm ci --omit=dev
+# Install dependencies (including those needed for build)
+RUN npm ci
 
 # Create uploads directory
 RUN mkdir -p public/uploads
 
-# Copy built application
+# Copy built application and generated types
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src ./src
+COPY --from=builder /app/drizzle ./drizzle
 
 # Expose port
 EXPOSE 3000
