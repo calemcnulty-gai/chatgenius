@@ -16,6 +16,10 @@ services:
       retries: 5
     ports:
       - "5432:5432"
+    command: >
+      bash -c "
+        echo 'Starting PostgreSQL...' &&
+        docker-entrypoint.sh postgres 2>&1 | tee /var/log/postgres.log"
 
   db_setup:
     image: postgres:15
@@ -24,14 +28,20 @@ services:
       - POSTGRES_PASSWORD=postgres
     command: >
       bash -c "
-        echo 'Waiting for postgres...' &&
-        until pg_isready -h db -U postgres; do sleep 1; done &&
-        echo 'Dropping existing connections...' &&
-        psql -h db -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'' AND pid <> pg_backend_pid();' &&
-        echo 'Dropping and recreating database...' &&
-        dropdb -h db -U postgres --if-exists chatgenius &&
-        createdb -h db -U postgres chatgenius &&
-        echo 'Database reset complete.'"
+        echo 'Starting db_setup...' &&
+        until pg_isready -h db -U postgres; do 
+          echo 'Waiting for postgres...' 
+          sleep 1
+        done &&
+        (
+          echo 'Dropping existing connections...' &&
+          psql -h db -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'' AND pid <> pg_backend_pid();' &&
+          echo 'Dropping and recreating database...' &&
+          dropdb -h db -U postgres --if-exists chatgenius &&
+          createdb -h db -U postgres chatgenius &&
+          echo 'Database reset complete.'
+        ) 2>&1 | tee /var/log/db_setup.log &&
+        tail -f /var/log/db_setup.log"
     depends_on:
       db:
         condition: service_healthy
@@ -63,6 +73,13 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+    command: >
+      sh -c "
+        echo 'Starting web service...' &&
+        (npm start 2>&1 | tee /app/web.log) || (
+          echo 'Web service failed with exit code $?' &&
+          tail -f /app/web.log
+        )"
 
   nginx:
     image: nginx:alpine
@@ -74,6 +91,13 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - web
+    command: >
+      sh -c "
+        echo 'Starting nginx...' &&
+        (nginx -g 'daemon off;' 2>&1 | tee /var/log/nginx.log) || (
+          echo 'Nginx failed with exit code $?' &&
+          tail -f /var/log/nginx.log
+        )"
 
 volumes:
   postgres_data: 
