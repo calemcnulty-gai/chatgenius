@@ -125,6 +125,31 @@ export const notifications = pgTable('notifications', {
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
+export const invites = pgTable('invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workspaceId: uuid('workspace_id')
+    .notNull()
+    .references(() => workspaces.id),
+  inviterId: uuid('inviter_id')
+    .notNull()
+    .references(() => users.id),
+  email: text('email').notNull(),
+  status: text('status').notNull().default('pending'),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+})
+
+export const invitesRelations = relations(invites, ({ one }) => ({
+  workspace: one(workspaces, {
+    fields: [invites.workspaceId],
+    references: [workspaces.id],
+  }),
+  inviter: one(users, {
+    fields: [invites.inviterId],
+    references: [users.id],
+  }),
+}))
+
 export const usersRelations = relations(users, ({ many }) => ({
   workspaceMemberships: many(workspaceMemberships),
   messages: many(messages),
@@ -219,6 +244,4 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
     fields: [notifications.userId],
     references: [users.id],
   }),
-}))
-
-export { invites } from './migrations/0021_add_invites_table' 
+})) 

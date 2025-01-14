@@ -1,65 +1,40 @@
 # Database Migrations
 
-This directory contains all database migrations for ChatGenius, using Drizzle ORM. Migrations are numbered sequentially and represent the evolution of the database schema over time.
+This directory contains all database migrations for ChatGenius, using Drizzle ORM. The migrations are organized into two main categories: schema and data migrations.
 
 ## Migration Structure
 
-Each migration file follows the pattern `{number}_{description}.ts` and contains both `up` and `down` migrations for forward and rollback operations.
+Each migration file follows the pattern `{number}_{description}.ts` and contains both `up` and `down` migrations for forward and rollback operations. All migrations accept a `db` parameter and use raw SQL for maximum control and clarity.
 
-## Key Migration Categories
+## Migration Categories
 
-1. **Schema Evolution**
-   - Initial schema (0001)
-   - Adding new tables
-   - Adding new columns
-   - Modifying existing columns
-   - Adding indexes and constraints
+1. **Schema Migration (0001)**
+   - Complete database schema in a single migration
+   - All tables and their columns
+   - All foreign key relationships
+   - All indexes for performance
+   - Standardized timestamp handling
 
-2. **Data Standardization**
-   - Timestamp standardization (0023, 0024)
-   - Timezone conversions (0023)
-   - Data cleanup and normalization
+2. **Data Migrations (0002-0005)**
+   - `0002`: Creates the Gauntlet workspace and system user
+   - `0003`: Adds general channels to all workspaces
+   - `0004`: Creates AI users in the Gauntlet workspace
+   - `0005`: Adds initial AI trash talk messages
 
-3. **Feature Support**
-   - Message threading (0009, 0018)
-   - User profiles (0012)
-   - Notifications (0007)
-   - File attachments (0017, 0022)
-   - Workspace management (0026)
+## Tables
 
-## Migration Patterns
-
-1. **Table Creation**
-   ```typescript
-   export async function up(db: PostgresJsDatabase) {
-     await db.schema
-       .createTable("table_name")
-       .addColumn("id", "uuid", c => c.primaryKey().defaultRandom())
-       .addColumn("created_at", "timestamp", c => c.defaultNow())
-       .execute()
-   }
-   ```
-
-2. **Column Addition**
-   ```typescript
-   export async function up(db: PostgresJsDatabase) {
-     await db.schema
-       .alterTable("table_name")
-       .addColumn("new_column", "data_type")
-       .execute()
-   }
-   ```
-
-3. **Index Creation**
-   ```typescript
-   export async function up(db: PostgresJsDatabase) {
-     await db.schema
-       .createIndex("index_name")
-       .on("table_name")
-       .columns(["column_name"])
-       .execute()
-   }
-   ```
+1. **Core Tables**
+   - `users`: User accounts and profiles
+   - `workspaces`: Workspace containers
+   - `workspace_memberships`: User workspace relationships
+   - `channels`: Communication channels
+   - `messages`: All messages with threading support
+   - `direct_messages`: Private messages between users
+   - `notifications`: User notifications
+   - `unread_messages`: Message read status tracking
+   - `status_history`: User status changes
+   - `ai_interactions`: AI message history
+   - `invites`: Workspace invitations
 
 ## Best Practices
 
@@ -87,13 +62,35 @@ Each migration file follows the pattern `{number}_{description}.ts` and contains
    - Add appropriate indexes
    - Monitor migration duration
 
-## Recent Changes
+## Migration Patterns
 
-Latest migrations focus on:
-- Removing legacy auth columns (0027)
-- Adding Gauntlet workspace support (0026)
-- Implementing invite system (0025)
-- Standardizing timestamps (0024)
-- Adding user profile enhancements (0019)
+1. **Table Creation**
+   ```sql
+   CREATE TABLE IF NOT EXISTS "table_name" (
+     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+   );
+   ```
 
-See individual migration files for specific implementation details. 
+2. **Data Insertion**
+   ```sql
+   INSERT INTO table_name (column1, column2)
+   VALUES ($1, $2)
+   ON CONFLICT DO NOTHING;
+   ```
+
+3. **Index Creation**
+   ```sql
+   CREATE INDEX IF NOT EXISTS "index_name" 
+   ON "table_name" ("column_name");
+   ```
+
+## Running Migrations
+
+Migrations are run in order through the `migrate.ts` script:
+1. Initial schema creation
+2. Gauntlet workspace setup
+3. General channels creation
+4. AI users creation
+5. Initial message creation 
