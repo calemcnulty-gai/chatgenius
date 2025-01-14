@@ -11,8 +11,9 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Build application
-RUN npm run build -- --debug --loglevel=verbose
+# Build with npm verbose logs + Next debug logs
+# Notice we changed the command:
+RUN npm --loglevel=verbose run build -- --debug
 
 # Production image
 FROM node:20-alpine
