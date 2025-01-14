@@ -13,13 +13,10 @@ COPY package*.json .env ./
 # Install dependencies
 RUN npm ci
 
-# Copy application files
-COPY . .
+# Generate database types and run migrations
+RUN npm run db:generate && npm run db:migrate
 
-# Generate database types
-RUN npm run db:generate
-
-# Build application with error checking
+# Build the application
 RUN set -ex; \
     npm run build \
     --loglevel verbose \
