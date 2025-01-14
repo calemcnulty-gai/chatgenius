@@ -16,8 +16,8 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Generate database types and run migrations
-RUN npm run db:generate && npm run db:migrate
+# Generate database types only
+RUN npm run db:generate
 
 # Build the application
 RUN set -ex; \

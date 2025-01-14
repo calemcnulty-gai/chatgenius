@@ -27,6 +27,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    command: sh -c "npm run db:migrate && npm start"
 
   db:
     image: postgres:15
@@ -41,6 +42,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    ports:
+      - "5432:5432"
 
 volumes:
   postgres_data: 
