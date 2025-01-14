@@ -5,31 +5,37 @@ import { getOrCreateUser } from '@/lib/db/users'
 // Force Node.js runtime
 export const runtime = 'nodejs'
 
+const log = (...args: any[]) => {
+  process.stdout.write(args.map(arg => 
+    typeof arg === 'string' ? arg : JSON.stringify(arg, null, 2)
+  ).join(' ') + '\n')
+}
+
 export async function POST() {
-  console.log('🔍 Sync route called')
+  log('\n🔍 Sync route called')
   try {
-    console.log('🔑 Getting auth...')
+    log('🔑 Getting auth...')
     const authResult = auth()
-    console.log('📦 Auth result:', authResult)
+    log('📦 Auth result:', authResult)
     
     const { userId } = authResult
-    console.log('👤 UserId from auth:', userId)
+    log('👤 UserId from auth:', userId)
 
     if (!userId) {
-      console.log('❌ No userId found in auth result')
+      log('❌ No userId found in auth result')
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
-    console.log('🔎 Getting current user...')
+    log('🔎 Getting current user...')
     const user = await currentUser()
-    console.log('📦 Current user result:', JSON.stringify(user, null, 2))
+    log('📦 Current user result:', JSON.stringify(user, null, 2))
 
     if (!user) {
-      console.log('❌ No user found from currentUser()')
+      log('❌ No user found from currentUser()')
       return new NextResponse('User not found', { status: 404 })
     }
 
-    console.log('💾 Calling getOrCreateUser with params:', {
+    log('💾 Calling getOrCreateUser with params:', {
       id: userId,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -46,7 +52,7 @@ export async function POST() {
       imageUrl: user.imageUrl,
     })
 
-    console.log('✅ DB User result:', dbUser)
+    log('✅ DB User result:', dbUser)
 
     // Return the user with the internal database ID as the id field
     return NextResponse.json({
@@ -54,8 +60,8 @@ export async function POST() {
       id: dbUser.id,
     })
   } catch (error) {
-    console.error('🚨 Error in sync route:', error)
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available')
+    log('🚨 Error in sync route:', error)
+    log('Error stack:', error instanceof Error ? error.stack : 'No stack trace available')
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 
