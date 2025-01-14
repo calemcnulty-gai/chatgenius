@@ -19,7 +19,7 @@ const nextConfig = {
   swcMinify: true,
   output: 'standalone',
   // Disable static page generation for all routes
-  generateStaticParams: () => [],
+  // generateStaticParams: () => [],
   generateBuildId: () => 'build',
   async headers() {
     return [

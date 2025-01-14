@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
 import { getOrCreateUser } from '@/lib/db/users'
+import { headers } from 'next/headers'
 
 // Force Node.js runtime
 export const runtime = 'nodejs'
@@ -14,6 +15,9 @@ const log = (...args: any[]) => {
 export async function POST() {
   log('\n🔍 Sync route called')
   try {
+    const headersList = headers()
+    log('📨 Request headers:', Object.fromEntries(headersList.entries()))
+
     log('🔑 Getting auth...')
     const authResult = auth()
     log('📦 Auth result:', authResult)
