@@ -1,28 +1,44 @@
 import { sql } from 'drizzle-orm'
 import { db, pool } from '..'
 
-// We'll use the same ID defined in 0026, but since it's not exported we'll define it here too
-const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000003'
-
 export async function up() {
-  // Move only AI user messages from any general channel to the fixed general channel
+  // Get the general channel from the most recent Gauntlet workspace
+  const { rows: [generalChannel] } = await pool.query<{ id: string }>(`
+    WITH latest_gauntlet AS (
+      SELECT id 
+      FROM workspaces 
+      WHERE slug = 'gauntlet' 
+      ORDER BY created_at DESC 
+      LIMIT 1
+    )
+    SELECT c.id
+    FROM channels c
+    WHERE c.slug = 'general'
+    AND c.workspace_id = (SELECT id FROM latest_gauntlet);
+  `)
+
+  if (!generalChannel) {
+    console.log('No general channel found in latest Gauntlet workspace, skipping migration')
+    return
+  }
+
+  // Move all AI messages to the correct general channel
   await pool.query(`
     UPDATE messages 
     SET channel_id = $1
-    WHERE channel_id IN (
-      SELECT id 
-      FROM channels 
-      WHERE slug = 'general'
-      AND id != $1
-    )
-    AND sender_id IN (
+    WHERE sender_id IN (
       SELECT id 
       FROM users 
       WHERE clerk_id LIKE 'ai-%'
+    )
+    AND channel_id IN (
+      SELECT c.id 
+      FROM channels c
+      JOIN workspaces w ON c.workspace_id = w.id
+      WHERE w.slug LIKE 'gauntlet%'
+      AND c.id != $1
     );
-  `, [GENERAL_CHANNEL_ID])
-
-  // Note: We won't delete the other general channels as they may contain legitimate user messages
+  `, [generalChannel.id])
 }
 
 export async function down() {
