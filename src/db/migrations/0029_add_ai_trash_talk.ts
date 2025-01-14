@@ -15,8 +15,10 @@ export async function up() {
     // Get the general channel ID
     const { rows: [generalChannel] } = await pool.query<{ id: string }>(`
         SELECT id FROM channels 
-        WHERE workspace_id = $1 AND slug = 'general';
-    `, [gauntletWorkspace.id])
+        WHERE slug = 'general'
+        ORDER BY created_at DESC
+        LIMIT 1;
+    `)
 
     // Create a map to store user IDs
     const userIds = new Map<string, string>()

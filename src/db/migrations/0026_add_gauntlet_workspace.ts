@@ -3,12 +3,17 @@ import { db, pool } from '..'
 import { v4 as uuidv4 } from 'uuid'
 import { createTimestamp } from './utils'
 
+// Use fixed UUIDs for system entities to prevent duplicates
+const SYSTEM_USER_ID = '00000000-0000-0000-0000-000000000001'
+const GAUNTLET_WORKSPACE_ID = '00000000-0000-0000-0000-000000000002'
+const GENERAL_CHANNEL_ID = '00000000-0000-0000-0000-000000000003'
+
 export async function addGauntletWorkspace() {
   // Create a system user for the Gauntlet workspace if it doesn't exist
   await db.execute(sql`
     INSERT INTO users (id, clerk_id, name, email, profile_image, time_zone, status, created_at, updated_at)
     VALUES (
-      ${uuidv4()},
+      ${SYSTEM_USER_ID},
       'system',
       'System',
       'system@chatgenius.local',
@@ -31,7 +36,7 @@ export async function addGauntletWorkspace() {
   await db.execute(sql`
     INSERT INTO workspaces (id, name, description, owner_id, slug, created_at, updated_at)
     VALUES (
-      ${uuidv4()},
+      ${GAUNTLET_WORKSPACE_ID},
       'Gauntlet',
       'The default workspace for all users',
       ${systemUser.id},
@@ -39,7 +44,7 @@ export async function addGauntletWorkspace() {
       ${createTimestamp(new Date())},
       ${createTimestamp(new Date())}
     )
-    ON CONFLICT (slug) DO NOTHING
+    ON CONFLICT (id) DO NOTHING
     RETURNING id;
   `)
 
@@ -52,7 +57,7 @@ export async function addGauntletWorkspace() {
   await db.execute(sql`
     INSERT INTO channels (id, workspace_id, name, slug, type, created_at, updated_at)
     VALUES (
-      ${uuidv4()},
+      ${GENERAL_CHANNEL_ID},
       ${gauntletWorkspace.id},
       'general',
       'general',
@@ -60,6 +65,6 @@ export async function addGauntletWorkspace() {
       ${createTimestamp(new Date())},
       ${createTimestamp(new Date())}
     )
-    ON CONFLICT (workspace_id, slug) DO NOTHING;
+    ON CONFLICT (id) DO NOTHING;
   `)
 } 
