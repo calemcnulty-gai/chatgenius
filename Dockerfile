@@ -12,7 +12,7 @@ RUN npm ci
 COPY . .
 
 # Build application
-RUN npm run build
+RUN npm run build --verbose
 
 # Production image
 FROM node:20-alpine

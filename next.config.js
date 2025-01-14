@@ -24,6 +24,24 @@ const nextConfig = {
   serverRuntimeConfig: {
     runtime: 'nodejs'
   },
+  // Suppress Edge runtime warnings from dependencies
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        'setImmediate': false,
+        'MessageChannel': false,
+        'MessageEvent': false,
+      };
+    }
+    // Enable more verbose webpack output
+    config.stats = 'verbose';
+    return config;
+  },
+  // Show more detailed build output
+  onError: (err) => {
+    console.error('Build error:', err);
+  },
   async headers() {
     return [
       {
