@@ -16,13 +16,19 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Build with full type checking output
-RUN npm run build \
+# Build application with error checking
+RUN set -ex; \
+    npm run build \
     --loglevel verbose \
     -- \
     --debug \
     --trace-warnings \
-    2>&1 | tee build.log || (cat build.log && exit 1)
+    2>&1 | tee build.log; \
+    if [ ! -d .next ]; then \
+        echo "Build failed - .next directory not created"; \
+        cat build.log; \
+        exit 1; \
+    fi
 
 # Production image
 FROM node:20-alpine
@@ -37,7 +43,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 COPY package*.json .env ./
 
 # Install production dependencies
-RUN npm ci --production
+RUN npm ci --omit=dev
 
 # Create uploads directory
 RUN mkdir -p public/uploads
