@@ -23,12 +23,10 @@ const nextConfig = {
   typescript: {
     // Don't ignore build errors
     ignoreBuildErrors: false,
-    // Show more verbose type errors
-    tsconfigPath: './tsconfig.json'
   },
 
   // Webpack configuration
-  webpack: (config, { isServer, dev }) => {
+  webpack: (config, { isServer }) => {
     // Suppress Edge runtime warnings from dependencies
     config.ignoreWarnings = [
       { message: /MessageChannel|setImmediate|scheduler|MessageEvent/ }
@@ -43,16 +41,13 @@ const nextConfig = {
       };
     }
 
-    // More verbose webpack build stats in development
-    if (dev) {
-      config.stats = {
-        colors: true,
-        reasons: true,
-        errorDetails: true,
-        modules: true,
-        moduleTrace: true
-      };
-    }
+    // Always show detailed stats in production builds
+    config.stats = {
+      colors: true,
+      errors: true,
+      errorDetails: true,
+      moduleTrace: true
+    };
 
     return config;
   },

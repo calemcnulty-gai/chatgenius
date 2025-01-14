@@ -3,15 +3,15 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Set environment variables for build
-ENV NODE_ENV=development
+ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=true
 
 # Copy package files and env
 COPY package*.json .env ./
 
-# Install dependencies with verbose logging
-RUN npm ci --loglevel verbose
+# Install dependencies
+RUN npm ci
 
 # Copy application files
 COPY . .
@@ -21,7 +21,6 @@ RUN npm run build \
     --loglevel verbose \
     -- \
     --debug \
-    --no-lint \
     --trace-warnings \
     2>&1 | tee build.log || (cat build.log && exit 1)
 
