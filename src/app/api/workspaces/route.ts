@@ -6,6 +6,8 @@ import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { getOrCreateUser } from '@/lib/db/users'
 
+const GAUNTLET_WORKSPACE_SLUG = 'gauntlet'
+
 export async function GET() {
   try {
     const { userId: clerkUserId } = auth()
@@ -28,16 +30,37 @@ export async function GET() {
       imageUrl: clerkUser.imageUrl,
     })
 
+    // Get the Gauntlet workspace ID
+    const gauntletWorkspace = await db.query.workspaces.findFirst({
+      where: eq(workspaces.slug, GAUNTLET_WORKSPACE_SLUG),
+    })
+
+    if (gauntletWorkspace) {
+      // Add user to Gauntlet workspace if not already a member
+      await db.insert(workspaceMemberships)
+        .values({
+          id: uuidv4(),
+          workspaceId: gauntletWorkspace.id,
+          userId: user.id,
+          role: 'member',
+        })
+        .onConflictDoNothing()
+    }
+
     // Get all workspaces the user is a member of
     const userWorkspaces = await db
       .select({
         workspace: workspaces,
+        role: workspaceMemberships.role,
       })
       .from(workspaceMemberships)
       .where(eq(workspaceMemberships.userId, user.id))
       .innerJoin(workspaces, eq(workspaceMemberships.workspaceId, workspaces.id))
 
-    return NextResponse.json(userWorkspaces.map(m => m.workspace))
+    return NextResponse.json(userWorkspaces.map(m => ({
+      ...m.workspace,
+      role: m.role,
+    })))
   } catch (error) {
     console.error('Error fetching workspaces:', error)
     return new NextResponse('Internal Server Error', { status: 500 })

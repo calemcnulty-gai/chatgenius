@@ -6,19 +6,28 @@ import { createTimestamp } from './utils'
 // Import the messages from the JSON file
 import trashTalk from './data/trash_talk.json'
 
+const GAUNTLET_WORKSPACE_SLUG = 'gauntlet'
+const GENERAL_CHANNEL_SLUG = 'general'
+
 export async function up() {
     // Get the Gauntlet workspace ID
     const { rows: [gauntletWorkspace] } = await pool.query<{ id: string }>(`
-        SELECT id FROM workspaces WHERE slug = 'gauntlet';
-    `)
+        SELECT id FROM workspaces WHERE slug = $1;
+    `, [GAUNTLET_WORKSPACE_SLUG])
+
+    if (!gauntletWorkspace) {
+        throw new Error('Gauntlet workspace not found')
+    }
 
     // Get the general channel ID
     const { rows: [generalChannel] } = await pool.query<{ id: string }>(`
         SELECT id FROM channels 
-        WHERE slug = 'general'
-        ORDER BY created_at DESC
-        LIMIT 1;
-    `)
+        WHERE workspace_id = $1 AND slug = $2;
+    `, [gauntletWorkspace.id, GENERAL_CHANNEL_SLUG])
+
+    if (!generalChannel) {
+        throw new Error('General channel not found in Gauntlet workspace')
+    }
 
     // Create a map to store user IDs
     const userIds = new Map<string, string>()
@@ -58,23 +67,29 @@ export async function up() {
 export async function down() {
     // Get the Gauntlet workspace ID
     const { rows: [gauntletWorkspace] } = await pool.query<{ id: string }>(`
-        SELECT id FROM workspaces WHERE slug = 'gauntlet';
-    `)
+        SELECT id FROM workspaces WHERE slug = $1;
+    `, [GAUNTLET_WORKSPACE_SLUG])
 
-    // Get all general channels
-    const { rows: generalChannels } = await pool.query<{ id: string }>(`
-        SELECT id FROM channels 
-        WHERE workspace_id = $1 AND slug = 'general';
-    `, [gauntletWorkspace.id])
-
-    // Delete all messages from AI users in all general channels
-    for (const channel of generalChannels) {
-        await pool.query(`
-            DELETE FROM messages
-            WHERE channel_id = $1
-            AND sender_id IN (
-                SELECT id FROM users WHERE clerk_id LIKE 'ai-%'
-            );
-        `, [channel.id])
+    if (!gauntletWorkspace) {
+        return // Nothing to clean up
     }
+
+    // Get the general channel
+    const { rows: [generalChannel] } = await pool.query<{ id: string }>(`
+        SELECT id FROM channels 
+        WHERE workspace_id = $1 AND slug = $2;
+    `, [gauntletWorkspace.id, GENERAL_CHANNEL_SLUG])
+
+    if (!generalChannel) {
+        return // Nothing to clean up
+    }
+
+    // Delete all messages from AI users in the general channel
+    await pool.query(`
+        DELETE FROM messages
+        WHERE channel_id = $1
+        AND sender_id IN (
+            SELECT id FROM users WHERE clerk_id LIKE 'ai-%'
+        );
+    `, [generalChannel.id])
 } 

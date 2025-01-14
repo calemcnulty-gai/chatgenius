@@ -3,6 +3,8 @@ import { db, pool } from '..'
 import { v4 as uuidv4 } from 'uuid'
 import { createTimestamp } from './utils'
 
+const GAUNTLET_WORKSPACE_SLUG = 'gauntlet'
+
 interface AiUser {
     name: string
     displayName: string
@@ -40,8 +42,12 @@ const AI_USERS: AiUser[] = [
 export async function up(db: any) {
     // Get the Gauntlet workspace ID
     const { rows: [gauntletWorkspace] } = await pool.query<{ id: string }>(`
-        SELECT id FROM workspaces WHERE slug = 'gauntlet';
-    `)
+        SELECT id FROM workspaces WHERE slug = $1;
+    `, [GAUNTLET_WORKSPACE_SLUG])
+
+    if (!gauntletWorkspace) {
+        throw new Error('Gauntlet workspace not found')
+    }
 
     // Add each AI user
     for (const user of AI_USERS) {
