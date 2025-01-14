@@ -14,5 +14,22 @@ RUN npm ci
 # Copy application files
 COPY . .
 
-# Run migrations and generate types with retry
-CMD sh -c "until pg_isready -h db -U postgres; do echo 'Waiting for postgres...'; sleep 2; done; npm run db:migrate && npm run db:generate" 
+# Add healthcheck to keep container running
+HEALTHCHECK --interval=5s --timeout=5s --start-period=5s --retries=3 \
+    CMD pg_isready -h db -U postgres || exit 1
+
+# Make the command more verbose
+CMD sh -c "\
+    echo 'Starting migrations container...' && \
+    echo 'Checking for database...' && \
+    until pg_isready -h db -U postgres; do \
+        echo 'Database is unavailable - sleeping' && \
+        sleep 2; \
+    done && \
+    echo 'Database is up - executing migrations' && \
+    echo 'Running db:migrate...' && \
+    npm run db:migrate && \
+    echo 'Running db:generate...' && \
+    npm run db:generate && \
+    echo 'All done - keeping container alive for inspection' && \
+    tail -f /dev/null" 
