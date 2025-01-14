@@ -22,21 +22,30 @@ export async function up() {
     return
   }
 
-  // Move all AI messages to the correct general channel
+  // First move all messages (not just AI messages) to the correct general channel
   await pool.query(`
     UPDATE messages 
     SET channel_id = $1
-    WHERE sender_id IN (
-      SELECT id 
-      FROM users 
-      WHERE clerk_id LIKE 'ai-%'
-    )
-    AND channel_id IN (
+    WHERE channel_id IN (
       SELECT c.id 
       FROM channels c
       JOIN workspaces w ON c.workspace_id = w.id
       WHERE w.slug LIKE 'gauntlet%'
       AND c.id != $1
+      AND (c.slug = 'general' OR c.slug = 'general-2')
+    );
+  `, [generalChannel.id])
+
+  // Then delete the old general channels
+  await pool.query(`
+    DELETE FROM channels 
+    WHERE id IN (
+      SELECT c.id 
+      FROM channels c
+      JOIN workspaces w ON c.workspace_id = w.id
+      WHERE w.slug LIKE 'gauntlet%'
+      AND c.id != $1
+      AND (c.slug = 'general' OR c.slug = 'general-2')
     );
   `, [generalChannel.id])
 }

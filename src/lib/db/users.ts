@@ -55,9 +55,26 @@ export async function getOrCreateUser(clerkUser: {
     .returning()
 
   // Get the Gauntlet workspace
-  const gauntletWorkspace = await db.query.workspaces.findFirst({
+  let gauntletWorkspace = await db.query.workspaces.findFirst({
     where: eq(workspaces.slug, 'gauntlet'),
   })
+
+  if (!gauntletWorkspace) {
+    // Create the Gauntlet workspace if it doesn't exist
+    const [newWorkspace] = await db.insert(workspaces)
+      .values({
+        id: '8903c486-7dc5-4d2b-b973-e25ae786f6d7', // Fixed UUID for Gauntlet workspace
+        name: 'Gauntlet',
+        slug: 'gauntlet',
+        ownerId: dbUser.id,
+        createdAt: now,
+        updatedAt: now,
+      })
+      .onConflictDoNothing()
+      .returning()
+    
+    gauntletWorkspace = newWorkspace
+  }
 
   if (gauntletWorkspace) {
     // Add user to the Gauntlet workspace
