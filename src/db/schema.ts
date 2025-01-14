@@ -47,40 +47,24 @@ export const channels = pgTable('channels', {
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
-export const unreadMessages = pgTable('unread_messages', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id),
-  channelId: uuid('channel_id').references(() => channels.id),
-  dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id),
-  lastReadMessageId: uuid('last_read_message_id').references(() => messages.id),
-  unreadCount: integer('unread_count').notNull().default(0),
-  hasMention: boolean('has_mention').notNull().default(false),
-  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
-  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
-})
-
-export const workspaceMemberships = pgTable('workspace_memberships', {
+export const directMessageChannels = pgTable('direct_message_channels', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
-  userId: uuid('user_id')
-    .notNull()
-    .references(() => users.id),
-  role: text('role').notNull().default('member'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
 
-// Initialize messages table
-export const messages = pgTable('messages', {
+// Initialize messages table with explicit type annotation
+export const messages: PgTableWithColumns<any> = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   channelId: uuid('channel_id').references(() => channels.id, { onDelete: 'cascade' }),
   dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id, { onDelete: 'cascade' }),
   senderId: uuid('sender_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
   attachments: jsonb('attachments'),
-  parentMessageId: uuid('parent_message_id').references(() => messages.id),
+  parentMessageId: uuid('parent_message_id').references((): any => messages.id),
   replyCount: integer('reply_count').notNull().default(0),
   latestReplyAt: timestampString('latest_reply_at'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -106,13 +90,27 @@ export const messagesRelations = relations(messages, ({ one }) => ({
   }),
 }))
 
-export { messages }
+export const unreadMessages = pgTable('unread_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id),
+  channelId: uuid('channel_id').references(() => channels.id),
+  dmChannelId: uuid('dm_channel_id').references(() => directMessageChannels.id),
+  lastReadMessageId: uuid('last_read_message_id').references(() => messages.id),
+  unreadCount: integer('unread_count').notNull().default(0),
+  hasMention: boolean('has_mention').notNull().default(false),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+})
 
-export const directMessageChannels = pgTable('direct_message_channels', {
+export const workspaceMemberships = pgTable('workspace_memberships', {
   id: uuid('id').primaryKey().defaultRandom(),
   workspaceId: uuid('workspace_id')
     .notNull()
     .references(() => workspaces.id),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  role: text('role').notNull().default('member'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
