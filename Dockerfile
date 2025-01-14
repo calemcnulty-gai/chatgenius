@@ -16,6 +16,9 @@ RUN npm ci
 # Copy application files
 COPY . .
 
+# Generate Drizzle types
+RUN npm run db:generate
+
 # Build the application
 RUN set -ex; \
     npm run build \

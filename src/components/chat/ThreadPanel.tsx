@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { XMarkIcon } from '@heroicons/react/24/outline'
-import { Message as MessageType } from '@/types/db'
+import { MessageWithSender as MessageType } from '@/types/db'
 import { Message } from '@/components/ui/Message'
 import { MessageInput } from '@/components/ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
@@ -64,14 +64,19 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
             createdAt: data.createdAt,
             editedAt: null,
             latestReplyAt: null,
-            sender: {
-              id: data.senderId,
-              name: data.senderName,
-              profileImage: data.senderProfileImage,
-            },
+            senderId: data.senderId,
             parentMessageId: data.parentMessageId,
             channelId: data.channelId,
             replyCount: 0,
+            sender: {
+              id: data.senderId,
+              name: data.senderName,
+              email: '', // Required by User type
+              clerkId: '', // Required by User type
+              createdAt: data.createdAt,
+              updatedAt: data.createdAt,
+              profileImage: data.senderProfileImage,
+            }
           }
           return {
             ...current,

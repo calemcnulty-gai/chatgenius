@@ -118,6 +118,9 @@ export async function POST(req: Request) {
       parentMessageId: parentMessageId || null,
       createdAt: timestamp,
       updatedAt: timestamp,
+      replyCount: 0,
+      latestReplyAt: null,
+      editedAt: null,
     }).returning();
 
     // If this is a reply, update the parent message's metadata
@@ -136,22 +139,26 @@ export async function POST(req: Request) {
     }
 
     // Construct message object for response and Pusher
-    const messageData = {
+    const messageData: MessageWithSender = {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
+      editedAt: message.editedAt,
+      latestReplyAt: message.latestReplyAt,
+      senderId: user.id,
+      channelId: message.channelId,
+      dmChannelId: message.dmChannelId,
       parentMessageId: message.parentMessageId,
+      replyCount: message.replyCount,
       sender: {
         id: user.id,
         name: user.name,
+        email: user.email,
+        clerkId: user.clerkId,
         profileImage: user.profileImage,
-      },
-      // Include parent message metadata if this is a reply
-      parentMessage: updatedParentMessage ? {
-        id: updatedParentMessage.id,
-        replyCount: updatedParentMessage.replyCount,
-        latestReplyAt: updatedParentMessage.latestReplyAt,
-      } : undefined,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      }
     }
 
     // Trigger message events - for regular channels only

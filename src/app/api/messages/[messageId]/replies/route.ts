@@ -52,11 +52,18 @@ export async function POST(
       senderId: user.id,
       parentMessageId: params.messageId
     })
+
+    const timestamp = new Date().toISOString()
     const [reply] = await db.insert(messages).values({
       content: content.trim(),
       channelId,
       senderId: user.id,
       parentMessageId: params.messageId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      replyCount: 0,
+      latestReplyAt: null,
+      editedAt: null,
     }).returning()
 
     // Update the parent message's reply count and latest reply timestamp
@@ -64,7 +71,8 @@ export async function POST(
       .update(messages)
       .set({
         replyCount: (parentMessage.replyCount || 0) + 1,
-        latestReplyAt: sql`NOW()`,
+        latestReplyAt: timestamp,
+        updatedAt: timestamp,
       })
       .where(eq(messages.id, params.messageId))
 

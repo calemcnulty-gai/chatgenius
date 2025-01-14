@@ -69,6 +69,7 @@ const messagesConfig = {
   latestReplyAt: timestampString('latest_reply_at'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   editedAt: timestampString('edited_at'),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 } as const;
 
 // Create table
