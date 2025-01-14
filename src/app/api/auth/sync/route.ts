@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
 import { getOrCreateUser } from '@/lib/db/users'
 
+// Force Node.js runtime
+export const runtime = 'nodejs'
+
 export async function POST() {
   console.log('🔍 Sync route called')
   try {
@@ -52,7 +55,7 @@ export async function POST() {
     })
   } catch (error) {
     console.error('🚨 Error in sync route:', error)
-    console.error('Error stack:', error.stack)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available')
     return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 
