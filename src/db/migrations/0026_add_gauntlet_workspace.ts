@@ -40,7 +40,12 @@ export async function addGauntletWorkspace() {
       ${createTimestamp(new Date())},
       ${createTimestamp(new Date())}
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (slug) DO NOTHING;
+  `)
+
+  // Get the Gauntlet workspace ID (whether we just created it or it already existed)
+  const { rows: [gauntletWorkspace] } = await pool.query<{ id: string }>(`
+    SELECT id FROM workspaces WHERE slug = 'gauntlet';
   `)
 
   // Create the #general channel if it doesn't exist
@@ -48,13 +53,13 @@ export async function addGauntletWorkspace() {
     INSERT INTO channels (id, workspace_id, name, slug, type, created_at, updated_at)
     VALUES (
       ${GENERAL_CHANNEL_ID},
-      ${GAUNTLET_WORKSPACE_ID},
+      ${gauntletWorkspace.id},
       'general',
       'general',
       'public',
       ${createTimestamp(new Date())},
       ${createTimestamp(new Date())}
     )
-    ON CONFLICT (id) DO NOTHING;
+    ON CONFLICT (workspace_id, slug) DO NOTHING;
   `)
 } 
