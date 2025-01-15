@@ -71,19 +71,30 @@ export async function POST(req: Request) {
             streaming: true
         });
 
+        // Clean the query by removing the AI user's name
+        const cleanedQuery = query.toLowerCase()
+            .replace(new RegExp(`\\b${aiUserDetails.name.toLowerCase()}\\b`, 'gi'), '')
+            .trim();
+
+        // Get context first
+        console.log('[RAG] Querying Pinecone for:', cleanedQuery);
+        const docs = await retriever.getRelevantDocuments(cleanedQuery);
+        const context = docs.map(doc => doc.pageContent).join('\n\n');
+        
+        // Format and log the actual prompt
+        const formattedPrompt = await prompt.format({
+            aiUser,
+            context,
+            query: cleanedQuery
+        });
+        console.log('[RAG] Formatted prompt:', formattedPrompt);
+
         // Create processing chain
         const chain = RunnableSequence.from([
             {
-                context: async () => {
-                    console.log('[RAG] Querying Pinecone for:', query);
-                    const docs = await retriever.getRelevantDocuments(query);
-                    console.log('[RAG] Pinecone returned documents:', docs.map(doc => ({
-                        content: doc.pageContent.substring(0, 100) + '...',
-                        metadata: doc.metadata
-                    })));
-                    return docs.map(doc => doc.pageContent).join('\n\n');
-                },
-                query: (input: { query: string }) => input.query,
+                context: async () => context,
+                query: () => cleanedQuery,
+                aiUser: () => aiUser,
             },
             prompt,
             llm,
