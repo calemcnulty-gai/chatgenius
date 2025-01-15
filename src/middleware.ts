@@ -8,25 +8,7 @@ const middleware = authMiddleware({
     "/invite/:id",
     "/invite/(.*)"
   ],
-  ignoredRoutes: ["/api/webhooks(.*)"],
-  debug: true,
-  beforeAuth: (req) => {
-    console.log('🔑 Middleware - Before Auth:', {
-      url: req.url,
-      method: req.method,
-      headers: Object.fromEntries(req.headers.entries())
-    });
-    return null;
-  },
-  afterAuth: (auth, req) => {
-    console.log('🔒 Middleware - After Auth:', {
-      userId: auth.userId,
-      isPublicRoute: auth.isPublicRoute,
-      url: req.url,
-      method: req.method
-    });
-    return null;
-  }
+  ignoredRoutes: ["/api/webhooks(.*)"]
 });
 
 export default middleware;

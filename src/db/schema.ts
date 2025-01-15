@@ -254,4 +254,15 @@ export const queryConfig = {
   notifications,
   invites,
   unreadMessages,
+  // Add relations
+  workspaceMembershipsRelations,
+  workspacesRelations,
+  usersRelations,
+  channelsRelations,
+  directMessageChannelsRelations,
+  directMessageMembersRelations,
+  unreadMessagesRelations,
+  notificationsRelations,
+  messagesRelations,
+  invitesRelations
 } as const 
