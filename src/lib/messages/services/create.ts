@@ -4,12 +4,36 @@ import { createMessageInDB, updateParentMessageMetadata } from '../queries'
 import { triggerMessageEvents, triggerThreadReplyEvent } from '../events'
 import { parseAICommand, generateAIResponse } from '@/lib/ai/commands'
 import type { User } from '@clerk/nextjs/server'
+import type { Channel, DirectMessageChannel } from '@/db/schema'
 
 interface CreateMessageParams {
   clerkUser: User
   channelId: string
   content: string
   parentMessageId?: string | null
+}
+
+interface HandleAICommandParams {
+  user: {
+    id: string
+    name: string
+    clerkId: string
+    email: string
+    profileImage: string | null
+    displayName: string | null
+    title: string | null
+    timeZone: string | null
+    status: 'offline' | 'active' | 'away'
+    lastHeartbeat: string | null
+    createdAt: string
+    updatedAt: string
+  }
+  channel: Channel | DirectMessageChannel
+  channelType: 'regular' | 'dm'
+  content: string
+  aiCommand: {
+    aiUser: string
+  }
 }
 
 export async function createMessage({
@@ -28,7 +52,10 @@ export async function createMessage({
   const aiCommand = parseAICommand(content)
   if (aiCommand) {
     return await handleAICommand({
-      user,
+      user: {
+        ...user,
+        status: 'active' as const
+      },
       channel,
       channelType,
       content,
@@ -60,7 +87,10 @@ export async function createMessage({
     await triggerMessageEvents({
       message: {
         ...message,
-        sender: user,
+        sender: {
+          ...user,
+          status: 'active' as const
+        },
         parentId: null,
       },
       workspaceId: channel.workspaceId,
@@ -71,7 +101,10 @@ export async function createMessage({
     if (parentMessageId) {
       await triggerThreadReplyEvent({
         ...message,
-        sender: user,
+        sender: {
+          ...user,
+          status: 'active' as const
+        },
         parentId: null,
       })
     }
@@ -80,7 +113,7 @@ export async function createMessage({
   return message
 }
 
-async function handleAICommand({ user, channel, channelType, content, aiCommand }) {
+async function handleAICommand({ user, channel, channelType, content, aiCommand }: HandleAICommandParams) {
   // Create human message first
   const humanMessage = await createMessageInDB({
     channelId: channel.id,
@@ -124,7 +157,10 @@ async function handleAICommand({ user, channel, channelType, content, aiCommand 
     await triggerMessageEvents({
       message: {
         ...aiMessage,
-        sender: aiUser,
+        sender: {
+          ...aiUser,
+          status: 'active' as const
+        },
         parentId: null,
       },
       workspaceId: channel.workspaceId,
