@@ -105,7 +105,10 @@ export async function generateRAGResponse({
 
   // Create message from AI user
   const message = await createMessage({
-    clerkUser,
+    clerkUser: {
+      ...clerkUser,
+      id: aiUserId
+    },
     channelId,
     content: response,
     parentMessageId
