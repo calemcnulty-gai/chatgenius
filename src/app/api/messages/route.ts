@@ -742,22 +742,25 @@ export async function GET(request: Request) {
           eq(messages.channelId, channelId),
           eq(messages.dmChannelId, channelId)
         ),
-        isNull(messages.parentMessageId)
+        isNull(messages.parentMessageId),
+        // If cursor is provided, get messages created before the cursor
+        cursor ? lt(messages.createdAt, cursor) : undefined
       ),
       with: {
         sender: true,
       },
-      orderBy: (messages, { asc }) => [asc(messages.createdAt)],
+      orderBy: (messages, { desc }) => [desc(messages.createdAt)],
       limit: 50,
     }) as (typeof messages.$inferSelect & {
       sender: typeof users.$inferSelect
     })[]
 
-    // Get the next cursor
+    // Get the next cursor - since we're getting latest first, 
+    // the next cursor should be the oldest message's timestamp
     const nextCursor = results.length === 50 ? results[results.length - 1].createdAt : undefined
 
-    // Transform and format messages
-    const formattedMessages = results.map(message => {
+    // Transform and format messages, reversing the order for ascending display
+    const formattedMessages = results.reverse().map(message => {
       return {
         id: message.id,
         content: message.content,

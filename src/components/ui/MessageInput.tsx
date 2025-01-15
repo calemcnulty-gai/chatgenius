@@ -188,7 +188,9 @@ export function MessageInput({
           },
           body: JSON.stringify({
             query: aiCommand.query,
-            aiUser: aiCommand.aiUser
+            aiUser: aiCommand.aiUser,
+            channelId,
+            parentMessageId
           }),
         }).catch(error => {
           console.error('Error getting AI response:', error)
