@@ -27,6 +27,7 @@ services:
       - PGPASSWORD=postgres
     command: |
       bash -c "
+        set -ex
         echo 'Starting db_setup...' &&
         until pg_isready -h db -U postgres; do 
           echo 'Waiting for postgres...' 
@@ -34,7 +35,7 @@ services:
         done &&
         (
           echo 'Dropping existing connections...' &&
-          psql -h db -U postgres -c 'SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = ''chatgenius'';' &&
+          psql -h db -U postgres -v ON_ERROR_STOP=1 -c \"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'chatgenius';\" &&
           echo 'Dropping and recreating database...' &&
           dropdb -h db -U postgres --if-exists chatgenius &&
           createdb -h db -U postgres chatgenius &&
