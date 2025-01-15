@@ -21,16 +21,18 @@ class InMemoryMessageQueue implements MessageQueue {
       return
     }
     this.processing = true
-    // Process queue logic here
-    this.processing = false
+    // Processing will be implemented in the worker
   }
 
   async size() {
     return this.queue.length
   }
 
+  // Internal methods used by the worker
   async getNextBatch(batchSize: number): Promise<MessageQueueItem[]> {
-    return this.queue.slice(0, batchSize)
+    return this.queue
+      .sort((a, b) => b.priority - a.priority)
+      .slice(0, batchSize)
   }
 
   async removeFromQueue(messageIds: string[]) {
@@ -41,13 +43,15 @@ class InMemoryMessageQueue implements MessageQueue {
     const item = this.queue.find(item => item.messageId === messageId)
     if (item) {
       item.retryCount++
+      item.priority -= 1 // Lower priority for retries
     }
   }
 }
 
-// Create a singleton instance
+// Singleton instance
 export const messageQueue = new InMemoryMessageQueue()
 
+// Helper to add new messages to the queue
 export async function queueMessage(message: Pick<typeof messages.$inferSelect, 'id' | 'content'>) {
   await messageQueue.add(message)
 } 
