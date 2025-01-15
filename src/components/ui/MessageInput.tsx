@@ -182,7 +182,8 @@ export function MessageInput({
         if (!response.ok) {
           console.error('[MessageInput] Failed to send human message:', {
             status: response.status,
-            statusText: response.statusText
+            statusText: response.statusText,
+            url: '/api/messages'
           })
           throw new Error('Failed to send message')
         }
@@ -195,15 +196,16 @@ export function MessageInput({
           query: content.slice(content.indexOf(' ', 4) + 1).trim()
         }
 
+        const ragUrl = '/api/rag'
         console.log('[MessageInput] Sending RAG request:', {
-          url: new URL('/api/rag', window.location.origin).toString(),
+          url: ragUrl,
           aiCommand,
           channelId,
           parentMessageId
         })
 
         // Don't await this - let it happen in the background
-        fetch(new URL('/api/rag', window.location.origin).toString(), {
+        fetch(ragUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -228,6 +230,11 @@ export function MessageInput({
         }).catch(error => {
           console.error('[MessageInput] Error getting AI response:', error)
         })
+
+        setContent('')
+        onMessageSent?.()
+        setIsSubmitting(false)
+        return
       } else {
         // Regular message handling
         response = await fetch('/api/messages', {
