@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect, KeyboardEvent } from 'react'
+import { useState, useCallback } from 'react'
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
 import { cn } from '@/lib/utils'
 import { Combobox } from '@headlessui/react'
@@ -37,50 +37,52 @@ export function MessageInput({
   const [selectedAIUser, setSelectedAIUser] = useState<AIUser | null>(null)
   const [query, setQuery] = useState('')
 
-  console.log('Current state:', { 
-    content, 
-    showAIDropdown, 
-    aiUsersCount: aiUsers.length,
-    selectedAIUser 
-  })
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    console.log('Key pressed:', {
+      key: e.key,
+      content: e.currentTarget.value,
+      showingDropdown: showAIDropdown,
+      type: e.type
+    })
 
-  useEffect(() => {
-    console.log('Content changed:', content)
-    console.log('Current aiUsers:', aiUsers)
-    
-    // When /ai is typed, fetch AI users
-    if (content.startsWith('/ai') && !aiUsers.length) {
-      console.log('Fetching AI users...')
+    // If we type a space after /ai, show the dropdown
+    if (e.key === ' ' && e.currentTarget.value === '/ai') {
+      console.log('Space pressed after /ai, fetching users...')
       fetch('/api/ai-users')
         .then(res => {
-          console.log('AI users response status:', res.status)
+          console.log('AI users response:', res.status)
           return res.json()
         })
         .then(users => {
           console.log('AI users fetched:', users)
           setAIUsers(users)
+          setShowAIDropdown(true)
         })
         .catch(error => {
           console.error('Error fetching AI users:', error)
         })
     }
 
-    // Show dropdown when /ai is typed
-    const shouldShowDropdown = content.startsWith('/ai ')
-    console.log('Should show dropdown:', shouldShowDropdown, {
-      startsWithAi: content.startsWith('/ai'),
-      hasSpace: content.includes(' '),
-      content
-    })
-    setShowAIDropdown(shouldShowDropdown)
-
-    // Hide dropdown when /ai is removed
-    if (!content.startsWith('/ai')) {
-      console.log('Hiding dropdown - no longer starts with /ai')
+    // If we press backspace and remove the /ai command, hide the dropdown
+    if (e.key === 'Backspace' && !e.currentTarget.value.startsWith('/ai')) {
+      console.log('Command removed, hiding dropdown')
       setShowAIDropdown(false)
       setSelectedAIUser(null)
     }
-  }, [content, aiUsers.length])
+  }, [showAIDropdown])
+
+  const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('Input changed:', {
+      value: e.target.value,
+      showingDropdown: showAIDropdown
+    })
+    setContent(e.target.value)
+    
+    // Update query for filtering if dropdown is shown
+    if (showAIDropdown) {
+      setQuery(e.target.value.slice(4))
+    }
+  }, [showAIDropdown])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -228,42 +230,6 @@ export function MessageInput({
     }
   }
 
-  const handleKeyPress = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
-    console.log('Key pressed:', {
-      key: e.key,
-      content: e.currentTarget.value,
-      showingDropdown: showAIDropdown
-    })
-
-    // If we type a space after /ai, show the dropdown
-    if (e.key === ' ' && e.currentTarget.value === '/ai') {
-      console.log('Space pressed after /ai, showing dropdown')
-      if (!aiUsers.length) {
-        console.log('Fetching AI users...')
-        fetch('/api/ai-users')
-          .then(res => {
-            console.log('AI users response status:', res.status)
-            return res.json()
-          })
-          .then(users => {
-            console.log('AI users fetched:', users)
-            setAIUsers(users)
-          })
-          .catch(error => {
-            console.error('Error fetching AI users:', error)
-          })
-      }
-      setShowAIDropdown(true)
-    }
-
-    // If we press backspace and remove the /ai command, hide the dropdown
-    if (e.key === 'Backspace' && !e.currentTarget.value.startsWith('/ai')) {
-      console.log('Command removed, hiding dropdown')
-      setShowAIDropdown(false)
-      setSelectedAIUser(null)
-    }
-  }, [aiUsers.length, showAIDropdown])
-
   const filteredAIUsers = query === ''
     ? aiUsers
     : aiUsers.filter((user) => {
@@ -293,18 +259,12 @@ export function MessageInput({
           <input
             type="text"
             value={content}
-            onChange={(e) => {
-              console.log('Input changed:', e.target.value)
-              setContent(e.target.value)
-              if (showAIDropdown) {
-                setQuery(e.target.value.slice(4))
-              }
-            }}
-            onKeyDown={handleKeyPress}
+            onChange={handleChange}
+            onKeyDown={handleKeyDown}
             placeholder={isDragging ? 'Drop files here...' : placeholder}
             className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
-          {showAIDropdown && (
+          {showAIDropdown && aiUsers.length > 0 && (
             <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
               <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ content, aiUsers, query }, null, 2)}</pre>
               <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
