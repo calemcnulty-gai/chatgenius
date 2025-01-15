@@ -1,78 +1,87 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { db } from '@/db'
-import { workspaces, workspaceMemberships, channels } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { getOrCreateUser } from '@/lib/db/users'
+import { getWorkspace, deleteWorkspace } from '@/lib/workspaces/services/workspace'
 
 export async function GET(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
 
-    // Get the full user data from Clerk
+  try {
     const clerkUser = await currentUser()
     if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
-    })
-
-    // Get workspace by slug
-    const workspace = await db.query.workspaces.findFirst({
-      where: eq(workspaces.slug, params.workspaceSlug),
-    })
-
-    if (!workspace) {
-      return new NextResponse('Workspace not found', { status: 404 })
+    const result = await getWorkspace(params.workspaceSlug, clerkUser)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { 
+          status: result.error.code === 'NOT_FOUND' ? 404 :
+                 result.error.code === 'UNAUTHORIZED' ? 401 : 500 
+        }
+      )
     }
 
-    // Verify membership
-    const membership = await db.query.workspaceMemberships.findFirst({
-      where: and(
-        eq(workspaceMemberships.workspaceId, workspace.id),
-        eq(workspaceMemberships.userId, user.id)
-      ),
-    })
-
-    if (!membership) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Get default channel (general)
-    const channel = await db.query.channels.findFirst({
-      where: and(
-        eq(channels.workspaceId, workspace.id),
-        eq(channels.slug, 'general')
-      ),
-    })
-
-    if (!channel) {
-      return new NextResponse('Default channel not found', { status: 404 })
-    }
-
-    // Return workspace details
-    return NextResponse.json({
-      id: workspace.id,
-      name: workspace.name,
-      slug: workspace.slug,
-      role: membership.role,
-      defaultChannelId: channel.id,
-    })
+    return NextResponse.json({ workspace: result.workspace })
   } catch (error) {
-    console.error('Error fetching workspace:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error getting workspace:', error)
+    return NextResponse.json(
+      { error: { message: 'Failed to get workspace', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { workspaceSlug: string } }
+) {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
+
+  try {
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
+    }
+
+    const result = await deleteWorkspace(params.workspaceSlug, clerkUser)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { 
+          status: result.error.code === 'NOT_FOUND' ? 404 :
+                 result.error.code === 'UNAUTHORIZED' ? 401 : 500 
+        }
+      )
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting workspace:', error)
+    return NextResponse.json(
+      { error: { message: 'Failed to delete workspace', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

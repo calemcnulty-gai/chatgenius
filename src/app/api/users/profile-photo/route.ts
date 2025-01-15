@@ -1,64 +1,60 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs'
-import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
-import { put } from '@vercel/blob'
-import { now } from '@/types/timestamp'
+import { uploadProfilePhoto, removeProfilePhoto } from '@/lib/users/services/profile-photo'
 
 export async function POST(request: Request) {
-  try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
 
+  try {
     const formData = await request.formData()
     const file = formData.get('file') as File
     if (!file) {
-      return new NextResponse('No file provided', { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'No file provided', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
-    // Upload to Vercel Blob
-    const { url } = await put(file.name, file, {
-      access: 'public',
-    })
+    const result = await uploadProfilePhoto({ id: userId } as any, file)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.error.code === 'INVALID_INPUT' ? 400 : 500 }
+      )
+    }
 
-    // Update user's profile image
-    await db
-      .update(users)
-      .set({
-        profileImage: url,
-        updatedAt: now(),
-      })
-      .where(eq(users.clerkId, userId))
-
-    return NextResponse.json({ url })
+    return NextResponse.json({ user: result.user })
   } catch (error) {
     console.error('Error uploading profile photo:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Failed to upload profile photo', code: 'INVALID_INPUT' } },
+      { status: 400 }
+    )
   }
 }
 
-export async function DELETE(request: Request) {
-  try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Remove profile image URL from user
-    await db
-      .update(users)
-      .set({
-        profileImage: null,
-        updatedAt: now(),
-      })
-      .where(eq(users.clerkId, userId))
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('Error removing profile photo:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+export async function DELETE() {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
   }
+
+  const result = await removeProfilePhoto({ id: userId } as any)
+  if (result.error) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.error.code === 'INVALID_INPUT' ? 400 : 500 }
+    )
+  }
+
+  return NextResponse.json({ user: result.user })
 } 

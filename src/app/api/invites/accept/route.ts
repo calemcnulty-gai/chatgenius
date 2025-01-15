@@ -1,21 +1,24 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { db } from '@/db'
-import { workspaceMemberships } from '@/db/schema'
-import { v4 as uuidv4 } from 'uuid'
 import { getOrCreateUser } from '@/lib/db/users'
+import { acceptInvite } from '@/lib/invites/services/invite'
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
+
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Get the full user data from Clerk
     const clerkUser = await currentUser()
     if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     // Get or create user to get their database ID
@@ -27,22 +30,35 @@ export async function POST(req: Request) {
       imageUrl: clerkUser.imageUrl,
     })
 
-    const { workspaceId } = await req.json()
-    if (!workspaceId) {
-      return new NextResponse('Missing required fields', { status: 400 })
+    const { token } = await request.json()
+    if (!token) {
+      return NextResponse.json(
+        { error: { message: 'Missing token', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
-    // Create workspace membership
-    await db.insert(workspaceMemberships).values({
-      id: uuidv4(),
-      workspaceId,
+    const result = await acceptInvite({
+      token,
       userId: user.id,
-      role: 'member',
     })
+
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { 
+          status: result.error.code === 'NOT_FOUND' ? 404 :
+                 result.error.code === 'ALREADY_MEMBER' ? 400 : 500 
+        }
+      )
+    }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error accepting invite:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Failed to accept invite', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

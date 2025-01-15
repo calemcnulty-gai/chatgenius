@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { db } from '@/db'
-import { notifications } from '@/db/schema'
-import { and, eq } from 'drizzle-orm'
-import { getOrCreateUser } from '@/lib/db/users'
+import { markRead } from '@/lib/notifications/services/mark-read'
 
 export async function POST(
   request: Request,
@@ -21,25 +18,16 @@ export async function POST(
       return new NextResponse('User not found', { status: 404 })
     }
 
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
+    const { success, error } = await markRead({ 
+      clerkUser,
+      notificationId: params.id
     })
 
-    // Mark notification as read
-    await db
-      .update(notifications)
-      .set({ read: true })
-      .where(
-        and(
-          eq(notifications.id, params.id),
-          eq(notifications.userId, user.id)
-        )
-      )
+    if (error) {
+      return new NextResponse(error.message, { 
+        status: error.code === 'UNAUTHORIZED' ? 401 : 400 
+      })
+    }
 
     return new NextResponse('OK')
   } catch (error) {

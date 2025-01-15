@@ -1,9 +1,9 @@
-import { db } from '@/db'
-import { workspaces, directMessageChannels, directMessageMembers, users, unreadMessages } from '@/db/schema'
-import { eq, and } from 'drizzle-orm'
-import { auth } from '@clerk/nextjs'
 import { NextResponse } from 'next/server'
-import type { DirectMessageChannelWithUnreadCounts, DirectMessageChannelWithMembers, DirectMessageChannelWithUnreadMessages } from '@/types/db'
+import { auth, currentUser } from '@clerk/nextjs'
+import {
+  listDMChannels,
+  createOrGetDMChannel
+} from '@/lib/workspaces/services/dm'
 
 export async function GET(
   request: Request,
@@ -11,83 +11,93 @@ export async function GET(
 ) {
   const { userId } = auth()
   if (!userId) {
-    return new NextResponse('Unauthorized', { status: 401 })
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
   }
 
   try {
-    // Get workspace
-    const workspace = await db.query.workspaces.findFirst({
-      where: eq(workspaces.slug, params.workspaceSlug),
-    })
-
-    if (!workspace) {
-      return new NextResponse('Workspace not found', { status: 404 })
-    }
-
-    // Get user's internal ID
-    const user = await db.query.users.findFirst({
-      where: eq(users.clerkId, userId),
-    })
-
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 })
-    }
-
-    // Get DM channels where user is a participant
-    const dmChannels = await db.query.directMessageChannels.findMany({
-      where: eq(directMessageChannels.workspaceId, workspace.id),
-      with: {
-        members: {
-          with: {
-            user: true
-          }
-        },
-        unreadMessages: {
-          where: eq(unreadMessages.userId, user.id)
-        }
-      },
-      orderBy: (channels, { desc }) => [desc(channels.updatedAt)]
-    }) as DirectMessageChannelWithUnreadMessages[]
-
-    // Filter and transform channels
-    const userDmChannels = dmChannels
-      .filter(channel => 
-        channel.members.some((member: { user: { id: string } }) => member.user.id === user.id)
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
       )
-      .map(channel => {
-        // Find the other user in the channel
-        const otherMember = channel.members.find((member: { user: { id: string } }) => member.user.id !== user.id)
-        const otherUser = otherMember?.user
+    }
 
-        if (!otherUser) {
-          return null // Skip channels without a valid other user
+    const result = await listDMChannels(params.workspaceSlug, clerkUser)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { 
+          status: result.error.code === 'NOT_FOUND' ? 404 :
+                 result.error.code === 'UNAUTHORIZED' ? 401 : 500 
         }
+      )
+    }
 
-        // Get unread count for this channel
-        const unread = channel.unreadMessages?.[0]
-
-        const transformed: DirectMessageChannelWithUnreadCounts = {
-          id: channel.id,
-          workspaceId: channel.workspaceId,
-          createdAt: channel.createdAt,
-          updatedAt: channel.updatedAt,
-          otherUser: {
-            id: otherUser.id,
-            name: otherUser.name,
-            profileImage: otherUser.profileImage,
-            status: otherUser.status as 'active' | 'away' | 'offline'
-          },
-          unreadCount: unread?.unreadCount ?? 0,
-          hasMention: unread?.hasMention ?? false
-        }
-
-        return transformed
-      })
-      .filter((channel): channel is DirectMessageChannelWithUnreadCounts => channel !== null)
-
-    return NextResponse.json(userDmChannels)
+    return NextResponse.json({ channels: result.channels })
   } catch (error) {
-    console.error('Error fetching DM channels:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error listing DM channels:', error)
+    return NextResponse.json(
+      { error: { message: 'Failed to list DM channels', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(
+  request: Request,
+  { params }: { params: { workspaceSlug: string } }
+) {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
+
+  try {
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
+    }
+
+    const { memberIds } = await request.json()
+    if (!memberIds || !Array.isArray(memberIds) || memberIds.length === 0) {
+      return NextResponse.json(
+        { error: { message: 'Member IDs are required', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
+    }
+
+    const result = await createOrGetDMChannel(
+      params.workspaceSlug,
+      memberIds,
+      clerkUser
+    )
+
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { 
+          status: result.error.code === 'NOT_FOUND' ? 404 :
+                 result.error.code === 'UNAUTHORIZED' ? 401 : 400 
+        }
+      )
+    }
+
+    return NextResponse.json({ channel: result.channel })
+  } catch (error) {
+    console.error('Error creating DM channel:', error)
+    return NextResponse.json(
+      { error: { message: 'Failed to create DM channel', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

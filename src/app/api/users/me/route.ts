@@ -1,68 +1,59 @@
 import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs'
-import { db } from '@/db'
-import { users } from '@/db/schema'
-import { eq } from 'drizzle-orm'
-import { now } from '@/types/timestamp'
+import { getProfile, updateProfile } from '@/lib/users/services/profile'
 
 export async function GET() {
-  try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Get user from database
-    const user = await db.query.users.findFirst({
-      where: eq(users.clerkId, clerkUserId),
-    })
-
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 })
-    }
-
-    return NextResponse.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      profileImage: user.profileImage,
-    })
-  } catch (error) {
-    console.error('Error fetching user:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
   }
+
+  const result = await getProfile({ id: userId } as any)
+  if (result.error) {
+    return NextResponse.json(
+      { error: result.error },
+      { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+    )
+  }
+
+  return NextResponse.json({ user: result.user })
 }
 
 export async function PATCH(request: Request) {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
+
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const body = await request.json()
+    const result = await updateProfile({ id: userId } as any, {
+      name: body.name,
+      displayName: body.displayName,
+      title: body.title,
+      timeZone: body.timeZone,
+      profileImage: body.profileImage,
+    })
+
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.error.code === 'INVALID_INPUT' ? 400 : 500 }
+      )
     }
 
-    const { name, displayName, title, timeZone, profileImage } = await request.json()
-
-    // Update user in database
-    const [updatedUser] = await db
-      .update(users)
-      .set({
-        name,
-        displayName,
-        title,
-        timeZone,
-        profileImage,
-        updatedAt: now(),
-      })
-      .where(eq(users.clerkId, clerkUserId))
-      .returning()
-
-    if (!updatedUser) {
-      return new NextResponse('User not found', { status: 404 })
-    }
-
-    return NextResponse.json(updatedUser)
+    return NextResponse.json({ user: result.user })
   } catch (error) {
     console.error('Error updating user:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Invalid request body', code: 'INVALID_INPUT' } },
+      { status: 400 }
+    )
   }
 } 

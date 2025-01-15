@@ -1,9 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { db } from '@/db'
-import { notifications } from '@/db/schema'
-import { eq } from 'drizzle-orm'
-import { getOrCreateUser } from '@/lib/db/users'
+import { listNotifications } from '@/lib/notifications/services/list'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,24 +17,21 @@ export async function GET(request: Request) {
       return new NextResponse('User not found', { status: 404 })
     }
 
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
-    })
+    // Get limit from query params
+    const { searchParams } = new URL(request.url)
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
 
-    const userNotifications = await db.query.notifications.findMany({
-      where: eq(notifications.userId, user.id),
-      orderBy: (notifications, { desc }) => [desc(notifications.createdAt)],
-      limit: 50,
-    })
+    const { notifications, error } = await listNotifications({ clerkUser, limit })
 
-    return NextResponse.json(userNotifications)
+    if (error) {
+      return new NextResponse(error.message, { 
+        status: error.code === 'UNAUTHORIZED' ? 401 : 400 
+      })
+    }
+
+    return NextResponse.json(notifications)
   } catch (error) {
     console.error('Error fetching notifications:', error)
-    return new NextResponse('Error fetching notifications', { status: 500 })
+    return new NextResponse('Internal Server Error', { status: 500 })
   }
 } 

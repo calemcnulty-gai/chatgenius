@@ -4,16 +4,22 @@ import { pusherServer } from '@/lib/pusher'
 import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST(req: Request) {
-  try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
 
+  try {
     // Get the full user data from Clerk
     const clerkUser = await currentUser()
     if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     // Get or create user to get their database ID
@@ -30,7 +36,10 @@ export async function POST(req: Request) {
     const channel = new URLSearchParams(data).get('channel_name')
 
     if (!socketId || !channel) {
-      return new NextResponse('Missing required fields', { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'Missing required fields', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
     // Handle presence channel authentication
@@ -48,19 +57,19 @@ export async function POST(req: Request) {
 
     // Handle private channel authentication
     if (channel.startsWith('private-') || channel === `user-${user.id}`) {
-      const authResponse = pusherServer.authorizeChannel(socketId, channel, {
-        user_id: user.id,
-        user_info: {
-          name: user.name,
-          image: user.profileImage,
-        },
-      })
+      const authResponse = pusherServer.authorizeChannel(socketId, channel)
       return NextResponse.json(authResponse)
     }
 
-    return new NextResponse('Unauthorized channel', { status: 401 })
+    return NextResponse.json(
+      { error: { message: 'Invalid channel type', code: 'INVALID_INPUT' } },
+      { status: 400 }
+    )
   } catch (error) {
-    console.error('Error authorizing Pusher channel:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    console.error('Error in Pusher auth:', error)
+    return NextResponse.json(
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

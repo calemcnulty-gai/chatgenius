@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { listWorkspaceUsers } from '@/lib/workspaces/services/users'
+import { getDMChannel } from '@/lib/workspaces/services/dm'
 
 export async function GET(
   request: Request,
-  { params }: { params: { workspaceSlug: string } }
+  { params }: { params: { workspaceSlug: string; channelId: string } }
 ) {
   const { userId } = auth()
   if (!userId) {
@@ -23,7 +23,12 @@ export async function GET(
       )
     }
 
-    const result = await listWorkspaceUsers(params.workspaceSlug, clerkUser)
+    const result = await getDMChannel(
+      params.workspaceSlug,
+      params.channelId,
+      clerkUser
+    )
+
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
@@ -34,11 +39,11 @@ export async function GET(
       )
     }
 
-    return NextResponse.json({ users: result.users })
+    return NextResponse.json({ channel: result.channel })
   } catch (error) {
-    console.error('Error listing workspace users:', error)
+    console.error('Error getting DM channel:', error)
     return NextResponse.json(
-      { error: { message: 'Failed to list workspace users', code: 'INVALID_INPUT' } },
+      { error: { message: 'Failed to get DM channel', code: 'INVALID_INPUT' } },
       { status: 500 }
     )
   }

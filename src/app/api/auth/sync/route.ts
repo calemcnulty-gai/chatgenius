@@ -1,40 +1,43 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { getOrCreateUser } from '@/lib/db/users'
+import { syncUser } from '@/lib/auth/services/sync'
 
 // Force Node.js runtime
 export const runtime = 'nodejs'
 
 export async function POST() {
+  const { userId } = auth()
+  if (!userId) {
+    return NextResponse.json(
+      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
+
   try {
-    const { userId } = auth()
-
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const clerkUser = await currentUser()
+    if (!clerkUser) {
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
-    const user = await currentUser()
-
-    if (!user) {
-      return new NextResponse('User not found', { status: 404 })
+    const { user, error } = await syncUser({ clerkUser })
+    
+    if (error) {
+      return NextResponse.json(
+        { error },
+        { status: error.code === 'UNAUTHORIZED' ? 401 : 400 }
+      )
     }
 
-    // Get or create user in our database
-    const dbUser = await getOrCreateUser({
-      id: userId,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      emailAddresses: user.emailAddresses,
-      imageUrl: user.imageUrl,
-    })
-
-    // Return the user with the internal database ID as the id field
-    return NextResponse.json({
-      ...dbUser,
-      id: dbUser.id,
-    })
+    return NextResponse.json({ user })
   } catch (error) {
     console.error('Error in sync route:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 
