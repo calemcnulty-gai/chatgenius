@@ -32,9 +32,9 @@ export async function POST(req: Request) {
             return new NextResponse('Query is required', { status: 400 });
         }
 
-        if (!aiUser) {
-            console.log('[RAG] Missing aiUser parameter')
-            return new NextResponse('AI user is required', { status: 400 });
+        if (!aiUser?.id) {
+            console.log('[RAG] Missing aiUser.id parameter')
+            return new NextResponse('AI user ID is required', { status: 400 });
         }
 
         if (!channelId) {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
         const response = await generateRAGResponse({
             query,
-            aiUser,
+            aiUserId: aiUser.id,
             messageId,
             channelId,
             parentMessageId,

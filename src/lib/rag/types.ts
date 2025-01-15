@@ -2,7 +2,7 @@ import type { User } from '@clerk/nextjs/server'
 
 export interface GenerateRAGResponseParams {
   query: string
-  aiUser: string
+  aiUserId: string
   messageId?: string
   channelId: string
   parentMessageId?: string | null

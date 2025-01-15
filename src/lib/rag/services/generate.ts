@@ -8,6 +8,9 @@ import { RunnableSequence } from '@langchain/core/runnables'
 import { validateAndGetAIUser } from '@/lib/messages/validation'
 import { createMessage } from '@/lib/messages/services/create'
 import type { GenerateRAGResponseParams, RAGResponse } from '../types'
+import { db } from '@/db'
+import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 const TEMPLATE = `You are {aiUser}, an AI personality in a chat application.
 You should respond in character based on your previous messages and the current query.
@@ -21,14 +24,18 @@ Please respond in character, maintaining consistency with your previous messages
 
 export async function generateRAGResponse({
   query,
-  aiUser: aiUserName,
+  aiUserId,
   messageId,
   channelId,
   parentMessageId,
   clerkUser
 }: GenerateRAGResponseParams): Promise<RAGResponse> {
   // Get AI user
-  const aiUser = await validateAndGetAIUser(aiUserName)
+  const aiUser = await db.query.users.findFirst({
+    where: eq(users.id, aiUserId)
+  })
+
+  if (!aiUser) throw new Error('AI user not found')
 
   // Initialize Pinecone
   const pc = new Pinecone({
@@ -68,7 +75,7 @@ export async function generateRAGResponse({
 
   // Clean query
   const cleanedQuery = query.toLowerCase()
-    .replace(new RegExp(`\\b${aiUserName.toLowerCase()}\\b`, 'gi'), '')
+    .replace(new RegExp(`\\b${aiUser.name.toLowerCase()}\\b`, 'gi'), '')
     .trim()
 
   // Get context
@@ -81,7 +88,7 @@ export async function generateRAGResponse({
     {
       context: async () => context,
       query: () => cleanedQuery,
-      aiUser: () => aiUserName,
+      aiUser: () => aiUser.name,
     },
     prompt,
     llm,
@@ -92,7 +99,7 @@ export async function generateRAGResponse({
   console.log('[RAG] Executing chain with query:', cleanedQuery)
   const response = await chain.invoke({
     query: cleanedQuery,
-    aiUser: aiUserName
+    aiUser: aiUser.name
   })
   console.log('[RAG] Chain response:', response)
 
