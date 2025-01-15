@@ -157,55 +157,50 @@ export function MessageInput({
     try {
       // If this is an /ai command with a selected user
       if (content.startsWith('/ai ') && selectedAIUser) {
-        const aiCommand = {
-          aiUser: selectedAIUser.name,
-          query: content.slice(content.indexOf(' ', 4) + 1) // Remove '/ai @username '
-        }
-
-        const response = await fetch('/api/rag', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(aiCommand),
-        })
-
-        if (!response.ok) {
-          throw new Error('Failed to process AI command')
-        }
-
-        const result = await response.json()
-        
-        // Send the AI response as a message
-        const messageResponse = await fetch('/api/messages', {
+        // Send the human message first, like any other message
+        const response = await fetch('/api/messages', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: result.response,
+            content: content.trim(),
             channelId,
-            parentMessageId,
-            aiUserId: selectedAIUser.id
+            parentMessageId
           }),
         })
 
-        if (!messageResponse.ok) {
-          throw new Error('Failed to send AI response message')
+        if (!response.ok) {
+          throw new Error('Failed to send message')
         }
 
+        // Then trigger the AI response asynchronously
+        const aiCommand = {
+          aiUser: selectedAIUser.name,
+          query: content.slice(content.indexOf(' ', 4) + 1).trim()
+        }
+
+        // Don't await this - let it happen in the background
+        fetch('/api/rag', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: aiCommand.query,
+            aiUser: aiCommand.aiUser
+          }),
+        }).catch(error => {
+          console.error('Error getting AI response:', error)
+        })
+
         setContent('')
-        setSelectedAIUser(null)
         onMessageSent?.()
         return
       }
 
-      // If this is a thread reply, use the thread endpoint
-      const endpoint = parentMessageId 
-        ? `/api/messages/${parentMessageId}/replies`
-        : '/api/messages'
-
-      const response = await fetch(endpoint, {
+      // Regular message handling
+      const response = await fetch('/api/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

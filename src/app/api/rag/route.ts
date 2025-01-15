@@ -118,9 +118,30 @@ export async function POST(req: Request) {
         ]);
 
         // Execute chain
-        console.log('[RAG] Executing chain with query:', query);
-        const response = await chain.invoke({ query });
+        console.log('[RAG] Executing chain with query:', cleanedQuery);
+        const response = await chain.invoke({
+            query: cleanedQuery,
+            aiUser
+        });
         console.log('[RAG] Chain response:', response);
+
+        // Create a message from the AI user
+        const messageResponse = await fetch(new URL('/api/messages', req.url).toString(), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                content: response,
+                channelId: body.channelId,
+                parentMessageId: body.parentMessageId,
+                aiUserId: aiUserDetails.id
+            }),
+        });
+
+        if (!messageResponse.ok) {
+            throw new Error('Failed to create AI response message');
+        }
 
         // Log the context documents we already have
         console.log('[RAG] Context documents:', docs.map(doc => ({
@@ -129,7 +150,7 @@ export async function POST(req: Request) {
         })));
 
         return NextResponse.json({
-            response,
+            success: true,
             context: docs.map(doc => ({
                 content: doc.pageContent,
                 source: doc.metadata.source,
