@@ -7,6 +7,9 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { Pinecone } from '@pinecone-database/pinecone';
 import { StringOutputParser } from '@langchain/core/output_parsers';
 import { RunnableSequence } from '@langchain/core/runnables';
+import { eq } from 'drizzle-orm';
+import { db } from '@/db';
+import { users } from '@/db/schema';
 
 // Enhanced RAG prompt template
 const TEMPLATE = `You are {aiUser}, an AI personality in a chat application.
@@ -27,10 +30,23 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { query, messageId } = body;
+        const { query, messageId, aiUser } = body;
 
         if (!query) {
             return new NextResponse('Query is required', { status: 400 });
+        }
+
+        if (!aiUser) {
+            return new NextResponse('AI user is required', { status: 400 });
+        }
+
+        // Get AI user details from database
+        const aiUserDetails = await db.query.users.findFirst({
+            where: eq(users.name, aiUser)
+        });
+
+        if (!aiUserDetails) {
+            return new NextResponse('AI user not found', { status: 404 });
         }
 
         console.log('[RAG] Processing query:', query);
@@ -106,17 +122,15 @@ export async function POST(req: Request) {
         const response = await chain.invoke({ query });
         console.log('[RAG] Chain response:', response);
 
-        // Get context for response
-        console.log('[RAG] Getting additional context from Pinecone');
-        const context = await retriever.getRelevantDocuments(query);
-        console.log('[RAG] Additional context documents:', context.map(doc => ({
+        // Log the context documents we already have
+        console.log('[RAG] Context documents:', docs.map(doc => ({
             content: doc.pageContent.substring(0, 100) + '...',
             metadata: doc.metadata
         })));
 
         return NextResponse.json({
             response,
-            context: context.map(doc => ({
+            context: docs.map(doc => ({
                 content: doc.pageContent,
                 source: doc.metadata.source,
                 score: doc.metadata.score || null,
