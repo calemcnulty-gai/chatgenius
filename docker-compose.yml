@@ -3,6 +3,12 @@ version: '3.8'
 services:
   db:
     image: postgres:15
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -60,6 +66,12 @@ services:
       dockerfile: Dockerfile
       args:
         - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+        reservations:
+          memory: 768M
     expose:
       - "3000"
     env_file:
@@ -81,6 +93,12 @@ services:
 
   nginx:
     image: nginx:alpine
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
     ports:
       - "80:80"
       - "443:443"
