@@ -162,6 +162,8 @@ export function MessageInput({
         // Strip the /ai command from the message
         messageContent = content.slice(content.indexOf(' ', 4) + 1).trim()
         
+        console.log('[MessageInput] Selected AI user:', selectedAIUser)
+        
         const aiCommand = {
           aiUser: selectedAIUser.id,
           query: messageContent
@@ -182,7 +184,7 @@ export function MessageInput({
           },
           body: JSON.stringify({
             query: aiCommand.query,
-            aiUser: aiCommand.aiUser,
+            aiUser: selectedAIUser.id,
             channelId,
             parentMessageId
           }),
