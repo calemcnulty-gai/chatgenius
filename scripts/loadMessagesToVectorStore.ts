@@ -1,6 +1,6 @@
-import { loadExistingMessages } from '@/workers/messageUpload/loadExisting'
-import { messageUploadWorker } from '@/workers/messageUpload/worker'
-import { messageQueue } from '@/workers/messageUpload/queue'
+import { loadExistingMessages } from '../src/workers/messageUpload/loadExisting'
+import { messageUploadWorker } from '../src/workers/messageUpload/worker'
+import { messageQueue } from '../src/workers/messageUpload/queue'
 
 async function main() {
   try {
