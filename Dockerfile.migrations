@@ -19,7 +19,7 @@ COPY . .
 HEALTHCHECK --interval=5s --timeout=5s --start-period=5s --retries=3 \
     CMD pg_isready -h db -U postgres || exit 1
 
-# Make the command more verbose and ensure container stays up even on failure
+# Run migrations and exit
 CMD sh -c "\
     echo 'Starting migrations container...' && \
     echo 'Checking for database...' && \
@@ -29,8 +29,8 @@ CMD sh -c "\
     done && \
     echo 'Database is up - executing migrations' && \
     echo 'Running db:migrate...' && \
-    (npm run db:migrate || (echo 'Migration failed with exit code $$?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
+    npm run db:migrate && \
     echo 'Running db:generate...' && \
-    (npm run db:generate || (echo 'Generate failed with exit code $$?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
-    echo 'All done - keeping container alive for inspection' && \
-    tail -f /dev/null" 
+    npm run db:generate && \
+    echo 'All migrations completed successfully!' && \
+    exit 0" 

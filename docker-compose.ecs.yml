@@ -10,7 +10,12 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
     depends_on:
       - db
-    command: sh -c "npm run db:migrate && npm run start"
+    command: |
+      sh -c "
+        echo 'Running migrations...' &&
+        npm run db:migrate &&
+        echo 'Starting web service...' &&
+        npm start"
     logging:
       driver: awslogs
       options:
