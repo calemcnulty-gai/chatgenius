@@ -244,7 +244,7 @@ export function MessageInput({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "border-t border-gray-700 bg-gray-900 p-4 relative",
+        "border-t border-gray-700 bg-red-900 p-4 relative min-h-[100px]",
         isDragging && "bg-blue-900/20",
         className
       )}
