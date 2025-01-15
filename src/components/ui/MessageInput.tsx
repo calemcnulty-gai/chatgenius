@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, KeyboardEvent } from 'react'
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
 import { cn } from '@/lib/utils'
 import { Combobox } from '@headlessui/react'
@@ -228,6 +228,42 @@ export function MessageInput({
     }
   }
 
+  const handleKeyPress = useCallback((e: KeyboardEvent<HTMLInputElement>) => {
+    console.log('Key pressed:', {
+      key: e.key,
+      content: e.currentTarget.value,
+      showingDropdown: showAIDropdown
+    })
+
+    // If we type a space after /ai, show the dropdown
+    if (e.key === ' ' && e.currentTarget.value === '/ai') {
+      console.log('Space pressed after /ai, showing dropdown')
+      if (!aiUsers.length) {
+        console.log('Fetching AI users...')
+        fetch('/api/ai-users')
+          .then(res => {
+            console.log('AI users response status:', res.status)
+            return res.json()
+          })
+          .then(users => {
+            console.log('AI users fetched:', users)
+            setAIUsers(users)
+          })
+          .catch(error => {
+            console.error('Error fetching AI users:', error)
+          })
+      }
+      setShowAIDropdown(true)
+    }
+
+    // If we press backspace and remove the /ai command, hide the dropdown
+    if (e.key === 'Backspace' && !e.currentTarget.value.startsWith('/ai')) {
+      console.log('Command removed, hiding dropdown')
+      setShowAIDropdown(false)
+      setSelectedAIUser(null)
+    }
+  }, [aiUsers.length, showAIDropdown])
+
   const filteredAIUsers = query === ''
     ? aiUsers
     : aiUsers.filter((user) => {
@@ -258,22 +294,19 @@ export function MessageInput({
             type="text"
             value={content}
             onChange={(e) => {
-              console.log('Input changed:', {
-                newValue: e.target.value,
-                showingDropdown: showAIDropdown,
-                startsWithAi: e.target.value.startsWith('/ai')
-              })
+              console.log('Input changed:', e.target.value)
               setContent(e.target.value)
               if (showAIDropdown) {
                 setQuery(e.target.value.slice(4))
               }
             }}
+            onKeyDown={handleKeyPress}
             placeholder={isDragging ? 'Drop files here...' : placeholder}
             className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {showAIDropdown && (
             <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
-              <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ aiUsers, query }, null, 2)}</pre>
+              <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ content, aiUsers, query }, null, 2)}</pre>
               <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
                 console.log('Selected user:', user)
                 setSelectedAIUser(user)
@@ -281,6 +314,7 @@ export function MessageInput({
                 const beforeAI = content.slice(0, content.indexOf('/ai') + 3)
                 const afterAI = content.slice(content.indexOf('/ai') + 3)
                 setContent(`${beforeAI} @${user.display_name || user.name}${afterAI}`)
+                setShowAIDropdown(false)
               }}>
                 <div className="relative">
                   <Combobox.Options static className="absolute w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
