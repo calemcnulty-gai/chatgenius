@@ -9,19 +9,15 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 import { RunnableSequence } from '@langchain/core/runnables';
 
 // Enhanced RAG prompt template
-const TEMPLATE = `You are an AI assistant helping with questions about a codebase.
-Use the following context to answer the question. If you don't know the answer, 
-just say you don't know. Don't try to make up an answer.
+const TEMPLATE = `You are {aiUser}, an AI personality in a chat application.
+You should respond in character based on your previous messages and the current query.
 
-Context: {context}
+Here are some of your previous relevant messages for context:
+{context}
 
-Question: {query}
+Current query: {query}
 
-Please provide a clear and concise answer, referencing specific parts of the code when relevant.
-If the context doesn't contain enough information to fully answer the question, mention what
-additional information would be helpful.
-
-Answer:`;
+Please respond in character, maintaining consistency with your previous messages and personality.`;
 
 export async function POST(req: Request) {
     try {
@@ -36,6 +32,8 @@ export async function POST(req: Request) {
         if (!query) {
             return new NextResponse('Query is required', { status: 400 });
         }
+
+        console.log('[RAG] Processing query:', query);
 
         // Initialize Pinecone
         const pc = new Pinecone({
@@ -77,7 +75,12 @@ export async function POST(req: Request) {
         const chain = RunnableSequence.from([
             {
                 context: async () => {
+                    console.log('[RAG] Querying Pinecone for:', query);
                     const docs = await retriever.getRelevantDocuments(query);
+                    console.log('[RAG] Pinecone returned documents:', docs.map(doc => ({
+                        content: doc.pageContent.substring(0, 100) + '...',
+                        metadata: doc.metadata
+                    })));
                     return docs.map(doc => doc.pageContent).join('\n\n');
                 },
                 query: (input: { query: string }) => input.query,
@@ -88,10 +91,17 @@ export async function POST(req: Request) {
         ]);
 
         // Execute chain
+        console.log('[RAG] Executing chain with query:', query);
         const response = await chain.invoke({ query });
+        console.log('[RAG] Chain response:', response);
 
         // Get context for response
+        console.log('[RAG] Getting additional context from Pinecone');
         const context = await retriever.getRelevantDocuments(query);
+        console.log('[RAG] Additional context documents:', context.map(doc => ({
+            content: doc.pageContent.substring(0, 100) + '...',
+            metadata: doc.metadata
+        })));
 
         return NextResponse.json({
             response,
