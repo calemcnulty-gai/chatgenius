@@ -41,26 +41,19 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy package files
-COPY package*.json ./
-
-# Install production dependencies only
-RUN npm ci --only=production
+# Copy standalone files
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
 # Create uploads directory
 RUN mkdir -p public/uploads
 
-# Copy built application and all necessary files
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/next.config.js ./
-COPY --from=builder /app/tsconfig.json ./
+# Copy env file
 COPY --from=builder /app/.env ./
 
 # Expose port
 EXPOSE 3000
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["node", "server.js"] 
