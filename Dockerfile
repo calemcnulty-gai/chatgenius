@@ -7,14 +7,17 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV CI=true
 
-# Copy package files and env
-COPY package*.json .env ./
+# Copy package files
+COPY package*.json ./
 
 # Install dependencies
 RUN npm ci
 
 # Copy application files
 COPY . .
+
+# Copy env file (after main copy to ensure it's not overwritten)
+COPY .env ./
 
 # Generate Drizzle types
 RUN npm run db:generate
@@ -38,8 +41,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy package files and env
-COPY package*.json .env ./
+# Copy package files
+COPY package*.json ./
 
 # Install production dependencies only
 RUN npm ci --only=production
@@ -47,11 +50,14 @@ RUN npm ci --only=production
 # Create uploads directory
 RUN mkdir -p public/uploads
 
-# Copy built application and generated types
+# Copy built application and all necessary files
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/next.config.js ./
+COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/.env ./
 
 # Expose port
 EXPOSE 3000
