@@ -89,9 +89,30 @@ export async function POST(req: Request) {
     // Check for AI command
     const aiCommand = parseAICommand(content)
     if (aiCommand) {
-      // Generate AI response
-      const aiResponse = await generateAIResponse(aiCommand)
+      // First, save the human user's message (without the /ai command)
+      const humanMessageId = uuidv4()
+      const humanTimestamp = now()
       
+      const [humanMessage] = await db.insert(messages).values({
+        id: humanMessageId,
+        channelId: regularChannel ? channelId : null,
+        dmChannelId: dmChannel ? channelId : null,
+        senderId: user.id,
+        content: content.slice(content.indexOf(' ', 4) + 1), // Remove '/ai @username '
+        parentMessageId: null,
+        createdAt: humanTimestamp,
+        updatedAt: humanTimestamp,
+        replyCount: 0,
+        latestReplyAt: null,
+        editedAt: null,
+      }).returning()
+
+      // Queue human message for vector embedding
+      await messageQueue.add({
+        id: humanMessage.id,
+        content: humanMessage.content,
+      })
+
       // Find the AI user
       const aiUser = await db.query.users.findFirst({
         where: eq(users.name, aiCommand.aiUser)
@@ -101,7 +122,14 @@ export async function POST(req: Request) {
         return new NextResponse('AI user not found', { status: 404 })
       }
 
-      // Create the AI response message
+      // Generate AI response using the human message
+      const aiResponse = await generateAIResponse({
+        aiUser: aiCommand.aiUser,
+        query: humanMessage.content,
+        messageId: humanMessage.id
+      })
+      
+      // Then create the AI response message
       const messageId = uuidv4()
       const timestamp = now()
       
@@ -119,14 +147,11 @@ export async function POST(req: Request) {
         editedAt: null,
       }).returning()
 
-      // Queue message for vector embedding
+      // Queue AI message for vector embedding
       await messageQueue.add({
         id: message.id,
         content: message.content,
       })
-      
-      // Ensure worker is running (non-blocking)
-      ensureWorkerRunning().catch(console.error)
 
       // If this is a reply, update the parent message's metadata
       let updatedParentMessage: typeof message | undefined

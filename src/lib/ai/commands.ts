@@ -8,6 +8,7 @@ const openai = new OpenAI({
 interface AICommand {
   aiUser: string
   query: string
+  messageId?: string
 }
 
 export function parseAICommand(message: string): AICommand | null {

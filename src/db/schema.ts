@@ -8,6 +8,7 @@ import {
   integer,
   jsonb,
   type PgTableWithColumns,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core'
 import { timestampString } from './timestamp'
 
@@ -108,7 +109,10 @@ export const unreadMessages = pgTable('unread_messages', {
   hasMention: boolean('has_mention').notNull().default(false),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
-})
+}, (table) => ({
+  userChannelUnique: uniqueIndex('unread_messages_user_id_channel_id_key').on(table.userId, table.channelId),
+  userDmChannelUnique: uniqueIndex('unread_messages_user_id_dm_channel_id_key').on(table.userId, table.dmChannelId),
+}))
 
 export const workspaceMemberships = pgTable('workspace_memberships', {
   id: uuid('id').primaryKey().defaultRandom(),

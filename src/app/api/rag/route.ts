@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { query } = body;
+        const { query, messageId } = body;
 
         if (!query) {
             return new NextResponse('Query is required', { status: 400 });
@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         // Initialize vector store with metadata filtering
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
             pineconeIndex: index,
-            filter: { type: "code" } // Using type instead of namespace
+            filter: { namespace: "code" }
         });
 
         // Create enhanced retriever with hybrid search

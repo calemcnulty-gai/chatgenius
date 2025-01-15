@@ -158,7 +158,7 @@ export function MessageInput({
       // If this is an /ai command with a selected user
       if (content.startsWith('/ai ') && selectedAIUser) {
         const aiCommand = {
-          aiUser: selectedAIUser.clerk_id,
+          aiUser: selectedAIUser.name,
           query: content.slice(content.indexOf(' ', 4) + 1) // Remove '/ai @username '
         }
 
