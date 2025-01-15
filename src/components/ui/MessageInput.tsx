@@ -262,7 +262,7 @@ export function MessageInput({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={isDragging ? 'Drop files here...' : placeholder}
-            className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-red-500 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {showAIDropdown && aiUsers.length > 0 && (
             <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
