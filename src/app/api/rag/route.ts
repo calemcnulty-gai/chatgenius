@@ -24,30 +24,47 @@ Please respond in character, maintaining consistency with your previous messages
 
 export async function POST(req: Request) {
     try {
+        console.log('[RAG] Received request:', {
+            url: req.url,
+            method: req.method
+        })
+
         const { userId } = auth();
         if (!userId) {
+            console.log('[RAG] Unauthorized request - no userId')
             return new NextResponse('Unauthorized', { status: 401 });
         }
 
         const body = await req.json();
-        const { query, messageId, aiUser } = body;
+        console.log('[RAG] Request body:', body)
+
+        const { query, messageId, aiUser, channelId, parentMessageId } = body;
 
         if (!query) {
+            console.log('[RAG] Missing query parameter')
             return new NextResponse('Query is required', { status: 400 });
         }
 
         if (!aiUser) {
+            console.log('[RAG] Missing aiUser parameter')
             return new NextResponse('AI user is required', { status: 400 });
         }
 
         // Get AI user details from database
+        console.log('[RAG] Looking up AI user:', aiUser)
         const aiUserDetails = await db.query.users.findFirst({
             where: eq(users.name, aiUser)
         });
 
         if (!aiUserDetails) {
+            console.log('[RAG] AI user not found:', aiUser)
             return new NextResponse('AI user not found', { status: 404 });
         }
+
+        console.log('[RAG] Found AI user:', {
+            id: aiUserDetails.id,
+            name: aiUserDetails.name
+        })
 
         console.log('[RAG] Processing query:', query);
 
