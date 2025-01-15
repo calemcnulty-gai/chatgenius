@@ -1,10 +1,21 @@
 import { sql } from 'drizzle-orm'
 import { db } from '.'
-import { up as initialSchema } from './migrations/0001_initial_schema'
-import { up as addGauntletWorkspace } from './migrations/0002_add_gauntlet_workspace'
-import { up as addGeneralChannels } from './migrations/0003_add_general_channels'
-import { up as addAiUsers } from './migrations/0004_add_ai_users'
-import { up as addAiTrashTalk } from './migrations/0005_add_ai_trash_talk'
+import * as initialSchema from './migrations/0001_initial_schema'
+import * as addGauntletWorkspace from './migrations/0002_add_gauntlet_workspace'
+import * as addGeneralChannels from './migrations/0003_add_general_channels'
+import * as addAiUsers from './migrations/0004_add_ai_users'
+import * as addAiTrashTalk from './migrations/0005_add_ai_trash_talk'
+import * as addNateDiaz from './migrations/0006_add_nate_diaz'
+
+// List migrations in order
+const migrations = [
+  initialSchema,
+  addGauntletWorkspace,
+  addGeneralChannels,
+  addAiUsers,
+  addAiTrashTalk,
+  addNateDiaz
+]
 
 async function main() {
   try {
@@ -32,49 +43,17 @@ async function main() {
       throw new Error('Failed to connect to database after 5 attempts')
     }
 
-    console.log('Starting initial schema migration...')
-    try {
-      await initialSchema()
-      console.log('Initial schema migration completed successfully')
-    } catch (err) {
-      console.error('Error in initial schema migration:', err)
-      throw err
-    }
-
-    console.log('Starting Gauntlet workspace migration...')
-    try {
-      await addGauntletWorkspace()
-      console.log('Gauntlet workspace migration completed successfully')
-    } catch (err) {
-      console.error('Error in Gauntlet workspace migration:', err)
-      throw err
-    }
-
-    console.log('Starting general channels migration...')
-    try {
-      await addGeneralChannels()
-      console.log('General channels migration completed successfully')
-    } catch (err) {
-      console.error('Error in general channels migration:', err)
-      throw err
-    }
-
-    console.log('Starting AI users migration...')
-    try {
-      await addAiUsers()
-      console.log('AI users migration completed successfully')
-    } catch (err) {
-      console.error('Error in AI users migration:', err)
-      throw err
-    }
-
-    console.log('Starting AI trash talk migration...')
-    try {
-      await addAiTrashTalk()
-      console.log('AI trash talk migration completed successfully')
-    } catch (err) {
-      console.error('Error in AI trash talk migration:', err)
-      throw err
+    // Run all migrations in sequence
+    for (const migration of migrations) {
+      const name = migration.name || 'Unknown migration'
+      console.log(`Starting ${name}...`)
+      try {
+        await migration.up()
+        console.log(`${name} completed successfully`)
+      } catch (err) {
+        console.error(`Error in ${name}:`, err)
+        throw err
+      }
     }
 
     console.log('All migrations completed successfully!')
