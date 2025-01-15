@@ -262,10 +262,10 @@ export function MessageInput({
             onChange={handleChange}
             onKeyDown={handleKeyDown}
             placeholder={isDragging ? 'Drop files here...' : placeholder}
-            className="w-full bg-red-500 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {showAIDropdown && aiUsers.length > 0 && (
-            <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
+            <div className="absolute bottom-full w-full mb-1 bg-gray-800 rounded-md shadow-lg z-50">
               <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ content, aiUsers, query }, null, 2)}</pre>
               <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
                 console.log('Selected user:', user)
@@ -277,7 +277,7 @@ export function MessageInput({
                 setShowAIDropdown(false)
               }}>
                 <div className="relative">
-                  <Combobox.Options static className="absolute w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                  <Combobox.Options static className="w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                     {filteredAIUsers.length === 0 ? (
                       <div className="cursor-default select-none relative py-2 px-4 text-gray-400">
                         No AI users found.
