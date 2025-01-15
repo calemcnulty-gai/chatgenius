@@ -5,8 +5,10 @@ import { PromptTemplate } from '@langchain/core/prompts'
 import { Pinecone } from '@pinecone-database/pinecone'
 import { StringOutputParser } from '@langchain/core/output_parsers'
 import { RunnableSequence } from '@langchain/core/runnables'
-import { validateAndGetAIUser } from '@/lib/messages/validation'
-import { createMessage } from '@/lib/messages/services/create'
+import { validateAndGetChannel } from '@/lib/messages/validation'
+import { createMessageInDB } from '@/lib/messages/queries'
+import { triggerMessageEvents, triggerThreadReplyEvent } from '@/lib/messages/events'
+import { messageQueue } from '@/workers/messageUpload/queue'
 import type { GenerateRAGResponseParams, RAGResponse } from '../types'
 import { db } from '@/db'
 import { users } from '@/db/schema'
@@ -104,15 +106,51 @@ export async function generateRAGResponse({
   console.log('[RAG] Chain response:', response)
 
   // Create message from AI user
-  const message = await createMessage({
-    clerkUser: {
-      ...clerkUser,
-      id: aiUser.id
-    },
+  const message = await createMessageInDB({
     channelId,
     content: response,
-    parentMessageId
+    parentMessageId,
+    senderId: aiUser.id
   })
+
+  // Queue for vector embedding
+  await messageQueue.add({
+    id: message.id,
+    content: message.content,
+  })
+
+  // Get channel info for events
+  const { type: channelType, channel } = await validateAndGetChannel(channelId)
+
+  // Trigger events
+  if (channelType === 'regular') {
+    await triggerMessageEvents({
+      message: {
+        ...message,
+        sender: {
+          ...aiUser,
+          status: 'active' as const
+        },
+        parentId: null,
+        attachments: null
+      },
+      workspaceId: channel.workspaceId,
+      channelSlug: channel.slug,
+      isThreadReply: !!parentMessageId
+    })
+
+    if (parentMessageId) {
+      await triggerThreadReplyEvent({
+        ...message,
+        sender: {
+          ...aiUser,
+          status: 'active' as const
+        },
+        parentId: null,
+        attachments: null
+      })
+    }
+  }
 
   return {
     success: true,
