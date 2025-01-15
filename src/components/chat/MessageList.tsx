@@ -6,7 +6,7 @@ import { usePusherChannel } from '@/contexts/PusherContext'
 import { PusherEvent } from '@/types/events'
 import { User } from '@/types/user'
 import { useUser } from '@/contexts/UserContext'
-import { MessageInput } from '@/components/ui/MessageInput'
+import { MessageInput } from '../ui/MessageInput'
 import { Timestamp, createTimestamp, now } from '@/types/timestamp'
 
 interface MessageData {

@@ -5,7 +5,7 @@ import { XMarkIcon } from '@heroicons/react/24/outline'
 import type { User } from '@/types/user'
 import type { Timestamp } from '@/types/timestamp'
 import { Message } from '@/components/ui/Message'
-import { MessageInput } from '@/components/ui/MessageInput'
+import { MessageInput } from '../ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 
