@@ -107,7 +107,7 @@ export async function generateRAGResponse({
   const message = await createMessage({
     clerkUser: {
       ...clerkUser,
-      id: aiUserId
+      id: aiUser.id
     },
     channelId,
     content: response,
