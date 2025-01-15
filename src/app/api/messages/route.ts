@@ -15,14 +15,21 @@ import { parseAICommand, generateAIResponse } from '@/lib/ai/commands'
 
 export async function POST(req: Request) {
   try {
+    console.log('[MESSAGES] Received POST request:', {
+      url: req.url,
+      method: req.method
+    })
+
     const { userId: clerkUserId } = auth()
     if (!clerkUserId) {
+      console.log('[MESSAGES] Unauthorized - no clerkUserId')
       return new NextResponse('Unauthorized', { status: 401 })
     }
 
     // Get the full user data from Clerk
     const clerkUser = await currentUser()
     if (!clerkUser) {
+      console.log('[MESSAGES] User not found - no clerkUser')
       return new NextResponse('User not found', { status: 404 })
     }
 
@@ -35,7 +42,13 @@ export async function POST(req: Request) {
       imageUrl: clerkUser.imageUrl,
     })
 
-    const { channelId, content, parentMessageId } = await req.json()
+    const body = await req.json()
+    console.log('[MESSAGES] Request body:', {
+      ...body,
+      content: body.content?.substring(0, 100) + (body.content?.length > 100 ? '...' : '')
+    })
+
+    const { channelId, content, parentMessageId } = body
     console.log('Messages: Creating new message:', { channelId, senderId: user.id, parentMessageId })
     if (!channelId || !content) {
       return new NextResponse('Missing required fields', { status: 400 })

@@ -155,57 +155,27 @@ export function MessageInput({
 
     setIsSubmitting(true)
     try {
-      let response;
+      let messageContent = content.trim()
       
-      // If this is an /ai command with a selected user
+      // If this is an AI command, trigger the RAG request (don't await it)
       if (content.startsWith('/ai ') && selectedAIUser) {
-        console.log('[MessageInput] Processing AI command:', {
-          content,
-          selectedAIUser,
-          channelId,
-          parentMessageId
-        })
-
-        // Send the human message first
-        response = await fetch('/api/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: content.trim(),
-            channelId,
-            parentMessageId
-          }),
-        })
-
-        if (!response.ok) {
-          console.error('[MessageInput] Failed to send human message:', {
-            status: response.status,
-            statusText: response.statusText,
-            url: '/api/messages'
-          })
-          throw new Error('Failed to send message')
-        }
-
-        console.log('[MessageInput] Human message sent successfully')
-
-        // Then trigger the AI response asynchronously
+        // Strip the /ai command from the message
+        messageContent = content.slice(content.indexOf(' ', 4) + 1).trim()
+        
         const aiCommand = {
           aiUser: selectedAIUser.name,
-          query: content.slice(content.indexOf(' ', 4) + 1).trim()
+          query: messageContent
         }
 
-        const ragUrl = '/api/rag'
         console.log('[MessageInput] Sending RAG request:', {
-          url: ragUrl,
+          url: '/api/rag',
           aiCommand,
           channelId,
           parentMessageId
         })
 
-        // Don't await this - let it happen in the background
-        fetch(ragUrl, {
+        // Fire and forget the RAG request
+        fetch('/api/rag', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -216,42 +186,32 @@ export function MessageInput({
             channelId,
             parentMessageId
           }),
-        }).then(async response => {
-          if (!response.ok) {
-            console.error('[MessageInput] RAG request failed:', {
-              status: response.status,
-              statusText: response.statusText,
-              body: await response.text().catch(() => 'Could not read body')
-            })
-            throw new Error('Failed to get AI response')
-          }
-          console.log('[MessageInput] RAG request successful')
-          return response.json()
         }).catch(error => {
           console.error('[MessageInput] Error getting AI response:', error)
         })
+      }
 
-        setContent('')
-        onMessageSent?.()
-        setIsSubmitting(false)
-        return
-      } else {
-        // Regular message handling
-        response = await fetch('/api/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            content: content.trim(),
-            channelId,
-            parentMessageId
-          }),
-        })
+      // Send the message normally
+      const messagePayload = {
+        content: messageContent,
+        channelId,
+        parentMessageId
+      }
+      console.log('[MessageInput] Sending message:', {
+        url: '/api/messages',
+        payload: messagePayload
+      })
 
-        if (!response.ok) {
-          throw new Error('Failed to send message')
-        }
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messagePayload),
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to send message')
       }
 
       setContent('')
