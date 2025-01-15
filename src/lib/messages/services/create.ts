@@ -4,7 +4,11 @@ import { createMessageInDB, updateParentMessageMetadata } from '../queries'
 import { triggerMessageEvents, triggerThreadReplyEvent } from '../events'
 import { parseAICommand, generateAIResponse } from '@/lib/ai/commands'
 import type { User } from '@clerk/nextjs/server'
-import type { Channel, DirectMessageChannel } from '@/db/schema'
+import type { channels, directMessageChannels } from '@/db/schema'
+import type { InferSelectModel } from 'drizzle-orm'
+
+type Channel = InferSelectModel<typeof channels>
+type DirectMessageChannel = InferSelectModel<typeof directMessageChannels>
 
 interface CreateMessageParams {
   clerkUser: User
@@ -92,9 +96,10 @@ export async function createMessage({
           status: 'active' as const
         },
         parentId: null,
+        attachments: null
       },
       workspaceId: channel.workspaceId,
-      channelSlug: channel.slug,
+      channelSlug: channelType === 'regular' ? (channel as Channel).slug : (channel as DirectMessageChannel).id,
       isThreadReply: !!parentMessageId
     })
 
@@ -106,6 +111,7 @@ export async function createMessage({
           status: 'active' as const
         },
         parentId: null,
+        attachments: null
       })
     }
   }
@@ -162,9 +168,10 @@ async function handleAICommand({ user, channel, channelType, content, aiCommand 
           status: 'active' as const
         },
         parentId: null,
+        attachments: null
       },
       workspaceId: channel.workspaceId,
-      channelSlug: channel.slug,
+      channelSlug: channelType === 'regular' ? (channel as Channel).slug : (channel as DirectMessageChannel).id,
       isThreadReply: false
     })
   }
