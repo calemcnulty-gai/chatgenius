@@ -16,6 +16,13 @@ export async function up() {
   // Create AI users
   const fighters = [
     {
+      name: 'Khabib Nurmagomedov',
+      email: 'khabib@chatgenius.local',
+      displayName: 'The Eagle',
+      title: 'Undefeated Champion',
+      profileImage: 'https://example.com/khabib.jpg'
+    },
+    {
       name: 'Conor McGregor',
       email: 'conor@chatgenius.local',
       displayName: 'The Notorious',
