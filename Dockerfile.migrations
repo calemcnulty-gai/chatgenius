@@ -6,7 +6,8 @@ WORKDIR /app
 RUN apk add --no-cache bash postgresql-client
 
 # Copy package files and env
-COPY package*.json .env ./
+COPY package*.json ./
+COPY .env ./
 
 # Install dependencies
 RUN npm ci
@@ -28,8 +29,8 @@ CMD sh -c "\
     done && \
     echo 'Database is up - executing migrations' && \
     echo 'Running db:migrate...' && \
-    (npm run db:migrate || (echo 'Migration failed with exit code $?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
+    (npm run db:migrate || (echo 'Migration failed with exit code $$?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
     echo 'Running db:generate...' && \
-    (npm run db:generate || (echo 'Generate failed with exit code $?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
+    (npm run db:generate || (echo 'Generate failed with exit code $$?' && cat /root/.npm/_logs/*-debug.log 2>/dev/null || true)) && \
     echo 'All done - keeping container alive for inspection' && \
     tail -f /dev/null" 
