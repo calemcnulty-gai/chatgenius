@@ -8,7 +8,6 @@ import { up as addAiTrashTalk } from './migrations/0005_add_ai_trash_talk'
 import { up as addNateDiaz } from './migrations/0006_add_nate_diaz'
 import { up as addUnreadMessagesConstraints } from './migrations/0010_add_unread_messages_unique_constraints'
 import { up as updateAiProfileImages } from './migrations/0011_update_ai_profile_images'
-import { up as darkenAiUsers } from './migrations/0012_darken_ai_users'
 
 // List migrations in order with their names
 const migrations = [
@@ -20,7 +19,6 @@ const migrations = [
   { up: addNateDiaz, name: 'Nate Diaz migration' },
   { up: addUnreadMessagesConstraints, name: 'add unread messages constraints' },
   { up: updateAiProfileImages, name: 'update AI profile images to relative paths' },
-  { up: darkenAiUsers, name: 'darken AI user colors' }
 ]
 
 async function main() {
