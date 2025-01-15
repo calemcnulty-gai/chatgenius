@@ -163,7 +163,7 @@ export function MessageInput({
         messageContent = content.slice(content.indexOf(' ', 4) + 1).trim()
         
         const aiCommand = {
-          aiUser: selectedAIUser.name,
+          aiUser: selectedAIUser.id,
           query: messageContent
         }
 
