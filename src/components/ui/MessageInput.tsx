@@ -37,13 +37,23 @@ export function MessageInput({
   const [selectedAIUser, setSelectedAIUser] = useState<AIUser | null>(null)
   const [query, setQuery] = useState('')
 
+  console.log('Current state:', { 
+    content, 
+    showAIDropdown, 
+    aiUsersCount: aiUsers.length,
+    selectedAIUser 
+  })
+
   useEffect(() => {
+    console.log('Content changed:', content)
+    console.log('Current aiUsers:', aiUsers)
+    
     // When /ai is typed, fetch AI users
     if (content.startsWith('/ai') && !aiUsers.length) {
       console.log('Fetching AI users...')
       fetch('/api/ai-users')
         .then(res => {
-          console.log('AI users response:', res)
+          console.log('AI users response status:', res.status)
           return res.json()
         })
         .then(users => {
@@ -57,15 +67,20 @@ export function MessageInput({
 
     // Show dropdown when /ai is typed
     const shouldShowDropdown = content.startsWith('/ai ')
-    console.log('Should show dropdown:', shouldShowDropdown)
+    console.log('Should show dropdown:', shouldShowDropdown, {
+      startsWithAi: content.startsWith('/ai'),
+      hasSpace: content.includes(' '),
+      content
+    })
     setShowAIDropdown(shouldShowDropdown)
 
     // Hide dropdown when /ai is removed
     if (!content.startsWith('/ai')) {
+      console.log('Hiding dropdown - no longer starts with /ai')
       setShowAIDropdown(false)
       setSelectedAIUser(null)
     }
-  }, [content])
+  }, [content, aiUsers.length])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -243,9 +258,14 @@ export function MessageInput({
             type="text"
             value={content}
             onChange={(e) => {
+              console.log('Input changed:', {
+                newValue: e.target.value,
+                showingDropdown: showAIDropdown,
+                startsWithAi: e.target.value.startsWith('/ai')
+              })
               setContent(e.target.value)
               if (showAIDropdown) {
-                setQuery(e.target.value.slice(4)) // Remove '/ai ' prefix for filtering
+                setQuery(e.target.value.slice(4))
               }
             }}
             placeholder={isDragging ? 'Drop files here...' : placeholder}
@@ -253,6 +273,7 @@ export function MessageInput({
           />
           {showAIDropdown && (
             <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
+              <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ aiUsers, query }, null, 2)}</pre>
               <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
                 console.log('Selected user:', user)
                 setSelectedAIUser(user)
