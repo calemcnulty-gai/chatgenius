@@ -59,8 +59,7 @@ export async function POST(req: Request) {
         // Create enhanced retriever with hybrid search
         const retriever = vectorStore.asRetriever({
             searchType: "similarity",
-            k: 4, // Number of documents to retrieve
-            filter: { namespace: "code" } // Adjust namespace as needed
+            k: 4 // Number of documents to retrieve
         });
 
         // Create prompt

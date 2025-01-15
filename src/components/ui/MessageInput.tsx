@@ -244,7 +244,7 @@ export function MessageInput({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "border-t border-gray-700 bg-red-900 p-4 relative min-h-[100px]",
+        "border-t border-gray-700 bg-gray-900 p-4 relative",
         isDragging && "bg-blue-900/20",
         className
       )}
@@ -306,7 +306,7 @@ export function MessageInput({
                               <div>
                                 <div className="flex items-center">
                                   <span className={cn('block truncate', selected && 'font-semibold')}>
-                                    {user.display_name || user.name}
+                                    {user.name}
                                   </span>
                                 </div>
                                 {user.title && (
