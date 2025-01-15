@@ -41,6 +41,51 @@ export async function POST(req: Request) {
       return new NextResponse('Missing required fields', { status: 400 })
     }
 
+    // Check if this is a regular channel or DM channel
+    const rawChannel = await db.query.channels.findFirst({
+      where: eq(channels.id, channelId),
+      with: {
+        workspace: true,
+      },
+    })
+
+    const regularChannel = rawChannel
+
+    // Get DM channel with all required fields
+    const rawDMChannel = await db.query.directMessageChannels.findFirst({
+      where: eq(directMessageChannels.id, channelId),
+      with: {
+        members: {
+          with: {
+            user: true,
+          },
+        },
+      },
+    }) as (typeof directMessageChannels.$inferSelect & {
+      members: (typeof directMessageMembers.$inferSelect & {
+        user: typeof users.$inferSelect
+      })[]
+    }) | null;
+
+    const dmChannel = rawDMChannel ? {
+      ...rawDMChannel,
+      createdAt: rawDMChannel.createdAt,
+      updatedAt: rawDMChannel.updatedAt,
+      members: rawDMChannel.members.map(m => ({
+        ...m,
+        createdAt: m.createdAt,
+        user: {
+          ...m.user,
+          createdAt: m.user.createdAt,
+          updatedAt: m.user.updatedAt,
+        }
+      }))
+    } as DirectMessageChannelWithMembers : null;
+
+    if (!regularChannel && !dmChannel) {
+      return new NextResponse('Channel not found', { status: 404 })
+    }
+
     // Check for AI command
     const aiCommand = parseAICommand(content)
     if (aiCommand) {
@@ -364,51 +409,6 @@ export async function POST(req: Request) {
       if (parentMessage.parentMessageId) {
         return new NextResponse('Nested threads are not allowed', { status: 400 })
       }
-    }
-
-    // Check if this is a regular channel or DM channel
-    const rawChannel = await db.query.channels.findFirst({
-      where: eq(channels.id, channelId),
-      with: {
-        workspace: true,
-      },
-    })
-
-    const regularChannel = rawChannel
-
-    // Get DM channel with all required fields
-    const rawDMChannel = await db.query.directMessageChannels.findFirst({
-      where: eq(directMessageChannels.id, channelId),
-      with: {
-        members: {
-          with: {
-            user: true,
-          },
-        },
-      },
-    }) as (typeof directMessageChannels.$inferSelect & {
-      members: (typeof directMessageMembers.$inferSelect & {
-        user: typeof users.$inferSelect
-      })[]
-    }) | null;
-
-    const dmChannel = rawDMChannel ? {
-      ...rawDMChannel,
-      createdAt: rawDMChannel.createdAt,
-      updatedAt: rawDMChannel.updatedAt,
-      members: rawDMChannel.members.map(m => ({
-        ...m,
-        createdAt: m.createdAt,
-        user: {
-          ...m.user,
-          createdAt: m.user.createdAt,
-          updatedAt: m.user.updatedAt,
-        }
-      }))
-    } as DirectMessageChannelWithMembers : null;
-
-    if (!regularChannel && !dmChannel) {
-      return new NextResponse('Channel not found', { status: 404 })
     }
 
     // Create timestamps for database and response
