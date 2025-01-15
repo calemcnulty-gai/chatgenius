@@ -7,10 +7,10 @@ import { Combobox } from '@headlessui/react'
 
 interface AIUser {
   id: string
-  clerkId: string
+  clerk_id: string
   name: string
-  displayName: string | null
-  profileImage: string | null
+  display_name: string | null
+  profile_image: string | null
   title: string | null
 }
 
@@ -40,14 +40,25 @@ export function MessageInput({
   useEffect(() => {
     // When /ai is typed, fetch AI users
     if (content.startsWith('/ai') && !aiUsers.length) {
+      console.log('Fetching AI users...')
       fetch('/api/ai-users')
-        .then(res => res.json())
-        .then(users => setAIUsers(users))
-        .catch(console.error)
+        .then(res => {
+          console.log('AI users response:', res)
+          return res.json()
+        })
+        .then(users => {
+          console.log('AI users fetched:', users)
+          setAIUsers(users)
+        })
+        .catch(error => {
+          console.error('Error fetching AI users:', error)
+        })
     }
 
-    // Show dropdown when /ai is typed and there's a space after it
-    setShowAIDropdown(content.startsWith('/ai '))
+    // Show dropdown when /ai is typed
+    const shouldShowDropdown = content.startsWith('/ai ')
+    console.log('Should show dropdown:', shouldShowDropdown)
+    setShowAIDropdown(shouldShowDropdown)
 
     // Hide dropdown when /ai is removed
     if (!content.startsWith('/ai')) {
@@ -130,7 +141,7 @@ export function MessageInput({
       // If this is an /ai command with a selected user
       if (content.startsWith('/ai ') && selectedAIUser) {
         const aiCommand = {
-          aiUser: selectedAIUser.clerkId,
+          aiUser: selectedAIUser.clerk_id,
           query: content.slice(content.indexOf(' ', 4) + 1) // Remove '/ai @username '
         }
 
@@ -206,7 +217,7 @@ export function MessageInput({
     ? aiUsers
     : aiUsers.filter((user) => {
         return user.name.toLowerCase().includes(query.toLowerCase()) ||
-               (user.displayName?.toLowerCase().includes(query.toLowerCase()))
+               (user.display_name?.toLowerCase().includes(query.toLowerCase()))
       })
 
   return (
@@ -241,10 +252,17 @@ export function MessageInput({
             className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {showAIDropdown && (
-            <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg">
-              <Combobox value={selectedAIUser} onChange={setSelectedAIUser}>
+            <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg z-50">
+              <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
+                console.log('Selected user:', user)
+                setSelectedAIUser(user)
+                // Insert the user's name into the input at cursor position
+                const beforeAI = content.slice(0, content.indexOf('/ai') + 3)
+                const afterAI = content.slice(content.indexOf('/ai') + 3)
+                setContent(`${beforeAI} @${user.display_name || user.name}${afterAI}`)
+              }}>
                 <div className="relative">
-                  <Combobox.Options className="absolute w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                  <Combobox.Options static className="absolute w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
                     {filteredAIUsers.length === 0 ? (
                       <div className="cursor-default select-none relative py-2 px-4 text-gray-400">
                         No AI users found.
@@ -263,9 +281,9 @@ export function MessageInput({
                         >
                           {({ selected, active }) => (
                             <div className="flex items-center">
-                              {user.profileImage && (
+                              {user.profile_image && (
                                 <img
-                                  src={user.profileImage}
+                                  src={user.profile_image}
                                   alt=""
                                   className="h-6 w-6 rounded-full mr-2"
                                 />
@@ -273,7 +291,7 @@ export function MessageInput({
                               <div>
                                 <div className="flex items-center">
                                   <span className={cn('block truncate', selected && 'font-semibold')}>
-                                    {user.displayName || user.name}
+                                    {user.display_name || user.name}
                                   </span>
                                 </div>
                                 {user.title && (
