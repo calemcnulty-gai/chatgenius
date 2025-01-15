@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '..'
+import trashTalkData from './data/trash_talk.json'
 
 export async function up() {
   // Get the Gauntlet workspace
@@ -27,28 +28,15 @@ export async function up() {
 
   // Get AI users
   const { rows: users } = await db.execute(sql`
-    SELECT id, name FROM users WHERE clerk_id LIKE 'ai-%';
+    SELECT id, clerk_id FROM users WHERE clerk_id LIKE 'ai-%';
   `)
 
-  // Add some initial trash talk
-  const messages = [
-    {
-      sender: 'Conor McGregor',
-      content: "I'd like to take this chance to apologize... to absolutely nobody! The double champ does what the fook he wants!"
-    },
-    {
-      sender: 'Chael Sonnen',
-      content: "I can't let you get close... to my undefeated and undisputed status. When you're the best fighter in the world, they got a name for you. They don't call you a great fighter, they call you Chael Sonnen."
-    },
-    {
-      sender: 'Don Frye',
-      content: "You think you're tough? I fought in the days when we didn't have rules, weight classes, or common sense. Now that's what I call a real predator!"
-    }
-  ]
+  const userMap = new Map(users.map(u => [u.clerk_id, u.id]))
 
-  for (const message of messages) {
-    const sender = users.find(u => u.name === message.sender)
-    if (sender) {
+  // Add all messages from the JSON file
+  for (const message of trashTalkData.messages) {
+    const senderId = userMap.get(message.sender)
+    if (senderId) {
       await db.execute(sql`
         INSERT INTO messages (
           id,
@@ -61,10 +49,10 @@ export async function up() {
         VALUES (
           ${uuidv4()},
           ${channel.id},
-          ${sender.id},
+          ${senderId},
           ${message.content},
-          CURRENT_TIMESTAMP,
-          CURRENT_TIMESTAMP
+          ${new Date(message.created_at).toISOString()},
+          ${new Date(message.created_at).toISOString()}
         );
       `)
     }
