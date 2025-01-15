@@ -244,7 +244,7 @@ export function MessageInput({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "border-t border-gray-700 bg-gray-900 p-4 relative",
+        "border-t border-gray-700 bg-gray-800 p-4 relative",
         isDragging && "bg-blue-900/20",
         className
       )}
@@ -266,14 +266,13 @@ export function MessageInput({
           />
           {showAIDropdown && aiUsers.length > 0 && (
             <div className="absolute bottom-full w-full mb-1 bg-gray-800 rounded-md shadow-lg z-50">
-              <pre className="text-xs text-gray-400 p-2">Debug: {JSON.stringify({ content, aiUsers, query }, null, 2)}</pre>
               <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
                 console.log('Selected user:', user)
                 setSelectedAIUser(user)
                 // Insert the user's name into the input at cursor position
                 const beforeAI = content.slice(0, content.indexOf('/ai') + 3)
                 const afterAI = content.slice(content.indexOf('/ai') + 3)
-                setContent(`${beforeAI} @${user.display_name || user.name}${afterAI}`)
+                setContent(`${beforeAI} @${user.name}${afterAI}`)
                 setShowAIDropdown(false)
               }}>
                 <div className="relative">

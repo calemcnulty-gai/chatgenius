@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         // Initialize vector store with metadata filtering
         const vectorStore = await PineconeStore.fromExistingIndex(embeddings, {
             pineconeIndex: index,
-            filter: { namespace: "code" } // Adjust namespace as needed
+            filter: { type: "code" } // Using type instead of namespace
         });
 
         // Create enhanced retriever with hybrid search

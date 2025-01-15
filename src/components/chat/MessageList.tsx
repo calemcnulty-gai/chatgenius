@@ -252,7 +252,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
   }
 
   return (
-    <div className="flex h-full flex-col bg-red-900">
+    <div className="flex h-full flex-col bg-gray-900">
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="min-h-full px-4 py-4 space-y-1">
           {messages.map((message) => (
@@ -274,7 +274,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
         </div>
       </div>
 
-      <div className="flex-none bg-blue-900">
+      <div className="flex-none">
         <MessageInput
           channelId={channelId}
           onMessageSent={fetchMessages}
