@@ -1,8 +1,18 @@
 'use client'
 
-import { useState, useCallback } from 'react'
-import { PaperAirplaneIcon, PaperClipIcon } from '@heroicons/react/24/solid'
+import { useState, useCallback, useEffect } from 'react'
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
 import { cn } from '@/lib/utils'
+import { Combobox } from '@headlessui/react'
+
+interface AIUser {
+  id: string
+  clerkId: string
+  name: string
+  displayName: string | null
+  profileImage: string | null
+  title: string | null
+}
 
 interface MessageInputProps {
   channelId: string
@@ -22,6 +32,29 @@ export function MessageInput({
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [showAIDropdown, setShowAIDropdown] = useState(false)
+  const [aiUsers, setAIUsers] = useState<AIUser[]>([])
+  const [selectedAIUser, setSelectedAIUser] = useState<AIUser | null>(null)
+  const [query, setQuery] = useState('')
+
+  useEffect(() => {
+    // When /ai is typed, fetch AI users
+    if (content.startsWith('/ai') && !aiUsers.length) {
+      fetch('/api/ai-users')
+        .then(res => res.json())
+        .then(users => setAIUsers(users))
+        .catch(console.error)
+    }
+
+    // Show dropdown when /ai is typed and there's a space after it
+    setShowAIDropdown(content.startsWith('/ai '))
+
+    // Hide dropdown when /ai is removed
+    if (!content.startsWith('/ai')) {
+      setShowAIDropdown(false)
+      setSelectedAIUser(null)
+    }
+  }, [content])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -94,15 +127,19 @@ export function MessageInput({
 
     setIsSubmitting(true)
     try {
-      // Check if this is an /ai command
-      if (content.trim().startsWith('/ai ')) {
-        const query = content.trim().slice(4) // Remove '/ai ' prefix
+      // If this is an /ai command with a selected user
+      if (content.startsWith('/ai ') && selectedAIUser) {
+        const aiCommand = {
+          aiUser: selectedAIUser.clerkId,
+          query: content.slice(content.indexOf(' ', 4) + 1) // Remove '/ai @username '
+        }
+
         const response = await fetch('/api/rag', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ query }),
+          body: JSON.stringify(aiCommand),
         })
 
         if (!response.ok) {
@@ -118,9 +155,10 @@ export function MessageInput({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            content: `Query: ${query}\n\nResponse: ${result.response}\n\nSources:\n${result.context.map((ctx: any) => `- ${ctx.source}: ${ctx.content}`).join('\n')}`,
+            content: result.response,
             channelId,
-            parentMessageId
+            parentMessageId,
+            aiUserId: selectedAIUser.id
           }),
         })
 
@@ -129,6 +167,7 @@ export function MessageInput({
         }
 
         setContent('')
+        setSelectedAIUser(null)
         onMessageSent?.()
         return
       }
@@ -163,6 +202,13 @@ export function MessageInput({
     }
   }
 
+  const filteredAIUsers = query === ''
+    ? aiUsers
+    : aiUsers.filter((user) => {
+        return user.name.toLowerCase().includes(query.toLowerCase()) ||
+               (user.displayName?.toLowerCase().includes(query.toLowerCase()))
+      })
+
   return (
     <form 
       onSubmit={handleSubmit} 
@@ -181,13 +227,75 @@ export function MessageInput({
         </div>
       )}
       <div className="flex items-center gap-2">
-        <input
-          type="text"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          placeholder={isDragging ? 'Drop files here...' : placeholder}
-          className="flex-1 bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={content}
+            onChange={(e) => {
+              setContent(e.target.value)
+              if (showAIDropdown) {
+                setQuery(e.target.value.slice(4)) // Remove '/ai ' prefix for filtering
+              }
+            }}
+            placeholder={isDragging ? 'Drop files here...' : placeholder}
+            className="w-full bg-gray-800 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {showAIDropdown && (
+            <div className="absolute w-full mt-1 bg-gray-800 rounded-md shadow-lg">
+              <Combobox value={selectedAIUser} onChange={setSelectedAIUser}>
+                <div className="relative">
+                  <Combobox.Options className="absolute w-full py-1 overflow-auto text-base bg-gray-800 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+                    {filteredAIUsers.length === 0 ? (
+                      <div className="cursor-default select-none relative py-2 px-4 text-gray-400">
+                        No AI users found.
+                      </div>
+                    ) : (
+                      filteredAIUsers.map((user) => (
+                        <Combobox.Option
+                          key={user.id}
+                          value={user}
+                          className={({ active }) =>
+                            cn(
+                              'cursor-default select-none relative py-2 px-4',
+                              active ? 'text-white bg-blue-600' : 'text-gray-300'
+                            )
+                          }
+                        >
+                          {({ selected, active }) => (
+                            <div className="flex items-center">
+                              {user.profileImage && (
+                                <img
+                                  src={user.profileImage}
+                                  alt=""
+                                  className="h-6 w-6 rounded-full mr-2"
+                                />
+                              )}
+                              <div>
+                                <div className="flex items-center">
+                                  <span className={cn('block truncate', selected && 'font-semibold')}>
+                                    {user.displayName || user.name}
+                                  </span>
+                                </div>
+                                {user.title && (
+                                  <span className={cn(
+                                    'block truncate text-sm',
+                                    active ? 'text-blue-200' : 'text-gray-500'
+                                  )}>
+                                    {user.title}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Combobox.Option>
+                      ))
+                    )}
+                  </Combobox.Options>
+                </div>
+              </Combobox>
+            </div>
+          )}
+        </div>
         <button
           type="submit"
           disabled={!content.trim() || isSubmitting}
