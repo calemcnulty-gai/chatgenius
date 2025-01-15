@@ -19,7 +19,6 @@ const migrations = [
   { up: addNateDiaz, name: 'Nate Diaz migration' },
   { up: addUnreadMessagesConstraints, name: 'add unread messages constraints' },
   { up: updateAiProfileImages, name: 'update AI profile images to relative paths' },
-]
 
 async function main() {
   try {
