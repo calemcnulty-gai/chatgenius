@@ -71,8 +71,13 @@ services:
     depends_on:
       migrations:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
     command: |
-      sh -c "echo 'Starting web service...' && (npm start 2>&1 | tee /app/web.log) || (echo 'Web service failed with exit code $$?' && tail -f /app/web.log)"
+      sh -c "echo 'Starting web service...' && (node server.js 2>&1 | tee /app/web.log) || (echo 'Web service failed with exit code $$?' && tail -f /app/web.log)"
 
   nginx:
     image: nginx:alpine
