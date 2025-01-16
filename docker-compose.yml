@@ -22,8 +22,6 @@ services:
       retries: 5
     ports:
       - "5432:5432"
-    command: |
-      bash -c "echo 'Starting PostgreSQL...' && docker-entrypoint.sh postgres 2>&1 | tee /var/log/postgres.log"
 
   db_setup:
     image: postgres:15
@@ -56,6 +54,7 @@ services:
       dockerfile: Dockerfile.migrations
     environment:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
+      - NODE_ENV=production
     depends_on:
       db_setup:
         condition: service_completed_successfully
@@ -64,8 +63,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
     deploy:
       resources:
         limits:
@@ -80,6 +77,7 @@ services:
       - DATABASE_URL=postgres://postgres:postgres@db:5432/chatgenius
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_ENVIRONMENT=production
     depends_on:
       migrations:
         condition: service_completed_successfully
@@ -88,8 +86,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    command: |
-      sh -c "echo 'Starting web service...' && (node server.js 2>&1 | tee /app/web.log) || (echo 'Web service failed with exit code $$?' && tail -f /app/web.log)"
 
   nginx:
     image: nginx:alpine
@@ -107,8 +103,6 @@ services:
       - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       - web
-    command: |
-      sh -c "echo 'Starting nginx...' && (nginx -g 'daemon off;' 2>&1 | tee /var/log/nginx.log) || (echo 'Nginx failed with exit code $$?' && tail -f /var/log/nginx.log)"
 
 volumes:
   postgres_data: 
