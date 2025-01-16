@@ -8,7 +8,7 @@ import { HashtagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import CreateChannel from './CreateChannel'
-import { PusherEvent, NewChannelMessageEvent } from '@/types/events'
+import { PusherEvent, NewChannelMessageEvent, NewMentionEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 
 type Channel = {
@@ -17,6 +17,7 @@ type Channel = {
   slug: string
   hasUnread?: boolean
   hasMention?: boolean
+  mentionCount?: number
 }
 
 type ChannelListProps = {
@@ -31,14 +32,34 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 
-  // Set up event listener for channel events - this should never be cleaned up
+  // Fetch initial mention counts
+  useEffect(() => {
+    if (!userId || !workspaceId) return
+
+    fetch(`/api/mentions/counts?workspaceId=${workspaceId}`)
+      .then(res => res.json())
+      .then(data => {
+        setChannels(currentChannels => 
+          currentChannels.map(channel => ({
+            ...channel,
+            mentionCount: data.counts[channel.id] || 0,
+            hasMention: (data.counts[channel.id] || 0) > 0
+          }))
+        )
+      })
+      .catch(error => {
+        console.error('Error fetching mention counts:', error)
+      })
+  }, [userId, workspaceId])
+
+  // Set up event listeners for channel events
   useEffect(() => {
     if (!userId || !userChannel) return
 
     console.log('[ChannelList] Setting up channel event listeners')
     
     // Listen for new channel messages
-    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
+    const handleNewMessage = (data: NewChannelMessageEvent) => {
       if (data.senderId !== userId) {
         console.log(`[ChannelList] Received channel message:`, data)
         setChannels(currentChannels => {
@@ -50,61 +71,81 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
           }
 
           return currentChannels.map(channel => {
-            if (channel.id === data.channelId) {
+            if (channel.slug === data.channelName) {
               return {
                 ...channel,
-                hasUnread: true,
-                hasMention: channel.hasMention || data.hasMention,
+                hasUnread: true
               }
             }
             return channel
           })
         })
       }
-    })
+    }
 
-    // Listen for new channels
-    userChannel.bind(PusherEvent.CHANNEL_CREATED, (data: Channel) => {
-      console.log(`[ChannelList] New channel created:`, data)
-      setChannels(currentChannels => [...currentChannels, data])
-    })
+    // Listen for new mentions
+    const handleNewMention = (data: NewMentionEvent) => {
+      console.log(`[ChannelList] Received mention:`, data)
+      setChannels(currentChannels => {
+        // Don't increment if we're currently viewing this channel
+        const isActiveChannel = params.channelSlug === data.channelSlug
+        if (isActiveChannel) {
+          console.log(`[ChannelList] Ignoring mention for active channel ${data.channelSlug}`)
+          return currentChannels
+        }
 
-    // Listen for channel updates
-    userChannel.bind(PusherEvent.CHANNEL_UPDATED, (data: Channel) => {
-      console.log(`[ChannelList] Channel updated:`, data)
-      setChannels(currentChannels => 
-        currentChannels.map(channel => 
-          channel.id === data.id ? { ...channel, ...data } : channel
-        )
-      )
-    })
-
-    // Listen for channel deletions
-    userChannel.bind(PusherEvent.CHANNEL_DELETED, (data: { channelId: string }) => {
-      console.log(`[ChannelList] Channel deleted:`, data)
-      setChannels(currentChannels => 
-        currentChannels.filter(channel => channel.id !== data.channelId)
-      )
-    })
-  }, [userId, userChannel]) // Only depend on userId and userChannel
-
-  // Handle active channel changes
-  useEffect(() => {
-    const currentChannelSlug = params.channelSlug
-    if (currentChannelSlug) {
-      console.log(`[ChannelList] Resetting unread state for active channel ${currentChannelSlug}`)
-      setChannels(currentChannels =>
-        currentChannels.map(channel => {
-          if (channel.slug === currentChannelSlug) {
+        return currentChannels.map(channel => {
+          if (channel.id === data.channelId) {
             return {
               ...channel,
-              hasUnread: false,
-              hasMention: false,
+              mentionCount: (channel.mentionCount || 0) + 1,
+              hasMention: true,
+              hasUnread: true
             }
           }
           return channel
         })
-      )
+      })
+    }
+
+    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
+    userChannel.bind(PusherEvent.NEW_MENTION, handleNewMention)
+
+    // Clean up event listeners
+    return () => {
+      userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
+      userChannel.unbind(PusherEvent.NEW_MENTION, handleNewMention)
+    }
+  }, [userId, userChannel, params.channelSlug])
+
+  // Clear mention count when entering a channel
+  useEffect(() => {
+    if (!params.channelSlug) return
+
+    const currentChannel = channels.find(c => c.slug === params.channelSlug)
+    if (currentChannel?.hasMention) {
+      fetch(`/api/mentions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          channelId: currentChannel.id
+        })
+      }).then(() => {
+        setChannels(currentChannels =>
+          currentChannels.map(channel => {
+            if (channel.id === currentChannel.id) {
+              return {
+                ...channel,
+                mentionCount: 0,
+                hasMention: false
+              }
+            }
+            return channel
+          })
+        )
+      })
     }
   }, [params.channelSlug])
 
@@ -115,12 +156,12 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
 
   return (
     <div>
-      <div className="flex items-center justify-between px-2 mb-2">
+      <div className="mb-2 flex items-center justify-between px-2">
         <h2 className="text-sm font-semibold uppercase text-gray-400">Channels</h2>
         <button
           onClick={() => setIsCreateModalOpen(true)}
           className="text-gray-400 hover:text-gray-300"
-          title="Create Channel"
+          title="Create channel"
         >
           <PlusIcon className="h-4 w-4" />
         </button>
@@ -151,11 +192,11 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
                   {channel.name}
                 </span>
               </div>
-              {hasUnread && channel.hasMention && (
+              {channel.hasMention && channel.mentionCount ? (
                 <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
-                  @
+                  {channel.mentionCount}
                 </span>
-              )}
+              ) : null}
             </Link>
           );
         })}

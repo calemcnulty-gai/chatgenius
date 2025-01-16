@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { auth, currentUser } from '@clerk/nextjs'
-import { pusherServer } from '@/lib/pusher'
+import { pusher } from '@/lib/pusher'
 import { getOrCreateUser } from '@/lib/db/users'
 
 export async function POST(req: Request) {
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
 
     // Handle presence channel authentication
     if (channel.startsWith('presence-')) {
-      const authResponse = pusherServer.authorizeChannel(socketId, channel, {
+      const authResponse = pusher.authorizeChannel(socketId, channel, {
         user_id: user.id,
         user_info: {
           name: user.name,
@@ -56,8 +56,8 @@ export async function POST(req: Request) {
     }
 
     // Handle private channel authentication
-    if (channel.startsWith('private-') || channel === `user-${user.id}`) {
-      const authResponse = pusherServer.authorizeChannel(socketId, channel)
+    if (channel.startsWith('private-')) {
+      const authResponse = pusher.authorizeChannel(socketId, channel)
       return NextResponse.json(authResponse)
     }
 

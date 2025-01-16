@@ -1,36 +1,23 @@
-import { Timestamp } from '@/types/timestamp'
+import { Timestamp } from './timestamp'
 
 export enum PusherEvent {
-  // Message events
-  NEW_CHANNEL_MESSAGE = 'NEW_CHANNEL_MESSAGE',
-  NEW_DIRECT_MESSAGE = 'NEW_DIRECT_MESSAGE',
-  NEW_THREAD_REPLY = 'NEW_THREAD_REPLY',
-  MESSAGE_UPDATED = 'MESSAGE_UPDATED',
-  MESSAGE_DELETED = 'MESSAGE_DELETED',
-  
-  // Channel events
-  CHANNEL_CREATED = 'CHANNEL_CREATED',
-  CHANNEL_UPDATED = 'CHANNEL_UPDATED',
-  CHANNEL_DELETED = 'CHANNEL_DELETED',
-  
-  // User events
-  NEW_USER = 'NEW_USER',
-  USER_UPDATED = 'USER_UPDATED',
-  USER_LEFT = 'USER_LEFT',
-  USER_TYPING = 'USER_TYPING',
-  USER_STATUS_CHANGED = 'USER_STATUS_CHANGED',
-
-  // Notification events
-  NEW_NOTIFICATION = 'NEW_NOTIFICATION',
-  NOTIFICATION_READ = 'NOTIFICATION_READ',
-  NOTIFICATIONS_CLEARED = 'NOTIFICATIONS_CLEARED'
+  NEW_CHANNEL_MESSAGE = 'new-channel-message',
+  NEW_DIRECT_MESSAGE = 'new-direct-message',
+  NEW_THREAD_REPLY = 'new-thread-reply',
+  NEW_MENTION = 'new-mention',
+  CHANNEL_CREATED = 'channel-created',
+  CHANNEL_UPDATED = 'channel-updated',
+  CHANNEL_DELETED = 'channel-deleted',
+  USER_STATUS_CHANGED = 'user-status-changed',
+  MESSAGE_UPDATED = 'message-updated',
 }
 
-export type BaseMessageEvent = {
+export interface BaseMessageEvent {
   id: string
   content: string
-  createdAt: Timestamp
   channelId: string
+  channelSlug: string
+  channelName: string
   senderId: string
   senderClerkId: string
   senderName: string
@@ -39,75 +26,31 @@ export type BaseMessageEvent = {
   senderDisplayName: string | null
   senderTitle: string | null
   senderTimeZone: string | null
-  senderStatus: string | null
-  attachments?: {
-    files: string[]
-  }
-}
-
-export type NewChannelMessageEvent = BaseMessageEvent & {
-  channelName: string
-  workspaceId: string
-  hasMention: boolean
-  senderDisplayName: string | null
-  parentMessageId?: string
-}
-
-export type NewThreadReplyEvent = {
-  id: string
-  content: string
+  senderCreatedAt: Timestamp
+  senderUpdatedAt: Timestamp
   createdAt: Timestamp
-  channelId: string
-  workspaceId: string
-  senderId: string
-  senderName: string
-  senderProfileImage: string | null
-  hasMention: boolean
-  isThreadReply: boolean
-  parentMessageId: string
-}
-
-export type NewDirectMessageEvent = BaseMessageEvent & {
-  otherUserId: string
-}
-
-export type MessageUpdatedEvent = {
-  id: string
-  content: string
-  channelId: string
   updatedAt: Timestamp
+  parentId: string | null
+  parentMessageId: string | null
 }
 
-export type NewUserEvent = {
+export interface NewChannelMessageEvent extends BaseMessageEvent {}
+export interface NewDirectMessageEvent extends BaseMessageEvent {}
+export interface NewThreadReplyEvent extends BaseMessageEvent {}
+
+export interface NewMentionEvent {
   id: string
-  name: string
-  profileImage: string | null
-  workspaceId: string
-  role: 'admin' | 'member'
-}
-
-export type UserTypingEvent = {
   channelId: string
+  channelSlug: string
+  channelName: string
+  messageId: string
   userId: string
-  userName: string
-}
-
-export type UserStatusEvent = {
-  userId: string
-  status: 'active' | 'away' | 'offline'
-}
-
-export type NotificationEvent = {
-  id: string
-  type: 'mention' | 'thread_reply' | 'dm'
-  title: string
-  body?: string
-  read: boolean
   createdAt: Timestamp
-  data: {
-    channelId: string
-    messageId: string
-    senderId: string
-    parentMessageId?: string
-  }
+}
+
+export interface MessageUpdatedEvent {
+  id: string
+  replyCount: number
+  latestReplyAt: Timestamp
+  updatedAt: Timestamp
 } 

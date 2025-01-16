@@ -63,20 +63,24 @@ export type MessageWithThread = MessageWithSender & {
   latestReplyAt?: Timestamp
 }
 
+export type DirectMessageChannelMember = {
+  id: string
+  name: string
+  email: string
+  profileImage: string | null
+  unreadCount: number
+  status?: 'active' | 'away' | 'offline'
+}
+
 export type DirectMessageChannelWithMembers = DirectMessageChannel & {
-  members: Array<{
-    id: string
-    channelId: string
-    userId: string
-    createdAt: Timestamp
-    user: User
-  }>
+  members: DirectMessageChannelMember[]
 }
 
 export type DirectMessageChannelWithUnreadMessages = DirectMessageChannelWithMembers & {
   unreadMessages: UnreadMessage[]
 }
 
+// Deprecated - use DirectMessageChannelWithMembers instead
 export type DirectMessageChannelWithUnreadCounts = DirectMessageChannel & {
   otherUser: {
     id: string

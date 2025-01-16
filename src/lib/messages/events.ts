@@ -1,9 +1,10 @@
-import { pusherServer } from '@/lib/pusher'
+import { pusher } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { db } from '@/db'
 import { workspaceMemberships } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import type { MessageData } from './types'
+import { now } from '@/types/timestamp'
 
 interface TriggerMessageEventsParams {
   message: MessageData
@@ -34,16 +35,27 @@ export async function triggerMessageEvents({
       recipientId: member.userId
     })
     
-    await pusherServer.trigger(`user-${member.userId}`, PusherEvent.NEW_CHANNEL_MESSAGE, {
+    await pusher.trigger(`private-user_${member.userId}`, PusherEvent.NEW_CHANNEL_MESSAGE, {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
       channelId: message.channelId,
-      channelName: channelSlug,
+      channelSlug: channelSlug || '',
+      channelName: channelSlug || '',
       workspaceId,
       senderId: message.sender.id,
+      senderClerkId: message.sender.clerkId,
       senderName: message.sender.name,
+      senderEmail: message.sender.email,
       senderProfileImage: message.sender.profileImage,
+      senderDisplayName: message.sender.displayName,
+      senderTitle: message.sender.title,
+      senderTimeZone: message.sender.timeZone,
+      senderCreatedAt: message.sender.createdAt,
+      senderUpdatedAt: message.sender.updatedAt,
+      parentId: null,
+      parentMessageId: null,
       hasMention: false,
       isThreadReply
     })
@@ -59,14 +71,25 @@ export async function triggerThreadReplyEvent(message: MessageData) {
   })
 
   for (const member of workspaceMembers) {
-    await pusherServer.trigger(`user-${member.userId}`, PusherEvent.NEW_THREAD_REPLY, {
+    await pusher.trigger(`private-user_${member.userId}`, PusherEvent.NEW_THREAD_REPLY, {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
+      updatedAt: message.updatedAt,
       channelId: message.channelId,
+      channelSlug: '',
+      channelName: 'thread-reply',
       senderId: message.sender.id,
+      senderClerkId: message.sender.clerkId,
       senderName: message.sender.name,
+      senderEmail: message.sender.email,
       senderProfileImage: message.sender.profileImage,
+      senderDisplayName: message.sender.displayName,
+      senderTitle: message.sender.title,
+      senderTimeZone: message.sender.timeZone,
+      senderCreatedAt: message.sender.createdAt,
+      senderUpdatedAt: message.sender.updatedAt,
+      parentId: message.parentMessageId,
       parentMessageId: message.parentMessageId
     })
   }

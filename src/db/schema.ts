@@ -9,6 +9,9 @@ import {
   jsonb,
   type PgTableWithColumns,
   uniqueIndex,
+  timestamp,
+  index,
+  primaryKey,
 } from 'drizzle-orm/pg-core'
 import { timestampString } from './timestamp'
 
@@ -175,6 +178,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   workspaceMemberships: many(workspaceMemberships),
   messages: many(messages),
   notifications: many(notifications),
+  mentions: many(mentions),
+  channelMentions: many(channelMentions),
 }))
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -190,6 +195,8 @@ export const channelsRelations = relations(channels, ({ many, one }) => ({
     references: [workspaces.id],
   }),
   unreadMessages: many(unreadMessages),
+  mentions: many(mentions),
+  channelMentions: many(channelMentions),
 }))
 
 export const directMessageChannelsRelations = relations(directMessageChannels, ({ many, one }) => ({
@@ -246,6 +253,64 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   }),
 }))
 
+export const mentions = pgTable('mentions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  messageId: uuid('message_id').notNull().references(() => messages.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  channelId: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp('read_at', { withTimezone: true })
+}, (table) => ({
+  messageUserUnique: uniqueIndex('message_user_unique').on(table.messageId, table.userId),
+  userIdx: index('mentions_user_id_idx').on(table.userId),
+  channelIdx: index('mentions_channel_id_idx').on(table.channelId),
+  messageIdx: index('mentions_message_id_idx').on(table.messageId),
+  readAtIdx: index('mentions_read_at_idx').on(table.readAt)
+}))
+
+export const channelMentions = pgTable('channel_mentions', {
+  channelId: uuid('channel_id').notNull().references(() => channels.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  unreadCount: integer('unread_count').notNull().default(0),
+  lastMentionAt: timestamp('last_mention_at', { withTimezone: true }).notNull().defaultNow()
+}, (table) => ({
+  pk: primaryKey({ columns: [table.channelId, table.userId] }),
+  lastMentionAtIdx: index('channel_mentions_last_mention_at_idx').on(table.lastMentionAt)
+}))
+
+export const mentionsRelations = relations(mentions, ({ one }) => ({
+  message: one(messages, {
+    fields: [mentions.messageId],
+    references: [messages.id],
+  }),
+  user: one(users, {
+    fields: [mentions.userId],
+    references: [users.id],
+  }),
+  channel: one(channels, {
+    fields: [mentions.channelId],
+    references: [channels.id],
+  }),
+}))
+
+export const channelMentionsRelations = relations(channelMentions, ({ one }) => ({
+  channel: one(channels, {
+    fields: [channelMentions.channelId],
+    references: [channels.id],
+  }),
+  user: one(users, {
+    fields: [channelMentions.userId],
+    references: [users.id],
+  }),
+}))
+
+// Add types for the new tables
+export type Mention = typeof mentions.$inferSelect
+export type NewMention = typeof mentions.$inferInsert
+
+export type ChannelMention = typeof channelMentions.$inferSelect
+export type NewChannelMention = typeof channelMentions.$inferInsert
+
 // Export query config
 export const queryConfig = {
   workspaces,
@@ -258,6 +323,8 @@ export const queryConfig = {
   notifications,
   invites,
   unreadMessages,
+  mentions,
+  channelMentions,
   // Add relations
   workspaceMembershipsRelations,
   workspacesRelations,
@@ -268,5 +335,7 @@ export const queryConfig = {
   unreadMessagesRelations,
   notificationsRelations,
   messagesRelations,
-  invitesRelations
+  invitesRelations,
+  mentionsRelations,
+  channelMentionsRelations,
 } as const 

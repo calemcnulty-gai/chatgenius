@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Message } from '@/components/ui/Message'
 import { usePusherChannel } from '@/contexts/PusherContext'
-import { PusherEvent } from '@/types/events'
+import { PusherEvent, NewDirectMessageEvent, NewChannelMessageEvent } from '@/types/events'
 import { User } from '@/types/user'
 import { useUser } from '@/contexts/UserContext'
 import { MessageInput } from '../ui/MessageInput'
@@ -17,7 +17,7 @@ interface MessageData {
   updatedAt: Timestamp
   parentId: string | null
   replyCount: number
-  latestReplyAt: Timestamp | null
+  latestReplyAt: Timestamp | undefined
   parentMessageId: string | null
 }
 
@@ -48,9 +48,11 @@ interface MessageListProps {
 export function MessageList({ channelId, variant = 'channel' }: MessageListProps) {
   const [messages, setMessages] = useState<MessageData[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isTyping, setIsTyping] = useState(false)
   const { user } = useUser()
   const { userChannel } = usePusherChannel()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const typingTimeoutRef = useRef<NodeJS.Timeout>()
 
   const handleThreadClick = (messageId: string) => {
     const event = new CustomEvent('open-thread', {
@@ -67,7 +69,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
   const fetchMessages = async () => {
     try {
       console.log('Fetching messages for channel:', channelId)
-      const response = await fetch(`/api/messages?channelId=${channelId}`)
+      const response = await fetch(`/api/messages?channelId=${channelId}&type=${variant}`)
       if (!response.ok) {
         throw new Error('Failed to fetch messages')
       }
@@ -98,7 +100,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
   useEffect(() => {
     if (!channelId || !userChannel || !user?.id) return
 
-    const handleNewMessage = (data: NewMessageEvent) => {
+    const handleNewMessage = (data: NewChannelMessageEvent | NewDirectMessageEvent) => {
       console.log('[MessageList] Received new message:', {
         event: variant === 'channel' ? PusherEvent.NEW_CHANNEL_MESSAGE : PusherEvent.NEW_DIRECT_MESSAGE,
         data,
@@ -148,7 +150,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
           updatedAt: data.updatedAt,
           parentId: data.parentId,
           replyCount: 0,
-          latestReplyAt: null,
+          latestReplyAt: undefined,
           parentMessageId: null,
         }
 
@@ -175,36 +177,12 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
     console.log('[MessageList] User channel:', userChannel.name)
     
     // Handle regular channel messages
-    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewMessageEvent) => {
-      console.log('[MessageList] Received channel message:', {
-        event: PusherEvent.NEW_CHANNEL_MESSAGE,
-        data,
-        currentChannelId: channelId,
-        matches: data.channelId === channelId,
-        currentUserId: user.id,
-        senderUserId: data.senderId
-      })
-      
-      if (data.channelId === channelId) {
-        handleNewMessage(data)
-      }
-    })
-
-    // Handle direct messages
-    userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, (data: NewMessageEvent) => {
-      console.log('[MessageList] Received direct message:', {
-        event: PusherEvent.NEW_DIRECT_MESSAGE,
-        data,
-        currentChannelId: channelId,
-        matches: data.channelId === channelId,
-        currentUserId: user.id,
-        senderUserId: data.senderId
-      })
-      
-      if (data.channelId === channelId) {
-        handleNewMessage(data)
-      }
-    })
+    if (variant === 'channel') {
+      userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
+    } else {
+      // Handle direct messages
+      userChannel.bind(PusherEvent.NEW_DIRECT_MESSAGE, handleNewMessage)
+    }
 
     // Handle thread replies with a named handler function
     const handleThreadReply = (data: any) => {
@@ -235,11 +213,40 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
 
     userChannel.bind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
 
+    // Handle typing events for DMs
+    if (variant === 'dm') {
+      const handleTypingStart = (data: { userId: string }) => {
+        if (data.userId !== user.id) {
+          setIsTyping(true)
+          // Clear existing timeout
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current)
+          }
+          // Set new timeout to clear typing indicator
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false)
+          }, 3000)
+        }
+      }
+
+      userChannel.bind('typing-start', handleTypingStart)
+
+      return () => {
+        userChannel.unbind('typing-start', handleTypingStart)
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current)
+        }
+      }
+    }
+
     return () => {
       if (!userChannel) return
-      userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
-      userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
-      userChannel.unbind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)  // Unbind specific handler
+      if (variant === 'channel') {
+        userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE)
+      } else {
+        userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
+      }
+      userChannel.unbind(PusherEvent.NEW_THREAD_REPLY, handleThreadReply)
     }
   }, [user?.id, userChannel, channelId, variant])
 
@@ -252,33 +259,35 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
   }
 
   return (
-    <div className="flex h-full flex-col bg-gray-800">
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="min-h-full px-4 py-4 space-y-1">
-          {messages.map((message) => (
-            <Message
-              key={message.id}
-              id={message.id}
-              content={message.content}
-              sender={message.sender}
-              createdAt={message.createdAt}
-              variant={variant}
-              replyCount={message.replyCount}
-              latestReplyAt={message.latestReplyAt || undefined}
-              parentMessageId={message.parentMessageId || undefined}
-              channelId={channelId}
-              onThreadClick={handleThreadClick}
-            />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
+    <div className="flex h-full flex-col">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((message) => (
+          <Message
+            key={message.id}
+            id={message.id}
+            content={message.content}
+            sender={message.sender}
+            createdAt={message.createdAt}
+            variant={variant}
+            replyCount={message.replyCount}
+            latestReplyAt={message.latestReplyAt}
+            onThreadClick={handleThreadClick}
+          />
+        ))}
+        {isTyping && variant === 'dm' && (
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <div className="animate-bounce">•</div>
+            <div className="animate-bounce delay-100">•</div>
+            <div className="animate-bounce delay-200">•</div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
       </div>
-
-      <div className="flex-none">
-        <MessageInput
+      <div className="p-4 border-t border-gray-800">
+        <MessageInput 
           channelId={channelId}
-          onMessageSent={fetchMessages}
-          className="border-t-0"
+          variant={variant}
+          onMessageSent={scrollToBottom}
         />
       </div>
     </div>

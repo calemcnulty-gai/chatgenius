@@ -1,8 +1,9 @@
+import { NextResponse } from 'next/server'
 import { auth } from '@clerk/nextjs'
 import { db } from '@/db'
-import { messages, users, workspaceMemberships, channels, workspaces } from '@/db/schema'
+import { messages, users, workspaceMemberships, channels, workspaces, directMessageChannels } from '@/db/schema'
 import { eq, sql } from 'drizzle-orm'
-import { pusherServer } from '@/lib/pusher'
+import { pusher } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { v4 as uuidv4 } from 'uuid'
 import { now } from '@/types/timestamp'
@@ -15,7 +16,7 @@ export async function POST(
     // Initial auth check with Clerk
     const { userId: clerkId } = auth()
     if (!clerkId) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Get internal user ID once at the start
@@ -24,12 +25,12 @@ export async function POST(
     })
 
     if (!user) {
-      return Response.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const { content, channelId } = await req.json()
     if (!content?.trim()) {
-      return Response.json({ error: 'Content is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Content is required' }, { status: 400 })
     }
 
     // Verify the parent message exists
@@ -40,16 +41,30 @@ export async function POST(
           with: {
             workspace: true
           }
+        },
+        dmChannel: {
+          with: {
+            workspace: true
+          }
         }
       }
     }) as (typeof messages.$inferSelect & {
-      channel: typeof channels.$inferSelect & {
+      channel: (typeof channels.$inferSelect & {
         workspace: typeof workspaces.$inferSelect
-      }
+      }) | null,
+      dmChannel: (typeof directMessageChannels.$inferSelect & {
+        workspace: typeof workspaces.$inferSelect
+      }) | null
     }) | null
 
     if (!parentMessage) {
-      return Response.json({ error: 'Parent message not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Parent message not found' }, { status: 404 })
+    }
+
+    // Get the workspace ID from either channel or DM channel
+    const workspaceId = parentMessage.channel?.workspace.id || parentMessage.dmChannel?.workspace.id
+    if (!workspaceId) {
+      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
     }
 
     // Create the reply using internal ID
@@ -59,11 +74,10 @@ export async function POST(
       parentMessageId: params.messageId
     })
 
-    const timestamp = new Date().toISOString()
     const [reply] = await db.insert(messages).values({
       content: content.trim(),
-      channelId,
-      dmChannelId: null,
+      channelId: parentMessage.channelId,
+      dmChannelId: parentMessage.dmChannelId,
       senderId: user.id,
       parentMessageId: params.messageId,
       replyCount: 0,
@@ -80,9 +94,21 @@ export async function POST(
       })
       .where(eq(messages.id, params.messageId))
 
+    // Emit message updated event
+    await pusher.trigger(
+      `workspace_${workspaceId}`,
+      PusherEvent.MESSAGE_UPDATED,
+      {
+        id: params.messageId,
+        replyCount: (parentMessage.replyCount || 0) + 1,
+        latestReplyAt: now(),
+        updatedAt: now(),
+      }
+    )
+
     // Get all workspace members
     const workspaceMembers = await db.query.workspaceMemberships.findMany({
-      where: eq(workspaceMemberships.workspaceId, parentMessage.channel.workspace.id),
+      where: eq(workspaceMemberships.workspaceId, workspaceId),
     })
 
     // Prepare the event payload
@@ -91,11 +117,19 @@ export async function POST(
       content: reply.content,
       createdAt: reply.createdAt,
       channelId: reply.channelId,
+      dmChannelId: reply.dmChannelId,
       channelName: 'thread-reply',
-      workspaceId: parentMessage.channel.workspace.id,
+      workspaceId,
       senderId: user.id,
       senderName: user.name,
+      senderEmail: user.email,
+      senderClerkId: user.clerkId,
       senderProfileImage: user.profileImage,
+      senderDisplayName: user.displayName,
+      senderTitle: user.title,
+      senderTimeZone: user.timeZone,
+      senderCreatedAt: user.createdAt,
+      senderUpdatedAt: user.updatedAt,
       hasMention: false,
       isThreadReply: true,
       parentMessageId: reply.parentMessageId,
@@ -105,7 +139,7 @@ export async function POST(
     // Send event to each workspace member
     for (const member of workspaceMembers) {
       console.log('[API] Triggering thread reply event:', {
-        channel: `user-${member.userId}`,
+        channel: `private-user_${member.userId}`,
         event: PusherEvent.NEW_THREAD_REPLY,
         messageId: reply.id,
         channelId,
@@ -113,17 +147,17 @@ export async function POST(
         recipientId: member.userId
       })
 
-      await pusherServer.trigger(
-        `user-${member.userId}`,
+      await pusher.trigger(
+        `private-user_${member.userId}`,
         PusherEvent.NEW_THREAD_REPLY,
-        JSON.stringify(threadReplyPayload)
+        threadReplyPayload
       )
     }
 
-    return Response.json(reply)
+    return NextResponse.json(reply)
   } catch (error) {
     console.error('[Thread Reply API] Error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
     )

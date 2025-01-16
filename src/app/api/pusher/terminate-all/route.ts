@@ -3,7 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs'
 import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { pusherServer } from '@/lib/pusher'
+import { pusher } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { getOrCreateUser } from '@/lib/db/users'
 
@@ -37,7 +37,7 @@ export async function POST() {
       .returning()
 
     // Trigger presence event
-    await pusherServer.trigger(`user-${user.id}`, PusherEvent.USER_STATUS_CHANGED, {
+    await pusher.trigger(`user-${user.id}`, PusherEvent.USER_STATUS_CHANGED, {
       userId: user.id,
       name: user.name,
       image: user.profileImage,
@@ -45,7 +45,7 @@ export async function POST() {
     })
 
     // Terminate all connections for this user
-    await pusherServer.terminateUserConnections(user.id)
+    await pusher.terminateUserConnections(user.id)
 
     return NextResponse.json(updatedUser)
   } catch (error) {

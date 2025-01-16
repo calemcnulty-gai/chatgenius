@@ -1,29 +1,31 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
 import { cn } from '@/lib/utils'
 import { Combobox } from '@headlessui/react'
-
-interface AIUser {
-  id: string
-  clerk_id: string
-  name: string
-  display_name: string | null
-  profile_image: string | null
-  title: string | null
-}
+import { UserAvatar } from './UserAvatar'
+import { UserDisplay } from './UserDisplay'
+import { User } from '@/types/user'
 
 interface MessageInputProps {
   channelId: string
+  variant?: 'channel' | 'dm'
   parentMessageId?: string
   placeholder?: string
   className?: string
   onMessageSent?: () => void
 }
 
+interface MentionState {
+  isOpen: boolean
+  startPosition: number
+  query: string
+}
+
 export function MessageInput({
   channelId,
+  variant = 'channel',
   parentMessageId,
   placeholder = 'Type a message...',
   className,
@@ -32,57 +34,107 @@ export function MessageInput({
   const [content, setContent] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
-  const [showAIDropdown, setShowAIDropdown] = useState(false)
-  const [aiUsers, setAIUsers] = useState<AIUser[]>([])
-  const [selectedAIUser, setSelectedAIUser] = useState<AIUser | null>(null)
-  const [query, setQuery] = useState('')
+  const [users, setUsers] = useState<User[]>([])
+  const [mentionState, setMentionState] = useState<MentionState>({
+    isOpen: false,
+    startPosition: 0,
+    query: ''
+  })
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    console.log('Key pressed:', {
-      key: e.key,
-      content: e.currentTarget.value,
-      showingDropdown: showAIDropdown,
-      type: e.type
-    })
-
-    // If we type a space after /ai, show the dropdown
-    if (e.key === ' ' && e.currentTarget.value === '/ai') {
-      console.log('Space pressed after /ai, fetching users...')
-      fetch('/api/ai-users')
-        .then(res => {
-          console.log('AI users response:', res.status)
-          return res.json()
-        })
-        .then(users => {
-          console.log('AI users fetched:', users)
-          setAIUsers(users)
-          setShowAIDropdown(true)
+  // Fetch workspace users when component mounts
+  useEffect(() => {
+    if (variant === 'channel') {
+      const workspaceSlug = window.location.pathname.split('/')[2]
+      fetch(`/api/workspaces/${workspaceSlug}/users`)
+        .then(res => res.json())
+        .then(data => {
+          setUsers(data.users)
         })
         .catch(error => {
-          console.error('Error fetching AI users:', error)
+          console.error('Error fetching users:', error)
         })
     }
+  }, [variant])
 
-    // If we press backspace and remove the /ai command, hide the dropdown
-    if (e.key === 'Backspace' && !e.currentTarget.value.startsWith('/ai')) {
-      console.log('Command removed, hiding dropdown')
-      setShowAIDropdown(false)
-      setSelectedAIUser(null)
+  const insertMention = useCallback((user: User) => {
+    if (!inputRef.current) return
+
+    const beforeMention = content.slice(0, mentionState.startPosition)
+    const afterMention = content.slice(inputRef.current.selectionStart || mentionState.startPosition)
+    const newContent = `${beforeMention}@${user.name} ${afterMention}`
+    
+    setContent(newContent)
+    setMentionState({ isOpen: false, startPosition: 0, query: '' })
+    
+    // Set cursor position after the inserted mention
+    const newCursorPosition = mentionState.startPosition + user.name.length + 2 // +2 for @ and space
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
+        inputRef.current.focus()
+      }
+    }, 0)
+  }, [content, mentionState])
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Handle mention suggestions
+    if (mentionState.isOpen) {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setMentionState({ isOpen: false, startPosition: 0, query: '' })
+      }
+      return
     }
-  }, [showAIDropdown])
+
+    // Start mention flow when @ is typed
+    if (e.key === '@' && variant === 'channel') {
+      const position = e.currentTarget.selectionStart || 0
+      setMentionState({
+        isOpen: true,
+        startPosition: position,
+        query: ''
+      })
+    }
+
+    // Close mention suggestions if we type a space
+    if (e.key === ' ' && mentionState.isOpen) {
+      setMentionState({ isOpen: false, startPosition: 0, query: '' })
+    }
+  }, [mentionState, variant])
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('Input changed:', {
-      value: e.target.value,
-      showingDropdown: showAIDropdown
-    })
-    setContent(e.target.value)
-    
-    // Update query for filtering if dropdown is shown
-    if (showAIDropdown) {
-      setQuery(e.target.value.slice(4))
+    const newContent = e.target.value
+    setContent(newContent)
+
+    // Update mention query if mention flow is active
+    if (mentionState.isOpen) {
+      const currentPosition = e.target.selectionStart || mentionState.startPosition
+      const textFromMentionStart = newContent.slice(mentionState.startPosition, currentPosition)
+      
+      // If we've typed a space or deleted the @, close the mention flow
+      if (textFromMentionStart.includes(' ') || !textFromMentionStart.startsWith('@')) {
+        setMentionState({ isOpen: false, startPosition: 0, query: '' })
+      } else {
+        setMentionState({
+          ...mentionState,
+          query: textFromMentionStart.slice(1) // Remove @ from query
+        })
+      }
     }
-  }, [showAIDropdown])
+
+    // Emit typing event for DMs
+    if (variant === 'dm') {
+      fetch(`/api/channels/${channelId}/typing`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      }).catch(error => {
+        console.error('Error sending typing event:', error)
+      })
+    }
+  }, [mentionState, variant, channelId])
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
@@ -115,6 +167,7 @@ export function MessageInput({
         body: JSON.stringify({
           content: content || 'Shared a file',
           channelId,
+          type: variant,
           parentMessageId
         }),
       })
@@ -147,7 +200,7 @@ export function MessageInput({
     } finally {
       setIsSubmitting(false)
     }
-  }, [channelId, content, parentMessageId, onMessageSent])
+  }, [channelId, content, parentMessageId, variant, onMessageSent])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -155,54 +208,20 @@ export function MessageInput({
 
     setIsSubmitting(true)
     try {
-      let messageContent = content.trim()
+      const messageContent = content.trim()
       
-      // If this is an AI command, trigger the RAG request (don't await it)
-      if (content.startsWith('/ai ') && selectedAIUser) {
-        // Strip the /ai command from the message
-        messageContent = content.slice(content.indexOf(' ', 4) + 1).trim()
-        
-        console.log('[MessageInput] Selected AI user:', selectedAIUser)
-        
-        const aiCommand = {
-          aiUser: selectedAIUser.id,
-          query: messageContent
-        }
-
-        console.log('[MessageInput] Sending RAG request:', {
-          url: '/api/rag',
-          aiCommand,
-          channelId,
-          parentMessageId
-        })
-
-        // Fire and forget the RAG request
-        fetch('/api/rag', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: aiCommand.query,
-            aiUser: selectedAIUser.id,
-            channelId,
-            parentMessageId
-          }),
-        }).catch(error => {
-          console.error('[MessageInput] Error getting AI response:', error)
-        })
+      // Validate message content for DMs
+      if (variant === 'dm' && messageContent.length > 10000) {
+        throw new Error('Message is too long. DM messages must be under 10,000 characters.')
       }
 
-      // Send the message normally
+      // Send the message
       const messagePayload = {
         content: messageContent,
         channelId,
+        type: variant,
         parentMessageId
       }
-      console.log('[MessageInput] Sending message:', {
-        url: '/api/messages',
-        payload: messagePayload
-      })
 
       const response = await fetch('/api/messages', {
         method: 'POST',
@@ -213,23 +232,33 @@ export function MessageInput({
       })
 
       if (!response.ok) {
-        throw new Error('Failed to send message')
+        const error = await response.json()
+        throw new Error(error.message || 'Failed to send message')
       }
 
       setContent('')
       onMessageSent?.()
     } catch (error) {
       console.error('Error sending message:', error)
+      if (error instanceof Error) {
+        alert(error.message)
+      } else {
+        alert('Failed to send message')
+      }
     } finally {
       setIsSubmitting(false)
     }
   }
 
-  const filteredAIUsers = query === ''
-    ? aiUsers
-    : aiUsers.filter((user) => {
-        return user.name.toLowerCase().includes(query.toLowerCase()) ||
-               (user.display_name?.toLowerCase().includes(query.toLowerCase()))
+  const filteredUsers = mentionState.query === ''
+    ? users
+    : users.filter(user => {
+        const searchTerms = [
+          user.name.toLowerCase(),
+          user.displayName?.toLowerCase() || '',
+          user.email.toLowerCase()
+        ]
+        return searchTerms.some(term => term.includes(mentionState.query.toLowerCase()))
       })
 
   return (
@@ -239,7 +268,7 @@ export function MessageInput({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "border-t border-gray-700 bg-gray-800 p-4 relative",
+        "relative border-t border-gray-700 bg-gray-800 p-4",
         isDragging && "bg-blue-900/20",
         className
       )}
@@ -249,87 +278,53 @@ export function MessageInput({
           <div className="text-blue-500 font-medium">Drop files to share</div>
         </div>
       )}
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1">
+
+      <div className="relative">
+        {mentionState.isOpen && (
+          <div className="absolute bottom-full left-0 w-full mb-2 bg-gray-900 rounded-lg shadow-lg overflow-hidden">
+            <div className="max-h-60 overflow-auto py-1">
+              {filteredUsers.map((user) => (
+                <button
+                  key={user.id}
+                  onClick={() => insertMention(user)}
+                  className="w-full px-4 py-2 flex items-center gap-3 hover:bg-gray-800 text-left"
+                >
+                  <UserAvatar user={user} size="sm" />
+                  <UserDisplay 
+                    user={user}
+                    variant="text-with-status"
+                    className="flex-1"
+                  />
+                </button>
+              ))}
+              {filteredUsers.length === 0 && (
+                <div className="px-4 py-2 text-sm text-gray-400">
+                  No users found
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
           <input
+            ref={inputRef}
             type="text"
             value={content}
             onChange={handleChange}
             onKeyDown={handleKeyDown}
-            placeholder={isDragging ? 'Drop files here...' : placeholder}
-            className="w-full bg-gray-900 text-white placeholder-gray-400 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder={placeholder}
+            className="flex-1 bg-transparent text-white placeholder-gray-400 focus:outline-none"
+            disabled={isSubmitting}
           />
-          {showAIDropdown && aiUsers.length > 0 && (
-            <div className="absolute bottom-full w-full mb-1 bg-gray-900 rounded-md shadow-lg z-50">
-              <Combobox value={selectedAIUser} onChange={(user: AIUser) => {
-                console.log('Selected user:', user)
-                setSelectedAIUser(user)
-                // Insert the user's name into the input at cursor position
-                const beforeAI = content.slice(0, content.indexOf('/ai') + 3)
-                const afterAI = content.slice(content.indexOf('/ai') + 3)
-                setContent(`${beforeAI} @${user.name}${afterAI}`)
-                setShowAIDropdown(false)
-              }}>
-                <div className="relative">
-                  <Combobox.Options static className="w-full py-1 overflow-auto text-base bg-gray-900 rounded-md shadow-lg max-h-60 ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
-                    {filteredAIUsers.length === 0 ? (
-                      <div className="cursor-default select-none relative py-2 px-4 text-gray-400">
-                        No AI users found.
-                      </div>
-                    ) : (
-                      filteredAIUsers.map((user) => (
-                        <Combobox.Option
-                          key={user.id}
-                          value={user}
-                          className={({ active }) =>
-                            cn(
-                              'cursor-default select-none relative py-2 px-4',
-                              active ? 'text-white bg-blue-600' : 'text-gray-300'
-                            )
-                          }
-                        >
-                          {({ selected, active }) => (
-                            <div className="flex items-center">
-                              {user.profile_image && (
-                                <img
-                                  src={user.profile_image}
-                                  alt=""
-                                  className="h-6 w-6 rounded-full mr-2"
-                                />
-                              )}
-                              <div>
-                                <div className="flex items-center">
-                                  <span className={cn('block truncate text-white font-medium', selected && 'font-semibold')}>
-                                    {user.name}
-                                  </span>
-                                </div>
-                                {user.title && (
-                                  <span className={cn(
-                                    'block truncate text-sm',
-                                    active ? 'text-blue-200' : 'text-gray-400'
-                                  )}>
-                                    {user.title}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </Combobox.Option>
-                      ))
-                    )}
-                  </Combobox.Options>
-                </div>
-              </Combobox>
-            </div>
-          )}
+          <button
+            type="submit"
+            disabled={isSubmitting || !content.trim()}
+            className="text-blue-500 hover:text-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <PaperAirplaneIcon className="h-5 w-5" />
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={!content.trim() || isSubmitting}
-          className="bg-blue-600 text-white rounded-md p-2 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <PaperAirplaneIcon className="h-5 w-5" />
-        </button>
       </div>
     </form>
   )

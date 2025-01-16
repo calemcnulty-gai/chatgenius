@@ -4,7 +4,7 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq, lt } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { pusherServer } from '@/lib/pusher'
+import { pusher } from '@/lib/pusher'
 import { PusherEvent } from '@/types/events'
 import { getOrCreateUser } from '@/lib/db/users'
 import { now } from '@/types/timestamp'
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
     // Get or create user to get their database ID
     const user = await getOrCreateUser({
-      id: clerkUser.id,
+      id: clerkUserId,
       firstName: clerkUser.firstName,
       lastName: clerkUser.lastName,
       emailAddresses: clerkUser.emailAddresses,

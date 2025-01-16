@@ -30,27 +30,30 @@ export function StartDMModal({ isOpen, onClose, workspaceId, workspaceSlug, user
 
     try {
       console.log('Starting DM creation...')
-      const response = await fetch('/api/dm/create', {
+      const response = await fetch(`/api/workspaces/${workspaceSlug}/dm`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          workspaceId,
-          userId: selectedUser.id,
+          memberIds: [selectedUser.id],
         }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.message || 'Failed to start DM')
+        throw new Error(data.error?.message || 'Failed to start DM')
       }
 
-      const { channelId } = await response.json()
-      console.log('DM channel created:', channelId)
+      if (!data.channel) {
+        throw new Error('No channel returned from server')
+      }
+
+      console.log('DM channel created:', data.channel.id)
       
-      console.log('Navigating to channel:', `/workspace/${workspaceSlug}/dm/${channelId}`)
-      router.push(`/workspace/${workspaceSlug}/dm/${channelId}`)
+      console.log('Navigating to channel:', `/workspace/${workspaceSlug}/dm/${data.channel.id}`)
+      router.push(`/workspace/${workspaceSlug}/dm/${data.channel.id}`)
       onClose()
     } catch (error) {
       console.error('Error starting DM:', error)

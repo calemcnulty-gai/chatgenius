@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { UserAvatar } from '@/components/ui/UserAvatar'
@@ -10,13 +10,29 @@ import { StartDMModal } from './StartDMModal'
 import { PusherEvent, NewDirectMessageEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 import { useUser } from '@/contexts/UserContext'
-import { DirectMessageChannelWithUnreadCounts } from '@/types/db'
 import { User } from '@/types/user'
 import { now } from '@/types/timestamp'
 
+interface DMChannelMember {
+  id: string;
+  name: string;
+  email: string;
+  profileImage: string | null;
+  unreadCount: number;
+  status?: 'active' | 'away' | 'offline';
+}
+
+interface DMChannel {
+  id: string;
+  workspaceId: string;
+  createdAt: string;
+  updatedAt: string;
+  members: DMChannelMember[];
+}
+
 type DirectMessageListProps = {
   workspaceId: string
-  channels: DirectMessageChannelWithUnreadCounts[]
+  channels: DMChannel[]
   users: User[]
 }
 
@@ -69,11 +85,21 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
           console.log(`[DirectMessageList] Updating existing channel ${data.channelId}`)
           return currentChannels.map(channel => {
             if (channel.id === data.channelId) {
+              // Update the unread count for the current user's member entry
+              const updatedMembers = channel.members.map(member => {
+                if (member.id === user.id) {
+                  return {
+                    ...member,
+                    unreadCount: (member.unreadCount || 0) + 1
+                  }
+                }
+                return member
+              })
+
               return {
                 ...channel,
-                unreadCount: (channel.unreadCount || 0) + 1,
-                hasMention: true, // DMs always count as mentions
-                updatedAt: data.createdAt // Update the channel's timestamp
+                members: updatedMembers,
+                updatedAt: data.createdAt
               }
             }
             return channel
@@ -81,20 +107,32 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         } else {
           // Create new channel
           console.log(`[DirectMessageList] Creating new channel ${data.channelId}`)
-          const otherUser = users.find(u => u.id === data.senderId) || {
+          const sender = users.find(u => u.id === data.senderId) || {
             id: data.senderId,
             name: data.senderName,
+            email: data.senderEmail,
             profileImage: data.senderProfileImage,
-            status: 'active'
+            status: 'active' as const
           }
-          const newChannel: DirectMessageChannelWithUnreadCounts = {
+
+          const newChannel: DMChannel = {
             id: data.channelId,
             workspaceId,
             createdAt: data.createdAt,
             updatedAt: data.createdAt,
-            otherUser,
-            unreadCount: 1,
-            hasMention: true
+            members: [
+              {
+                ...sender,
+                unreadCount: 0
+              },
+              {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                profileImage: user.profileImage,
+                unreadCount: 1
+              }
+            ]
           }
           return [...currentChannels, newChannel]
         }
@@ -118,22 +156,43 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
       setChannels(currentChannels => {
         return currentChannels.map(channel => {
           if (channel.id === currentChannelId) {
+            // Reset unread count for current user's member entry
+            const updatedMembers = channel.members.map(member => {
+              if (member.id === user?.id) {
+                return {
+                  ...member,
+                  unreadCount: 0
+                }
+              }
+              return member
+            })
+
             return {
               ...channel,
-              unreadCount: 0,
-              hasMention: false,
+              members: updatedMembers
             }
           }
           return channel
         })
       })
     }
-  }, [params.channelId])
+  }, [params.channelId, user?.id])
 
   // Update channels when initial data changes
   useEffect(() => {
     setChannels(initialChannels)
   }, [initialChannels])
+
+  // Get the other user in a DM channel
+  const getOtherUser = (channel: DMChannel): DMChannelMember | undefined => {
+    return channel.members.find(member => member.id !== user?.id)
+  }
+
+  // Get unread count for current user in a channel
+  const getCurrentUserUnreadCount = (channel: DMChannel): number => {
+    const currentUserMember = channel.members.find(member => member.id === user?.id)
+    return currentUserMember?.unreadCount || 0
+  }
 
   return (
     <>
@@ -150,8 +209,12 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
         </div>
         <div className="space-y-1">
           {channels.map((channel) => {
-            const isActive = params.channelId === channel.id;
-            const hasUnread = !isActive && channel.unreadCount && channel.unreadCount > 0;
+            const isActive = params.channelId === channel.id
+            const otherUser = getOtherUser(channel)
+            const unreadCount = getCurrentUserUnreadCount(channel)
+            const hasUnread = !isActive && unreadCount > 0
+
+            if (!otherUser) return null
 
             return (
               <Link
@@ -168,55 +231,51 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                 <div className="flex items-center gap-2 min-w-0">
                   <div className="relative flex-shrink-0">
                     <UserAvatar
-                      user={users.find(u => u.id === channel.otherUser.id) || {
-                        ...channel.otherUser,
-                        name: channel.otherUser.name || 'Unknown User',
+                      user={users.find(u => u.id === otherUser.id) || {
+                        ...otherUser,
                         clerkId: '',
-                        email: '',
-                        displayName: channel.otherUser.name || 'Unknown User',
+                        displayName: otherUser.name,
                         title: null,
                         timeZone: null,
                         lastHeartbeat: null,
                         createdAt: now(),
                         updatedAt: now(),
+                        status: otherUser.status || 'offline' as const
                       }}
                       size="sm"
                     />
                     <div
                       className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
-                        channel.otherUser.status === 'active'
+                        otherUser.status === 'active'
                           ? 'bg-green-500'
-                          : channel.otherUser.status === 'away'
+                          : otherUser.status === 'away'
                           ? 'bg-yellow-500'
                           : 'bg-gray-500'
                       }`}
                     />
                   </div>
                   <UserDisplay 
-                    user={users.find(u => u.id === channel.otherUser.id) || {
-                      ...channel.otherUser,
-                      name: channel.otherUser.name || 'Unknown User',
+                    user={users.find(u => u.id === otherUser.id) || {
+                      ...otherUser,
                       clerkId: '',
-                      email: '',
-                      displayName: channel.otherUser.name || 'Unknown User',
+                      displayName: otherUser.name,
                       title: null,
                       timeZone: null,
                       lastHeartbeat: null,
                       createdAt: now(),
                       updatedAt: now(),
+                      status: otherUser.status || 'offline' as const
                     }}
                     className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}
                   />
                 </div>
-                {hasUnread && channel.unreadCount ? (
-                  <span className={`ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-bold ${
-                    channel.hasMention ? 'bg-red-500' : 'bg-red-500'
-                  } text-white`}>
-                    {channel.unreadCount}
+                {hasUnread && unreadCount ? (
+                  <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                    {unreadCount}
                   </span>
                 ) : null}
               </Link>
-            );
+            )
           })}
         </div>
       </div>
