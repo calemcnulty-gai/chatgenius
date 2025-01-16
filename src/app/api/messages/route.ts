@@ -1,23 +1,15 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { createMessage } from '@/lib/messages/services/create'
-import { getInternalUserId } from '@/lib/auth/services/user'
+import { getMessages } from '@/lib/messages/services/retrieve'
 
 export async function POST(request: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
@@ -29,16 +21,8 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await getInternalUserId(clerkUser)
-    if (result.error || !result.userId) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.error?.code === 'NOT_FOUND' ? 404 : 400 }
-      )
-    }
-
     const message = await createMessage({
-      userId: result.userId,
+      userId,
       channelId,
       content,
       parentMessageId
@@ -56,25 +40,26 @@ export async function POST(request: Request) {
 
 export async function GET(req: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     const { searchParams } = new URL(req.url)
     const messages = await getMessages({
-      clerkUser,
+      userId,
       params: searchParams
     })
 
     return NextResponse.json(messages)
   } catch (error) {
     console.error('Error in GET /api/messages:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

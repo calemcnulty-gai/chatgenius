@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 import { Loader2Icon } from 'lucide-react'
 
 export default function InvitePage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { isLoaded, isSignedIn, userId } = useAuth()
+  const { user, isLoading } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -16,14 +16,14 @@ export default function InvitePage() {
   const email = searchParams.get('email')
 
   useEffect(() => {
-    if (!isLoaded) return
+    if (isLoading) return
     if (!workspaceId || !email) {
       setError('Invalid invitation link')
       return
     }
 
     const acceptInvite = async () => {
-      if (!isSignedIn) {
+      if (!user) {
         // Redirect to sign up if not signed in
         router.push(`/sign-up?redirect_url=${encodeURIComponent(window.location.href)}`)
         return
@@ -60,7 +60,7 @@ export default function InvitePage() {
     }
 
     acceptInvite()
-  }, [isLoaded, isSignedIn, workspaceId, email, router])
+  }, [isLoading, user, workspaceId, email, router])
 
   if (!workspaceId || !email) {
     return (

@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { db } from '@/db'
 import { eq, and, isNull } from 'drizzle-orm'
 import { mentions, channelMentions } from '@/db/schema'
 
 export async function GET(request: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     const { searchParams } = new URL(request.url)
@@ -31,21 +34,30 @@ export async function GET(request: Request) {
     return NextResponse.json({ mentions: unreadMentions })
   } catch (error) {
     console.error('Error getting mentions:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal Server Error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 }
 
 // Mark mentions as read
 export async function POST(request: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     const { channelId } = await request.json()
     if (!channelId) {
-      return new NextResponse('Channel ID is required', { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'Channel ID is required', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
     // Mark all mentions in the channel as read
@@ -78,6 +90,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error marking mentions as read:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal Server Error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

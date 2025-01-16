@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { db } from '@/db'
 import { messages, users, workspaceMemberships, channels, workspaces, directMessageChannels } from '@/db/schema'
 import { eq, sql } from 'drizzle-orm'
@@ -13,24 +13,32 @@ export async function POST(
   { params }: { params: { messageId: string } }
 ) {
   try {
-    // Initial auth check with Clerk
-    const { userId: clerkId } = auth()
-    if (!clerkId) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
-    // Get internal user ID once at the start
+    // Get user details
     const user = await db.query.users.findFirst({
-      where: eq(users.clerkId, clerkId),
+      where: eq(users.id, userId),
     })
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'User not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     const { content, channelId } = await req.json()
     if (!content?.trim()) {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'Content is required', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
     // Verify the parent message exists
@@ -58,19 +66,25 @@ export async function POST(
     }) | null
 
     if (!parentMessage) {
-      return NextResponse.json({ error: 'Parent message not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'Parent message not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     // Get the workspace ID from either channel or DM channel
     const workspaceId = parentMessage.channel?.workspace.id || parentMessage.dmChannel?.workspace.id
     if (!workspaceId) {
-      return NextResponse.json({ error: 'Workspace not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'Workspace not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     // Create the reply using internal ID
     console.log('Messages: Creating new thread reply:', {
       channelId,
-      senderId: user.id,
+      senderId: userId,
       parentMessageId: params.messageId
     })
 
@@ -78,7 +92,7 @@ export async function POST(
       content: content.trim(),
       channelId: parentMessage.channelId,
       dmChannelId: parentMessage.dmChannelId,
-      senderId: user.id,
+      senderId: userId,
       parentMessageId: params.messageId,
       replyCount: 0,
       attachments: null,
@@ -120,10 +134,9 @@ export async function POST(
       dmChannelId: reply.dmChannelId,
       channelName: 'thread-reply',
       workspaceId,
-      senderId: user.id,
+      senderId: userId,
       senderName: user.name,
       senderEmail: user.email,
-      senderClerkId: user.clerkId,
       senderProfileImage: user.profileImage,
       senderDisplayName: user.displayName,
       senderTitle: user.title,
@@ -143,7 +156,7 @@ export async function POST(
         event: PusherEvent.NEW_THREAD_REPLY,
         messageId: reply.id,
         channelId,
-        senderId: user.id,
+        senderId: userId,
         recipientId: member.userId
       })
 
@@ -158,7 +171,7 @@ export async function POST(
   } catch (error) {
     console.error('[Thread Reply API] Error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
       { status: 500 }
     )
   }

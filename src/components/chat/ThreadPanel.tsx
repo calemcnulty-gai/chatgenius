@@ -82,8 +82,7 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
             sender: {
               id: data.senderId,
               name: data.senderName,
-              email: '', // Required by User type
-              clerkId: '', // Required by User type
+              email: '', // Required by User typ
               createdAt: data.createdAt,
               updatedAt: data.createdAt,
               profileImage: data.senderProfileImage,

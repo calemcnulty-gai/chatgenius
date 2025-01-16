@@ -1,15 +1,15 @@
 import { db } from '@/db'
 import { workspaces, channels, workspaceMemberships, users, directMessageChannels, directMessageMembers, unreadMessages } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { auth, currentUser } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
-import { getOrCreateUser } from '@/lib/db/users'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { 
   ChannelWithUnreadMessages, 
   ChannelWithUnreadCounts, 
   DirectMessageChannelWithUnreadMessages,
   DirectMessageChannelWithUnreadCounts,
   WorkspaceMembershipWithUser,
+  DirectMessageMember,
 } from '@/types/db'
 import { User } from '@/types/user'
 import { UserProvider } from '@/contexts/UserContext'
@@ -23,29 +23,21 @@ export default async function WorkspaceLayout({
   children: React.ReactNode
   params: { workspaceSlug: string }
 }) {
-  const { userId: clerkUserId } = auth()
-  if (!clerkUserId) {
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
     redirect('/sign-in')
   }
 
-  // Get the full user data from Clerk
-  const clerkUser = await currentUser()
-  if (!clerkUser) {
-    redirect('/sign-in')
-  }
-
-  // Get or create user to get their database ID
-  const dbUser = await getOrCreateUser({
-    id: clerkUser.id,
-    firstName: clerkUser.firstName,
-    lastName: clerkUser.lastName,
-    emailAddresses: clerkUser.emailAddresses,
-    imageUrl: clerkUser.imageUrl,
+  // Get user from database
+  const dbUser = await db.query.users.findFirst({
+    where: eq(users.id, userId)
   })
+  if (!dbUser) {
+    redirect('/sign-in')
+  }
 
   const user: User = {
     id: dbUser.id,
-    clerkId: dbUser.clerkId,
     name: dbUser.name,
     email: dbUser.email,
     profileImage: dbUser.profileImage,
@@ -110,6 +102,12 @@ export default async function WorkspaceLayout({
   }) as unknown as WorkspaceMembershipWithUser[]
 
   // Get DM channels
+  type DMChannelWithUserMembers = Omit<DirectMessageChannelWithUnreadMessages, 'members'> & {
+    members: Array<DirectMessageMember & {
+      user: User
+    }>
+  }
+
   const dmChannels = await db.query.directMessageChannels.findMany({
     where: eq(directMessageChannels.workspaceId, workspace.id),
     with: {
@@ -122,13 +120,14 @@ export default async function WorkspaceLayout({
         where: eq(unreadMessages.userId, user.id)
       }
     },
-  }) as unknown as DirectMessageChannelWithUnreadMessages[]
+  }) as unknown as DMChannelWithUserMembers[]
 
   // Transform DM channels to include only the other user and unread counts
   const formattedDMChannels = dmChannels
-    .filter(channel => channel.members.some(member => member.userId === user.id))
+    .filter(channel => channel.members.some(member => member.user.id === user.id))
     .map(channel => {
-      const otherUser = channel.members.find(member => member.userId !== user.id)!.user
+      const otherMember = channel.members.find(member => member.user.id !== user.id)
+      if (!otherMember) return null
       const unreadMessage = channel.unreadMessages?.[0]
       return {
         id: channel.id,
@@ -136,18 +135,19 @@ export default async function WorkspaceLayout({
         createdAt: channel.createdAt,
         updatedAt: channel.updatedAt,
         otherUser: {
-          id: otherUser.id,
-          name: otherUser.name ?? '',
-          profileImage: otherUser.profileImage,
-          status: (otherUser.status as 'active' | 'away' | 'offline') || 'offline'
+          id: otherMember.user.id,
+          name: otherMember.user.name ?? '',
+          profileImage: otherMember.user.profileImage,
+          status: (otherMember.user.status as 'active' | 'away' | 'offline') || 'offline'
         },
         unreadCount: unreadMessage?.unreadCount ?? 0,
         hasMention: unreadMessage?.hasMention ?? false,
       }
     })
+    .filter((channel): channel is NonNullable<typeof channel> => channel !== null)
 
   return (
-    <UserProvider initialUser={user}>
+    <UserProvider>
       <WorkspaceLayoutClient
         workspace={workspace}
         channels={formattedChannels}

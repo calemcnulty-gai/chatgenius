@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { db } from '@/db'
 import { messages, users } from '@/db/schema'
 import { eq, asc } from 'drizzle-orm'
@@ -9,9 +9,12 @@ export async function GET(
   { params }: { params: { messageId: string } }
 ) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     console.log('[Thread API] Fetching thread for message:', params.messageId)
@@ -28,7 +31,10 @@ export async function GET(
 
     if (!parentMessage) {
       console.log('[Thread API] Message not found:', params.messageId)
-      return new NextResponse('Message not found', { status: 404 })
+      return NextResponse.json(
+        { error: { message: 'Message not found', code: 'NOT_FOUND' } },
+        { status: 404 }
+      )
     }
 
     console.log('[Thread API] Found parent message:', {
@@ -81,6 +87,9 @@ export async function GET(
     })
   } catch (error) {
     console.error('[Thread API] Error fetching thread:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

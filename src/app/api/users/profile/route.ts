@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { updateProfile } from '@/lib/users/services/profile'
 
 export async function PUT(request: Request) {
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
       return NextResponse.json(
-        { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
         { status: 401 }
       )
     }
 
     const body = await request.json()
-    const result = await updateProfile(clerkUser, {
+    const result = await updateProfile(userId, {
       displayName: body.displayName,
       title: body.title,
       timeZone: body.timeZone,

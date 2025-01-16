@@ -62,6 +62,7 @@ export function WorkspaceLayoutClient({
                 status: user.status as 'active' | 'away' | 'offline' || 'active'
               }}
               size="sm"
+              showMenu
             />
           </div>
         </div>

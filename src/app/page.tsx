@@ -1,7 +1,7 @@
 'use client'
 
 import { SignInButton } from "@clerk/nextjs"
-import { useUser } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 import { useState } from 'react'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import CreateWorkspace from '@/components/workspace/CreateWorkspace'
@@ -11,11 +11,11 @@ import { useWorkspaces } from '@/hooks/useWorkspaces'
 import Link from 'next/link'
 
 export default function Home() {
-  const { user, isLoaded } = useUser()
-  const { workspaces, isLoading } = useWorkspaces()
+  const { user, isLoading } = useUser()
+  const { workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
-  if (!isLoaded) {
+  if (isLoading) {
     return <div className="flex min-h-screen items-center justify-center bg-black">
       <div className="text-lg text-gray-400">Loading...</div>
     </div>
@@ -50,7 +50,7 @@ export default function Home() {
         </div>
 
         <div className="mt-6">
-          {isLoading ? (
+          {isLoadingWorkspaces ? (
             <div className="text-center text-gray-400">Loading...</div>
           ) : workspaces.length === 0 ? (
             <div className="rounded-lg border-2 border-dashed border-gray-800 p-8">

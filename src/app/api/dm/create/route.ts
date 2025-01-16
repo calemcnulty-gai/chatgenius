@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { db } from '@/db'
 import { directMessageChannels, directMessageMembers } from '@/db/schema'
 import { eq, and } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
-import { getOrCreateUser } from '@/lib/db/users'
-import { Timestamp } from '@/types/timestamp'
+import type { Timestamp } from '@/types/timestamp'
 
 type DMChannel = {
   id: string
@@ -22,38 +21,20 @@ type DMChannel = {
 
 export async function POST(req: Request) {
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return NextResponse.json({ 
-        message: 'Unauthorized',
-        status: 'error'
-      }, { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
-
-    // Get the full user data from Clerk
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return NextResponse.json({ 
-        message: 'User not found',
-        status: 'error'
-      }, { status: 404 })
-    }
-
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
-    })
 
     const { workspaceId, userId: otherUserId } = await req.json()
     if (!workspaceId || !otherUserId) {
-      return NextResponse.json({ 
-        message: 'Missing required fields',
-        status: 'error'
-      }, { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'Missing required fields', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
     // Check if DM channel already exists between these users
@@ -66,7 +47,7 @@ export async function POST(req: Request) {
 
     const existingChannel = existingChannels.find(channel => {
       const hasOtherUser = channel.members.some(m => m.userId === otherUserId)
-      const hasCurrentUser = channel.members.some(m => m.userId === user.id)
+      const hasCurrentUser = channel.members.some(m => m.userId === userId)
       return hasOtherUser && hasCurrentUser
     })
 
@@ -88,7 +69,7 @@ export async function POST(req: Request) {
       {
         id: uuidv4(),
         channelId: channel.id,
-        userId: user.id,
+        userId: userId,
       },
       {
         id: uuidv4(),
@@ -103,10 +84,9 @@ export async function POST(req: Request) {
     })
   } catch (error) {
     console.error('Error creating DM channel:', error)
-    return NextResponse.json({ 
-      message: 'Failed to create DM channel',
-      status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Failed to create DM channel', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

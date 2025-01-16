@@ -11,7 +11,7 @@ export interface CreateMessageInput {
 export interface MessageData {
   id: string
   content: string
-  sender: Omit<User, 'userAuth'> & { clerkId: string }
+  sender: Omit<User, 'userAuth'>
   createdAt: Timestamp
   updatedAt: Timestamp
   parentId: string | null
@@ -30,7 +30,6 @@ export interface NewMessageEvent {
   content: string
   channelId: string
   senderId: string
-  senderClerkId: string
   senderName: string
   senderEmail: string
   senderProfileImage: string | null

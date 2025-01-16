@@ -3,6 +3,7 @@
 import { createContext, useContext, useCallback, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { User } from '@/types/user'
+import { useAuth } from '@clerk/nextjs'
 
 interface UserContextState {
   user: User | null
@@ -27,14 +28,14 @@ export function useUser() {
 }
 
 interface UserProviderProps {
-  initialUser: User
   children: ReactNode
 }
 
-export function UserProvider({ initialUser, children }: UserProviderProps) {
+export function UserProvider({ children }: UserProviderProps) {
+  const { userId, isLoaded: isClerkLoaded } = useAuth()
   const [state, setState] = useState<UserContextState>({
-    user: initialUser,
-    isLoading: false,
+    user: null,
+    isLoading: true,
     error: null,
   })
 
@@ -118,11 +119,27 @@ export function UserProvider({ initialUser, children }: UserProviderProps) {
     setState(prev => ({ ...prev, error: null }))
   }, [])
 
-  // Set up periodic refresh
+  // Initial load and auth state changes
   useEffect(() => {
+    if (!isClerkLoaded) {
+      return
+    }
+
+    if (!userId) {
+      setState(prev => ({ ...prev, user: null, isLoading: false }))
+      return
+    }
+
+    refreshUser()
+  }, [userId, isClerkLoaded, refreshUser])
+
+  // Set up periodic refresh for authenticated users
+  useEffect(() => {
+    if (!state.user) return
+
     const interval = setInterval(refreshUser, 5 * 60 * 1000) // Refresh every 5 minutes
     return () => clearInterval(interval)
-  }, [refreshUser])
+  }, [refreshUser, state.user])
 
   return (
     <UserContext.Provider 

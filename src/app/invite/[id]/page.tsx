@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 import { Loader2Icon } from 'lucide-react'
 
 export default function InvitePage({
@@ -11,13 +11,13 @@ export default function InvitePage({
   params: { id: string }
 }) {
   const router = useRouter()
-  const { isLoaded, isSignedIn } = useAuth()
+  const { user, isLoading } = useUser()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [invite, setInvite] = useState<any>(null)
 
   useEffect(() => {
-    if (!isLoaded) return
+    if (isLoading) return
 
     const fetchInvite = async () => {
       try {
@@ -33,13 +33,13 @@ export default function InvitePage({
     }
 
     fetchInvite()
-  }, [isLoaded, params.id])
+  }, [isLoading, params.id])
 
   useEffect(() => {
-    if (!isLoaded || !invite) return
+    if (isLoading || !invite) return
 
     const acceptInvite = async () => {
-      if (!isSignedIn) {
+      if (!user) {
         // Redirect to sign up if not signed in
         router.push(`/sign-up?redirect_url=${encodeURIComponent(window.location.href)}`)
         return
@@ -76,7 +76,7 @@ export default function InvitePage({
     }
 
     acceptInvite()
-  }, [isLoaded, isSignedIn, invite, params.id, router])
+  }, [isLoading, user, invite, params.id, router])
 
   if (error) {
     return (

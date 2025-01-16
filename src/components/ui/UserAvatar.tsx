@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from '@clerk/nextjs'
+import { useRouter } from 'next/navigation'
 import { User } from '@/types/user'
 import { ProfileModal } from '../profile/ProfileModal'
 import { ProfileEditModal } from '../profile/ProfileEditModal'
@@ -13,6 +13,7 @@ interface UserAvatarProps {
   size?: 'sm' | 'md' | 'lg'
   onClick?: () => void
   className?: string
+  showMenu?: boolean
 }
 
 const sizeClasses = {
@@ -21,19 +22,33 @@ const sizeClasses = {
   lg: 'w-12 h-12 text-lg'
 }
 
-export function UserAvatar({ user, size = 'md', onClick, className }: UserAvatarProps) {
-  const { userId } = useAuth()
+export function UserAvatar({ user, size = 'md', onClick, className, showMenu = false }: UserAvatarProps) {
+  const router = useRouter()
   const { user: currentUser, isLoading } = useUser()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
-  const isCurrentUser = userId === user.clerkId
+  const isCurrentUser = currentUser?.id === user.id
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent click from bubbling up
     if (onClick) {
       onClick()
     } else if (!isLoading) {
-      setIsProfileOpen(true)
+      if (showMenu && isCurrentUser) {
+        setIsMenuOpen(!isMenuOpen)
+      } else {
+        setIsProfileOpen(true)
+      }
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/signout', { method: 'POST' })
+      router.push('/signin')
+    } catch (error) {
+      console.error('Error signing out:', error)
     }
   }
 
@@ -70,7 +85,7 @@ export function UserAvatar({ user, size = 'md', onClick, className }: UserAvatar
   }
 
   return (
-    <>
+    <div className="relative">
       <div
         data-testid="avatar-container"
         onClick={handleClick}
@@ -83,6 +98,30 @@ export function UserAvatar({ user, size = 'md', onClick, className }: UserAvatar
       >
         {renderAvatar()}
       </div>
+
+      {isMenuOpen && showMenu && isCurrentUser && (
+        <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5">
+          <div className="py-1" role="menu">
+            <button
+              onClick={() => {
+                setIsMenuOpen(false)
+                setIsProfileOpen(true)
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              role="menuitem"
+            >
+              Profile Settings
+            </button>
+            <button
+              onClick={handleSignOut}
+              className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              role="menuitem"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
 
       {isProfileOpen && (
         isCurrentUser ? (
@@ -100,6 +139,6 @@ export function UserAvatar({ user, size = 'md', onClick, className }: UserAvatar
           />
         )
       )}
-    </>
+    </div>
   )
 } 

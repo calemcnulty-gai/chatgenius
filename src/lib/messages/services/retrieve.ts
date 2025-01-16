@@ -1,11 +1,9 @@
 import { validateAndGetChannel } from '../validation'
 import { getMessagesForChannel } from '../queries'
-import { getInternalUserId } from '@/lib/auth/services/user'
-import type { User } from '@clerk/nextjs/server'
 import type { AuthError } from '@/lib/auth/types'
 
 interface GetMessagesParams {
-  clerkUser: User
+  userId: string
   params: URLSearchParams
 }
 
@@ -15,14 +13,12 @@ interface GetMessagesResponse {
   error?: AuthError
 }
 
-export async function getMessages({ clerkUser, params }: GetMessagesParams): Promise<GetMessagesResponse> {
-  // Get internal user ID
-  const { userId, error: authError } = await getInternalUserId(clerkUser)
-  if (authError || !userId) {
+export async function getMessages({ userId, params }: GetMessagesParams): Promise<GetMessagesResponse> {
+  if (!userId) {
     return {
       messages: [],
       hasMore: false,
-      error: authError || {
+      error: {
         message: 'User not found',
         code: 'NOT_FOUND'
       }

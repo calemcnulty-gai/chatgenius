@@ -233,7 +233,6 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                     <UserAvatar
                       user={users.find(u => u.id === otherUser.id) || {
                         ...otherUser,
-                        clerkId: '',
                         displayName: otherUser.name,
                         title: null,
                         timeZone: null,
@@ -257,7 +256,6 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                   <UserDisplay 
                     user={users.find(u => u.id === otherUser.id) || {
                       ...otherUser,
-                      clerkId: '',
                       displayName: otherUser.name,
                       title: null,
                       timeZone: null,

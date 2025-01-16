@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 import { HashtagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
@@ -27,14 +27,14 @@ type ChannelListProps = {
 
 export default function ChannelList({ channels: initialChannels, workspaceId }: ChannelListProps) {
   const params = useParams()
-  const { userId } = useAuth()
+  const { user } = useUser()
   const { userChannel } = usePusherChannel()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 
   // Fetch initial mention counts
   useEffect(() => {
-    if (!userId || !workspaceId) return
+    if (!user?.id || !workspaceId) return
 
     fetch(`/api/mentions/counts?workspaceId=${workspaceId}`)
       .then(res => res.json())
@@ -50,17 +50,17 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
       .catch(error => {
         console.error('Error fetching mention counts:', error)
       })
-  }, [userId, workspaceId])
+  }, [user?.id, workspaceId])
 
   // Set up event listeners for channel events
   useEffect(() => {
-    if (!userId || !userChannel) return
+    if (!user?.id || !userChannel) return
 
     console.log('[ChannelList] Setting up channel event listeners')
     
     // Listen for new channel messages
     const handleNewMessage = (data: NewChannelMessageEvent) => {
-      if (data.senderId !== userId) {
+      if (data.senderId !== user.id) {
         console.log(`[ChannelList] Received channel message:`, data)
         setChannels(currentChannels => {
           // Don't mark as unread if we're currently viewing this channel
@@ -116,7 +116,7 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
       userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
       userChannel.unbind(PusherEvent.NEW_MENTION, handleNewMention)
     }
-  }, [userId, userChannel, params.channelSlug])
+  }, [user?.id, userChannel, params.channelSlug])
 
   // Clear mention count when entering a channel
   useEffect(() => {

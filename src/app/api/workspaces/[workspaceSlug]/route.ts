@@ -1,29 +1,21 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { getWorkspace, deleteWorkspace } from '@/lib/workspaces/services/workspace'
 
 export async function GET(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
     return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
       { status: 401 }
     )
   }
 
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
-      )
-    }
-
-    const result = await getWorkspace(params.workspaceSlug, clerkUser)
+    const result = await getWorkspace(params.workspaceSlug, userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
@@ -48,24 +40,16 @@ export async function DELETE(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
     return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
       { status: 401 }
     )
   }
 
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
-      )
-    }
-
-    const result = await deleteWorkspace(params.workspaceSlug, clerkUser)
+    const result = await deleteWorkspace(params.workspaceSlug, userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },

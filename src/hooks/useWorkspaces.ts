@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 
 type Workspace = {
   id: string
@@ -12,13 +12,13 @@ type Workspace = {
 }
 
 export function useWorkspaces() {
-  const { isLoaded, isSignedIn } = useUser()
+  const { user } = useUser()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (user) {
       fetch('/api/workspaces')
         .then(res => res.json())
         .then(data => {
@@ -35,7 +35,7 @@ export function useWorkspaces() {
           setIsLoading(false)
         })
     }
-  }, [isLoaded, isSignedIn])
+  }, [user?.id])
 
   return { workspaces, isLoading, error }
 } 

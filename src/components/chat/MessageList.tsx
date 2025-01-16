@@ -134,7 +134,6 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
           content: data.content,
           sender: {
             id: data.senderId,
-            clerkId: data.senderClerkId,
             name: data.senderName,
             email: data.senderEmail,
             profileImage: data.senderProfileImage,

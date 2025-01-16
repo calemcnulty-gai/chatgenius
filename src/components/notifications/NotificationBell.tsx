@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BellIcon } from '@heroicons/react/24/outline'
 import { pusherClient } from '@/lib/pusher'
-import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent } from '@/types/events'
+import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent, NewMentionEvent } from '@/types/events'
 import { useUser } from '@/contexts/UserContext'
 import { UserDisplay } from '@/components/ui/UserDisplay'
 import { Timestamp, now } from '@/types/timestamp'
@@ -39,28 +39,25 @@ export function NotificationBell() {
 
     const userChannel = pusherClient.subscribe(`user-${user.id}`)
 
-    // Handle new channel messages
-    userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, (data: NewChannelMessageEvent) => {
-      if (data.senderId !== user.id && data.hasMention) {
-        const notification: Notification = {
-          id: `${data.id}-mention`,
-          type: 'mention',
-          title: `mentioned you in #${data.channelName}`,
-          body: data.content,
-          read: false,
-          createdAt: data.createdAt,
-          data: {
-            channelId: data.channelId,
-            messageId: data.id,
-            senderId: data.senderId,
-            senderName: data.senderName,
-            senderDisplayName: data.senderDisplayName,
-            channelName: data.channelName,
-            parentMessageId: data.parentMessageId || undefined
-          }
+    // Handle new mentions
+    userChannel.bind(PusherEvent.NEW_MENTION, (data: NewMentionEvent) => {
+      const notification: Notification = {
+        id: `${data.messageId}-mention`,
+        type: 'mention',
+        title: `mentioned you in #${data.channelName}`,
+        body: '',
+        read: false,
+        createdAt: data.createdAt,
+        data: {
+          channelId: data.channelId,
+          messageId: data.messageId,
+          senderId: data.userId,
+          senderName: '',
+          senderDisplayName: null,
+          channelName: data.channelName,
         }
-        setNotifications(prev => [notification, ...prev])
       }
+      setNotifications(prev => [notification, ...prev])
     })
 
     // Handle new direct messages
@@ -140,7 +137,6 @@ export function NotificationBell() {
                           status: 'active',
                           timeZone: null,
                           title: null,
-                          clerkId: '',
                           lastHeartbeat: null,
                           createdAt: now(),
                           updatedAt: now(),

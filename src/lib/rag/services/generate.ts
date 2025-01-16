@@ -30,7 +30,7 @@ export async function generateRAGResponse({
   messageId,
   channelId,
   parentMessageId,
-  clerkUser
+  userId
 }: GenerateRAGResponseParams): Promise<RAGResponse> {
   try {
     // Get AI user

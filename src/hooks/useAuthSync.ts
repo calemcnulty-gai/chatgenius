@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useUser } from '@clerk/nextjs'
+import { useUser } from '@/contexts/UserContext'
 
 export function useAuthSync() {
-  const { isLoaded, isSignedIn } = useUser()
+  const { user } = useUser()
 
   useEffect(() => {
-    if (isLoaded && isSignedIn) {
+    if (user) {
       console.log('Attempting to sync user...')
       fetch('/api/auth/sync', { 
         method: 'POST',
@@ -22,5 +22,5 @@ export function useAuthSync() {
           console.error('Sync error:', error)
         })
     }
-  }, [isLoaded, isSignedIn])
+  }, [user?.id])
 } 

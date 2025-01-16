@@ -1,32 +1,24 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { getDMChannel } from '@/lib/workspaces/services/dm'
 
 export async function GET(
   request: Request,
   { params }: { params: { workspaceSlug: string; channelId: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
     return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
       { status: 401 }
     )
   }
 
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
-      )
-    }
-
     const result = await getDMChannel(
       params.workspaceSlug,
       params.channelId,
-      clerkUser
+      userId
     )
 
     if (result.error) {

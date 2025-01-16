@@ -1,21 +1,27 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { db } from '@/db'
 import { eq } from 'drizzle-orm'
 import { channelMentions } from '@/db/schema'
 
 export async function GET(request: Request) {
   try {
-    const { userId } = auth()
-    if (!userId) {
-      return new NextResponse('Unauthorized', { status: 401 })
+    const { userId, error } = await getAuthenticatedUserId()
+    if (error || !userId) {
+      return NextResponse.json(
+        { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get('workspaceId')
 
     if (!workspaceId) {
-      return new NextResponse('Workspace ID is required', { status: 400 })
+      return NextResponse.json(
+        { error: { message: 'Workspace ID is required', code: 'INVALID_INPUT' } },
+        { status: 400 }
+      )
     }
 
     // Get mention counts for all channels in the workspace
@@ -42,6 +48,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ counts: workspaceMentionCounts })
   } catch (error) {
     console.error('Error getting mention counts:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

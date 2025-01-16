@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth, currentUser } from '@clerk/nextjs';
+import { getAuthenticatedUserId } from '@/lib/auth/middleware';
 import { generateRAGResponse } from '@/lib/rag/services/generate';
 
 export async function POST(req: Request) {
@@ -9,17 +9,13 @@ export async function POST(req: Request) {
             method: req.method
         })
 
-        const { userId } = auth();
-        if (!userId) {
-            console.log('[RAG] Unauthorized request - no userId')
-            return new NextResponse('Unauthorized', { status: 401 });
-        }
-
-        // Get the full user data from Clerk
-        const clerkUser = await currentUser();
-        if (!clerkUser) {
-            console.log('[RAG] User not found - no clerkUser')
-            return new NextResponse('User not found', { status: 404 });
+        const { userId, error } = await getAuthenticatedUserId();
+        if (error || !userId) {
+            console.log('[RAG] Unauthorized request:', error?.message || 'no userId')
+            return NextResponse.json(
+                { error: error || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+                { status: 401 }
+            );
         }
 
         const body = await req.json();
@@ -29,17 +25,26 @@ export async function POST(req: Request) {
 
         if (!query) {
             console.log('[RAG] Missing query parameter')
-            return new NextResponse('Query is required', { status: 400 });
+            return NextResponse.json(
+                { error: { message: 'Query is required', code: 'INVALID_INPUT' } },
+                { status: 400 }
+            );
         }
 
         if (!aiUser) {
             console.log('[RAG] Missing aiUser parameter')
-            return new NextResponse('AI user ID is required', { status: 400 });
+            return NextResponse.json(
+                { error: { message: 'AI user ID is required', code: 'INVALID_INPUT' } },
+                { status: 400 }
+            );
         }
 
         if (!channelId) {
             console.log('[RAG] Missing channelId parameter')
-            return new NextResponse('Channel ID is required', { status: 400 });
+            return NextResponse.json(
+                { error: { message: 'Channel ID is required', code: 'INVALID_INPUT' } },
+                { status: 400 }
+            );
         }
 
         const response = await generateRAGResponse({
@@ -48,15 +53,15 @@ export async function POST(req: Request) {
             messageId,
             channelId,
             parentMessageId,
-            clerkUser
+            userId
         });
 
         return NextResponse.json(response);
     } catch (error) {
         console.error('[RAG_ERROR]', error);
-        if (error instanceof Error) {
-            return new NextResponse(error.message, { status: 500 });
-        }
-        return new NextResponse('Internal Error', { status: 500 });
+        return NextResponse.json(
+            { error: { message: error instanceof Error ? error.message : 'Internal Error', code: 'INVALID_INPUT' } },
+            { status: 500 }
+        );
     }
 }

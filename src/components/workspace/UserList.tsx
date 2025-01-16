@@ -2,16 +2,31 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useAuth } from '@clerk/nextjs'
 import { useUser } from '@/contexts/UserContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
-import { PusherEvent, NewUserEvent, UserStatusEvent } from '@/types/events'
+import { PusherEvent } from '@/types/events'
 import { usePusherChannel } from '@/contexts/PusherContext'
 import { User } from '@/types/user'
 import { now } from '@/types/timestamp'
+
+interface NewUserEvent {
+  id: string
+  workspaceId: string
+  name: string
+  profileImage: string | null
+}
+
+interface UserLeftEvent {
+  userId: string
+}
+
+interface UserStatusEvent {
+  userId: string
+  status: 'active' | 'away' | 'offline'
+}
 
 type UserListProps = {
   users: User[]
@@ -25,21 +40,20 @@ type UserListProps = {
 export function UserList({ users: initialUsers, workspace }: UserListProps) {
   const router = useRouter()
   const params = useParams()
-  const { userId } = useAuth()
-  const { userChannel } = usePusherChannel()
   const { user } = useUser()
+  const { userChannel } = usePusherChannel()
   const [isLoading, setIsLoading] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [users, setUsers] = useState(initialUsers)
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!userId || !userChannel) return
+    if (!user?.id || !userChannel) return
 
     console.log('[UserList] Setting up event listeners')
     
     // Listen for new users
-    userChannel.bind(PusherEvent.NEW_USER, (data: NewUserEvent) => {
+    userChannel.bind('new-user', (data: NewUserEvent) => {
       if (data.workspaceId === workspace.id) {
         const timestamp = now()
         setUsers(currentUsers => [...currentUsers, {
@@ -72,7 +86,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
     })
 
     // Listen for users leaving
-    userChannel.bind(PusherEvent.USER_LEFT, (data: { userId: string }) => {
+    userChannel.bind('user-left', (data: UserLeftEvent) => {
       setUsers(currentUsers =>
         currentUsers.filter(user => user.id !== data.userId)
       )
@@ -80,11 +94,11 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
 
     return () => {
       if (!userChannel) return
-      userChannel.unbind(PusherEvent.NEW_USER)
+      userChannel.unbind('new-user')
       userChannel.unbind(PusherEvent.USER_STATUS_CHANGED)
-      userChannel.unbind(PusherEvent.USER_LEFT)
+      userChannel.unbind('user-left')
     }
-  }, [userId, workspace.id, userChannel])
+  }, [user?.id, workspace.id, userChannel])
 
   // Update users when initial data changes
   useEffect(() => {
