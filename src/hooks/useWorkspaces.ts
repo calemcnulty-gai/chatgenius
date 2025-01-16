@@ -22,7 +22,11 @@ export function useWorkspaces() {
       fetch('/api/workspaces')
         .then(res => res.json())
         .then(data => {
-          setWorkspaces(data)
+          if (data.workspaces) {
+            setWorkspaces(data.workspaces)
+          } else {
+            setWorkspaces([])
+          }
           setIsLoading(false)
         })
         .catch(err => {
