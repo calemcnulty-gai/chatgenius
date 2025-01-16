@@ -1,4 +1,3 @@
-import { User } from '@clerk/nextjs/server'
 import {
   createWorkspace,
   getUserWorkspaces,
@@ -12,9 +11,9 @@ import type {
   WorkspaceMembershipResponse
 } from '../types'
 
-export async function listWorkspaces(clerkUser: User): Promise<WorkspacesResponse> {
+export async function listWorkspaces(userId: string): Promise<WorkspacesResponse> {
   try {
-    const workspaces = await getUserWorkspaces(clerkUser.id)
+    const workspaces = await getUserWorkspaces(userId)
     return { workspaces }
   } catch (error) {
     console.error('Error listing workspaces:', error)
@@ -30,7 +29,7 @@ export async function listWorkspaces(clerkUser: User): Promise<WorkspacesRespons
 
 export async function createNewWorkspace(
   name: string,
-  clerkUser: User
+  userId: string
 ): Promise<WorkspaceResponse> {
   try {
     if (!name || name.length < 3 || name.length > 50) {
@@ -45,7 +44,7 @@ export async function createNewWorkspace(
 
     const workspace = await createWorkspace({
       name,
-      userId: clerkUser.id,
+      userId,
     })
 
     return { workspace }
@@ -63,7 +62,50 @@ export async function createNewWorkspace(
 
 export async function getWorkspace(
   slug: string,
-  clerkUser: User
+  userId: string
+): Promise<WorkspaceMembershipResponse> {
+  try {
+    const workspace = await findWorkspaceBySlug(slug)
+    if (!workspace) {
+      return {
+        workspace: null,
+        membership: null,
+        error: {
+          message: 'Workspace not found',
+          code: 'NOT_FOUND'
+        }
+      }
+    }
+
+    const membership = await getWorkspaceMembership(userId, workspace.id)
+    if (!membership) {
+      return {
+        workspace: null,
+        membership: null,
+        error: {
+          message: 'Not authorized to access this workspace',
+          code: 'UNAUTHORIZED'
+        }
+      }
+    }
+
+    return { workspace, membership }
+  } catch (error) {
+    console.error('Error getting workspace:', error)
+    return {
+      workspace: null,
+      membership: null,
+      error: {
+        message: 'Failed to get workspace',
+        code: 'INVALID_INPUT'
+      }
+    }
+  }
+}
+
+export async function deleteWorkspace(
+  slug: string,
+  userId: string
 ): Promise<WorkspaceResponse> {
   try {
     const workspace = await findWorkspaceBySlug(slug)
@@ -77,48 +119,12 @@ export async function getWorkspace(
       }
     }
 
-    const membership = await getWorkspaceMembership(clerkUser.id, workspace.id)
-    if (!membership) {
+    const membership = await getWorkspaceMembership(userId, workspace.id)
+    if (!membership || membership.role !== 'owner') {
       return {
         workspace: null,
         error: {
-          message: 'Not authorized to access this workspace',
-          code: 'UNAUTHORIZED'
-        }
-      }
-    }
-
-    return { workspace }
-  } catch (error) {
-    console.error('Error getting workspace:', error)
-    return {
-      workspace: null,
-      error: {
-        message: 'Failed to get workspace',
-        code: 'INVALID_INPUT'
-      }
-    }
-  }
-}
-
-export async function deleteWorkspace(
-  slug: string,
-  clerkUser: User
-): Promise<WorkspaceResponse> {
-  try {
-    const result = await getWorkspace(slug, clerkUser)
-    if (result.error) {
-      return result
-    }
-
-    const workspace = result.workspace!
-    const membership = await getWorkspaceMembership(clerkUser.id, workspace.id)
-    
-    if (membership?.role !== 'owner') {
-      return {
-        workspace: null,
-        error: {
-          message: 'Only workspace owners can delete workspaces',
+          message: 'Not authorized to delete this workspace',
           code: 'UNAUTHORIZED'
         }
       }

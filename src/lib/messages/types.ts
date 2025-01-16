@@ -11,7 +11,7 @@ export interface CreateMessageInput {
 export interface MessageData {
   id: string
   content: string
-  sender: User
+  sender: Omit<User, 'userAuth'> & { clerkId: string }
   createdAt: Timestamp
   updatedAt: Timestamp
   parentId: string | null
@@ -44,6 +44,4 @@ export interface NewMessageEvent {
   parentId: string | null
 }
 
-export interface MessageWithSender extends MessageData {
-  sender: User
-} 
+export type MessageWithSender = MessageData 

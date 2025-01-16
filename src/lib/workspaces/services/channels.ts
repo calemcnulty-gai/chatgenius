@@ -1,4 +1,3 @@
-import { User } from '@clerk/nextjs/server'
 import {
   findWorkspaceBySlug,
   getWorkspaceChannels,
@@ -9,12 +8,13 @@ import {
 import type {
   ChannelResponse,
   ChannelsResponse,
-  CreateChannelParams
+  CreateChannelParams,
+  DBWorkspaceMembership
 } from '../types'
 
 export async function listWorkspaceChannels(
   slug: string,
-  clerkUser: User
+  userId: string
 ): Promise<ChannelsResponse> {
   try {
     const workspace = await findWorkspaceBySlug(slug)
@@ -28,7 +28,7 @@ export async function listWorkspaceChannels(
       }
     }
 
-    const membership = await getWorkspaceMembership(clerkUser.id, workspace.id)
+    const membership = await getWorkspaceMembership(userId, workspace.id)
     if (!membership) {
       return {
         channels: [],
@@ -57,7 +57,7 @@ export async function createWorkspaceChannel(
   slug: string,
   name: string,
   type: 'public' | 'private',
-  clerkUser: User
+  userId: string
 ): Promise<ChannelResponse> {
   try {
     const workspace = await findWorkspaceBySlug(slug)
@@ -71,7 +71,7 @@ export async function createWorkspaceChannel(
       }
     }
 
-    const membership = await getWorkspaceMembership(clerkUser.id, workspace.id)
+    const membership = await getWorkspaceMembership(userId, workspace.id)
     if (!membership) {
       return {
         channel: null,

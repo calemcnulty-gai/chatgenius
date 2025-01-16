@@ -1,37 +1,38 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { listNotifications } from '@/lib/notifications/services/list'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Get the full user data from Clerk
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     // Get limit from query params
     const { searchParams } = new URL(request.url)
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined
 
-    const { notifications, error } = await listNotifications({ clerkUser, limit })
+    const { notifications, error } = await listNotifications({ userId, limit })
 
     if (error) {
-      return new NextResponse(error.message, { 
-        status: error.code === 'UNAUTHORIZED' ? 401 : 400 
-      })
+      return NextResponse.json(
+        { error },
+        { status: error.code === 'UNAUTHORIZED' ? 401 : 400 }
+      )
     }
 
     return NextResponse.json(notifications)
   } catch (error) {
     console.error('Error fetching notifications:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal Server Error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

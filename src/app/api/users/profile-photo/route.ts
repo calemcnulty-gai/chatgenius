@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { uploadProfilePhoto, removeProfilePhoto } from '@/lib/users/services/profile-photo'
 
 export async function POST(request: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     if (!file) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await uploadProfilePhoto({ id: userId } as any, file)
+    const result = await uploadProfilePhoto(userId, file)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
@@ -40,21 +40,29 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE() {
-  const { userId } = auth()
-  if (!userId) {
+  try {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
+    }
+
+    const result = await removeProfilePhoto(userId)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.error.code === 'INVALID_INPUT' ? 400 : 500 }
+      )
+    }
+
+    return NextResponse.json({ user: result.user })
+  } catch (error) {
+    console.error('Error removing profile photo:', error)
     return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
+      { error: { message: 'Failed to remove profile photo', code: 'INVALID_INPUT' } },
+      { status: 400 }
     )
   }
-
-  const result = await removeProfilePhoto({ id: userId } as any)
-  if (result.error) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.error.code === 'INVALID_INPUT' ? 400 : 500 }
-    )
-  }
-
-  return NextResponse.json({ user: result.user })
 } 

@@ -1,5 +1,8 @@
 import { authMiddleware } from "@clerk/nextjs";
 
+// This middleware is the only place that directly uses Clerk's auth.
+// All other parts of the application should use the internal user ID
+// through the getAuthenticatedUserId helper.
 const middleware = authMiddleware({
   publicRoutes: [
     "/sign-in",

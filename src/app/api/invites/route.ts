@@ -1,34 +1,16 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
-import { getOrCreateUser } from '@/lib/db/users'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { sendInvite } from '@/lib/invites/services/invite'
 
 export async function POST(req: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
-
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
-    })
 
     const { email, workspaceId } = await req.json()
     if (!email || !workspaceId) {
@@ -38,20 +20,20 @@ export async function POST(req: Request) {
       )
     }
 
-    const result = await sendInvite({
+    const inviteResult = await sendInvite({
       email,
       workspaceId,
-      inviterId: user.id,
+      inviterId: userId,
     })
 
-    if (result.error) {
+    if (inviteResult.error) {
       return NextResponse.json(
-        { error: result.error },
-        { status: result.error.code === 'UNAUTHORIZED' ? 401 : 400 }
+        { error: inviteResult.error },
+        { status: inviteResult.error.code === 'UNAUTHORIZED' ? 401 : 400 }
       )
     }
 
-    return NextResponse.json({ invite: result.invite })
+    return NextResponse.json({ invite: inviteResult.invite })
   } catch (error) {
     console.error('Error creating invite:', error)
     return NextResponse.json(

@@ -1,39 +1,47 @@
 import { NextResponse } from 'next/server'
-import { auth } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { getProfile, updateProfile } from '@/lib/users/services/profile'
 
 export async function GET() {
-  const { userId } = auth()
-  if (!userId) {
+  try {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
+    }
+
+    const result = await getProfile(userId)
+    if (result.error) {
+      return NextResponse.json(
+        { error: result.error },
+        { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
+      )
+    }
+
+    return NextResponse.json({ user: result.user })
+  } catch (error) {
+    console.error('Error getting profile:', error)
     return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
+      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { status: 500 }
     )
   }
-
-  const result = await getProfile({ id: userId } as any)
-  if (result.error) {
-    return NextResponse.json(
-      { error: result.error },
-      { status: result.error.code === 'NOT_FOUND' ? 404 : 500 }
-    )
-  }
-
-  return NextResponse.json({ user: result.user })
 }
 
 export async function PATCH(request: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
-    const result = await updateProfile({ id: userId } as any, {
+    const result = await updateProfile(userId, {
       name: body.name,
       displayName: body.displayName,
       title: body.title,

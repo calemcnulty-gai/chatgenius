@@ -1,12 +1,14 @@
-import { User } from '@clerk/nextjs/server'
 import { findWorkspaceBySlug, getWorkspaceUsers, getWorkspaceMembership } from '../queries'
+import { validateAndGetUser } from '../validation'
 import type { WorkspaceUsersResponse } from '../types'
+import type { DBUser } from '@/lib/auth/types'
 
 export async function listWorkspaceUsers(
   slug: string,
-  clerkUser: User
+  userId: string
 ): Promise<WorkspaceUsersResponse> {
   try {
+    const user = validateAndGetUser(userId)
     const workspace = await findWorkspaceBySlug(slug)
     if (!workspace) {
       return {
@@ -18,7 +20,7 @@ export async function listWorkspaceUsers(
       }
     }
 
-    const membership = await getWorkspaceMembership(clerkUser.id, workspace.id)
+    const membership = await getWorkspaceMembership(user.id, workspace.id)
     if (!membership) {
       return {
         users: [],

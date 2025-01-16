@@ -1,15 +1,12 @@
-import type { users } from '@/db/schema'
-import type { InferSelectModel } from 'drizzle-orm'
-
-export type DBUser = InferSelectModel<typeof users>
+import type { DBUser } from '@/lib/auth/types'
 
 export interface UpdateProfileParams {
-  clerkId: string
-  name?: string
+  userId: string
   displayName?: string | null
   title?: string | null
   timeZone?: string | null
   profileImage?: string | null
+  name?: string
 }
 
 export interface UserProfile {
@@ -19,17 +16,18 @@ export interface UserProfile {
   profileImage: string | null
 }
 
-export interface UserError {
-  message: string
-  code: 'UNAUTHORIZED' | 'NOT_FOUND' | 'INVALID_INPUT'
-}
-
 export interface UserResponse {
-  user: DBUser | UserProfile | null
-  error?: UserError
+  user: UserProfile | null
+  error?: {
+    message: string
+    code: 'NOT_FOUND' | 'INVALID_INPUT'
+  }
 }
 
 export interface UpdateProfileResponse {
   user: DBUser | null
-  error?: UserError
+  error?: {
+    message: string
+    code: 'NOT_FOUND' | 'INVALID_INPUT'
+  }
 } 

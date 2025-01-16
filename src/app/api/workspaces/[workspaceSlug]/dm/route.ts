@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import {
   listDMChannels,
   createOrGetDMChannel
@@ -9,24 +9,16 @@ export async function GET(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
-    const result = await listDMChannels(params.workspaceSlug, clerkUser)
+    const result = await listDMChannels(params.workspaceSlug, userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
@@ -51,20 +43,12 @@ export async function POST(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
@@ -79,7 +63,7 @@ export async function POST(
     const result = await createOrGetDMChannel(
       params.workspaceSlug,
       memberIds,
-      clerkUser
+      userId
     )
 
     if (result.error) {

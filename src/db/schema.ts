@@ -17,7 +17,6 @@ import { timestampString } from './timestamp'
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
-  clerkId: text('clerk_id').notNull().unique(),
   name: text('name').notNull(),
   email: text('email').notNull(),
   profileImage: text('profile_image'),
@@ -29,6 +28,21 @@ export const users = pgTable('users', {
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
 })
+
+export const userAuth = pgTable('user_auth', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }).unique(),
+  clerkId: text('clerk_id').notNull().unique(),
+  createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+  updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
+})
+
+export const userAuthRelations = relations(userAuth, ({ one }) => ({
+  user: one(users, {
+    fields: [userAuth.userId],
+    references: [users.id],
+  }),
+}))
 
 export const workspaces = pgTable('workspaces', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -180,6 +194,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   notifications: many(notifications),
   mentions: many(mentions),
   channelMentions: many(channelMentions),
+  userAuth: many(userAuth),
 }))
 
 export const workspacesRelations = relations(workspaces, ({ many }) => ({
@@ -315,6 +330,7 @@ export type NewChannelMention = typeof channelMentions.$inferInsert
 export const queryConfig = {
   workspaces,
   users,
+  userAuth,
   channels,
   messages,
   workspaceMemberships,
@@ -329,6 +345,7 @@ export const queryConfig = {
   workspaceMembershipsRelations,
   workspacesRelations,
   usersRelations,
+  userAuthRelations,
   channelsRelations,
   directMessageChannelsRelations,
   directMessageMembersRelations,

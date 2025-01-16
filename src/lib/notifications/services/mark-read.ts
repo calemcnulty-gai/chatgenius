@@ -1,27 +1,24 @@
-import { validateAndGetUser, validateNotificationAccess } from '../validation'
+import { validateNotificationAccess } from '../validation'
 import { markNotificationAsRead, markAllNotificationsAsRead } from '../queries'
 import type { MarkAsReadParams, MarkAsReadResponse } from '../types'
 
 export async function markRead({
-  clerkUser,
+  userId,
   notificationId
 }: MarkAsReadParams): Promise<MarkAsReadResponse> {
   try {
-    // Get or create user to get their database ID
-    const user = await validateAndGetUser(clerkUser)
-
     if (notificationId) {
       // Validate notification access
-      const error = await validateNotificationAccess(user.id, notificationId)
+      const error = await validateNotificationAccess(userId, notificationId)
       if (error) {
         return { success: false, error }
       }
 
       // Mark single notification as read
-      await markNotificationAsRead(user.id, notificationId)
+      await markNotificationAsRead(userId, notificationId)
     } else {
       // Mark all notifications as read
-      await markAllNotificationsAsRead(user.id)
+      await markAllNotificationsAsRead(userId)
     }
 
     return { success: true }

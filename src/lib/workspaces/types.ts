@@ -40,6 +40,7 @@ export interface WorkspacesResponse {
 }
 
 export interface WorkspaceMembershipResponse {
+  workspace: DBWorkspace | null
   membership: DBWorkspaceMembership | null
   error?: WorkspaceError
 }

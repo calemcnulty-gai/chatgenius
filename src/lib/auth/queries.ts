@@ -1,14 +1,18 @@
 import { db } from '@/db'
-import { users, workspaceMemberships, workspaces } from '@/db/schema'
+import { users, userAuth, workspaceMemberships, workspaces } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { now } from '@/types/timestamp'
 import type { DBUser, ClerkWebhookUser, UpdateProfileParams } from './types'
 
 export async function findUserByClerkId(clerkId: string): Promise<DBUser | undefined> {
-  return await db.query.users.findFirst({
-    where: eq(users.clerkId, clerkId),
+  const result = await db.query.userAuth.findFirst({
+    where: eq(userAuth.clerkId, clerkId),
+    with: {
+      user: true
+    }
   })
+  return result?.user
 }
 
 export async function createOrUpdateUser(params: {
@@ -18,11 +22,12 @@ export async function createOrUpdateUser(params: {
   profileImage: string | null
 }): Promise<DBUser> {
   const timestamp = now()
+  
+  // First create/update the user
   const [user] = await db
     .insert(users)
     .values({
       id: uuidv4(),
-      clerkId: params.clerkId,
       name: params.name,
       email: params.email,
       profileImage: params.profileImage,
@@ -30,20 +35,44 @@ export async function createOrUpdateUser(params: {
       updatedAt: timestamp,
     })
     .onConflictDoUpdate({
-      target: users.clerkId,
+      target: users.email,
       set: {
         name: params.name,
-        email: params.email,
         profileImage: params.profileImage,
         updatedAt: timestamp,
       },
     })
     .returning()
 
+  // Then create/update the auth mapping
+  await db
+    .insert(userAuth)
+    .values({
+      id: uuidv4(),
+      userId: user.id,
+      clerkId: params.clerkId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    })
+    .onConflictDoUpdate({
+      target: userAuth.clerkId,
+      set: {
+        updatedAt: timestamp,
+      },
+    })
+
   return user
 }
 
 export async function updateUserProfile(params: UpdateProfileParams): Promise<DBUser> {
+  const userAuthRecord = await db.query.userAuth.findFirst({
+    where: eq(userAuth.clerkId, params.clerkId),
+  })
+
+  if (!userAuthRecord) {
+    throw new Error('User not found')
+  }
+
   const [user] = await db
     .update(users)
     .set({
@@ -52,7 +81,7 @@ export async function updateUserProfile(params: UpdateProfileParams): Promise<DB
       timeZone: params.timeZone,
       updatedAt: now(),
     })
-    .where(eq(users.clerkId, params.clerkId))
+    .where(eq(users.id, userAuthRecord.userId))
     .returning()
 
   return user

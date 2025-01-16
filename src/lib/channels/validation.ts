@@ -1,19 +1,7 @@
 import { db } from '@/db'
 import { workspaceMemberships } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { getOrCreateUser } from '@/lib/db/users'
-import type { User } from '@clerk/nextjs/server'
 import type { ChannelValidationError } from './types'
-
-export async function validateAndGetUser(clerkUser: User) {
-  return await getOrCreateUser({
-    id: clerkUser.id,
-    firstName: clerkUser.firstName,
-    lastName: clerkUser.lastName,
-    emailAddresses: clerkUser.emailAddresses,
-    imageUrl: clerkUser.imageUrl,
-  })
-}
 
 export function validateChannelName(name: string): string | null {
   if (!name) {

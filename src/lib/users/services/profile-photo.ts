@@ -1,10 +1,10 @@
-import { User } from '@clerk/nextjs/server'
 import { put } from '@vercel/blob'
-import { updateProfile } from './profile'
 import type { UpdateProfileResponse } from '../types'
+import type { DBUser } from '@/lib/auth/types'
+import { updateProfile } from './profile'
 
 export async function uploadProfilePhoto(
-  clerkUser: User,
+  userId: string,
   file: File
 ): Promise<UpdateProfileResponse> {
   try {
@@ -14,7 +14,7 @@ export async function uploadProfilePhoto(
     })
 
     // Update user's profile image
-    return await updateProfile(clerkUser, {
+    return await updateProfile(userId, {
       profileImage: url
     })
   } catch (error) {
@@ -30,10 +30,10 @@ export async function uploadProfilePhoto(
 }
 
 export async function removeProfilePhoto(
-  clerkUser: User
+  userId: string
 ): Promise<UpdateProfileResponse> {
   try {
-    return await updateProfile(clerkUser, {
+    return await updateProfile(userId, {
       profileImage: null
     })
   } catch (error) {

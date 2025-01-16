@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { markRead } from '@/lib/notifications/services/mark-read'
 
 export async function POST(
@@ -7,31 +7,32 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const { userId: clerkUserId } = auth()
-    if (!clerkUserId) {
-      return new NextResponse('Unauthorized', { status: 401 })
-    }
-
-    // Get the full user data from Clerk
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
-      return new NextResponse('User not found', { status: 404 })
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
+      return NextResponse.json(
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
+      )
     }
 
     const { success, error } = await markRead({ 
-      clerkUser,
+      userId,
       notificationId: params.id
     })
 
     if (error) {
-      return new NextResponse(error.message, { 
-        status: error.code === 'UNAUTHORIZED' ? 401 : 400 
-      })
+      return NextResponse.json(
+        { error },
+        { status: error.code === 'UNAUTHORIZED' ? 401 : 400 }
+      )
     }
 
-    return new NextResponse('OK')
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Error marking notification as read:', error)
-    return new NextResponse('Internal Server Error', { status: 500 })
+    return NextResponse.json(
+      { error: { message: 'Internal Server Error', code: 'INVALID_INPUT' } },
+      { status: 500 }
+    )
   }
 } 

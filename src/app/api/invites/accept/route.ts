@@ -1,34 +1,16 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
-import { getOrCreateUser } from '@/lib/db/users'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { acceptInvite } from '@/lib/invites/services/invite'
 
 export async function POST(request: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
-
-    // Get or create user to get their database ID
-    const user = await getOrCreateUser({
-      id: clerkUser.id,
-      firstName: clerkUser.firstName,
-      lastName: clerkUser.lastName,
-      emailAddresses: clerkUser.emailAddresses,
-      imageUrl: clerkUser.imageUrl,
-    })
 
     const { token } = await request.json()
     if (!token) {
@@ -38,17 +20,17 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await acceptInvite({
+    const acceptResult = await acceptInvite({
       token,
-      userId: user.id,
+      userId,
     })
 
-    if (result.error) {
+    if (acceptResult.error) {
       return NextResponse.json(
-        { error: result.error },
+        { error: acceptResult.error },
         { 
-          status: result.error.code === 'NOT_FOUND' ? 404 :
-                 result.error.code === 'ALREADY_MEMBER' ? 400 : 500 
+          status: acceptResult.error.code === 'NOT_FOUND' ? 404 :
+                 acceptResult.error.code === 'ALREADY_MEMBER' ? 400 : 500 
         }
       )
     }

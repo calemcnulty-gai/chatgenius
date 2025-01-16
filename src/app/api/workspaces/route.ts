@@ -1,26 +1,18 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { listWorkspaces, createNewWorkspace } from '@/lib/workspaces/services/workspace'
 
 export async function GET() {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
-    const result = await listWorkspaces(clerkUser)
+    const result = await listWorkspaces(userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },
@@ -39,20 +31,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
@@ -64,7 +48,7 @@ export async function POST(req: Request) {
       )
     }
 
-    const result = await createNewWorkspace(name, clerkUser)
+    const result = await createNewWorkspace(name, userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },

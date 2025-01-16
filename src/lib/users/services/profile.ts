@@ -1,11 +1,11 @@
-import { User } from '@clerk/nextjs/server'
+import type { UpdateProfileParams, UserResponse, UpdateProfileResponse } from '../types'
+import type { DBUser } from '@/lib/auth/types'
 import { getUserProfile, updateUserProfile } from '../queries'
 import { validateProfileUpdate, validateProfileImage } from '../validation'
-import type { UpdateProfileParams, UserResponse, UpdateProfileResponse } from '../types'
 
-export async function getProfile(clerkUser: User): Promise<UserResponse> {
+export async function getProfile(userId: string): Promise<UserResponse> {
   try {
-    const profile = await getUserProfile(clerkUser.id)
+    const profile = await getUserProfile(userId)
     if (!profile) {
       return {
         user: null,
@@ -30,12 +30,12 @@ export async function getProfile(clerkUser: User): Promise<UserResponse> {
 }
 
 export async function updateProfile(
-  clerkUser: User,
-  params: Omit<UpdateProfileParams, 'clerkId'>
+  userId: string,
+  params: Omit<UpdateProfileParams, 'userId'>
 ): Promise<UpdateProfileResponse> {
   try {
     const validationError = validateProfileUpdate({
-      clerkId: clerkUser.id,
+      userId,
       ...params
     })
     if (validationError) {
@@ -56,7 +56,7 @@ export async function updateProfile(
     }
 
     const user = await updateUserProfile({
-      clerkId: clerkUser.id,
+      userId,
       ...params
     })
 

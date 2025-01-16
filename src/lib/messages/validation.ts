@@ -1,17 +1,25 @@
 import { db } from '@/db'
-import { channels, directMessageChannels, users } from '@/db/schema'
+import { channels, directMessageChannels, users, userAuth } from '@/db/schema'
 import { eq } from 'drizzle-orm'
-import { getOrCreateUser } from '@/lib/db/users'
-import type { User } from '@clerk/nextjs/server'
+import type { User as DBUser } from '@/types/user'
 
-export async function validateAndGetUser(clerkUser: User) {
-  return await getOrCreateUser({
-    id: clerkUser.id,
-    firstName: clerkUser.firstName,
-    lastName: clerkUser.lastName,
-    emailAddresses: clerkUser.emailAddresses,
-    imageUrl: clerkUser.imageUrl,
+export async function validateAndGetUser(userId: string): Promise<DBUser | null> {
+  const result = await db.query.userAuth.findFirst({
+    where: eq(userAuth.userId, userId),
+    with: {
+      user: true
+    }
   })
+
+  if (!result?.user) return null
+
+  const status = result.user.status as DBUser['status']
+  return {
+    ...result.user,
+    status: status || 'offline',
+    lastHeartbeat: result.user.lastHeartbeat,
+    userAuth: [result],
+  }
 }
 
 export async function validateAndGetChannel(channelId: string) {

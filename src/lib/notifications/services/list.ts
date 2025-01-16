@@ -1,20 +1,17 @@
-import { validateAndGetUser, validateLimit } from '../validation'
+import { validateLimit } from '../validation'
 import { getUserNotifications } from '../queries'
 import type { GetNotificationsParams, NotificationsResponse } from '../types'
 
 export async function listNotifications({
-  clerkUser,
+  userId,
   limit
 }: GetNotificationsParams): Promise<NotificationsResponse> {
   try {
-    // Get or create user to get their database ID
-    const user = await validateAndGetUser(clerkUser)
-
     // Validate and normalize limit
     const validLimit = validateLimit(limit)
 
     // Get user's notifications
-    const notifications = await getUserNotifications(user.id, validLimit)
+    const notifications = await getUserNotifications(userId, validLimit)
 
     return { notifications }
   } catch (error) {

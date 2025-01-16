@@ -1,29 +1,21 @@
 import { NextResponse } from 'next/server'
-import { auth, currentUser } from '@clerk/nextjs'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { listWorkspaceUsers } from '@/lib/workspaces/services/users'
 
 export async function GET(
   request: Request,
   { params }: { params: { workspaceSlug: string } }
 ) {
-  const { userId } = auth()
-  if (!userId) {
-    return NextResponse.json(
-      { error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-      { status: 401 }
-    )
-  }
-
   try {
-    const clerkUser = await currentUser()
-    if (!clerkUser) {
+    const { userId, error: authError } = await getAuthenticatedUserId()
+    if (authError || !userId) {
       return NextResponse.json(
-        { error: { message: 'User not found', code: 'NOT_FOUND' } },
-        { status: 404 }
+        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+        { status: 401 }
       )
     }
 
-    const result = await listWorkspaceUsers(params.workspaceSlug, clerkUser)
+    const result = await listWorkspaceUsers(params.workspaceSlug, userId)
     if (result.error) {
       return NextResponse.json(
         { error: result.error },

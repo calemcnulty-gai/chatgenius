@@ -1,12 +1,12 @@
-import { validateAndGetUser, validateChannelName, generateChannelSlug, validateWorkspaceMembership } from '../validation'
+import { validateChannelName, generateChannelSlug, validateWorkspaceMembership } from '../validation'
 import { createChannel } from '../queries'
 import type { CreateChannelParams, Channel, ChannelValidationError } from '../types'
 
 export async function createNewChannel({
+  userId,
   name,
   workspaceId,
-  type = 'public',
-  clerkUser
+  type = 'public'
 }: CreateChannelParams): Promise<{ channel: Channel | null; error?: ChannelValidationError }> {
   // Validate channel name
   const nameError = validateChannelName(name)
@@ -20,11 +20,8 @@ export async function createNewChannel({
     }
   }
 
-  // Get or create user to get their database ID
-  const user = await validateAndGetUser(clerkUser)
-
   // Verify user is a member of the workspace
-  const membershipError = await validateWorkspaceMembership(user.id, workspaceId)
+  const membershipError = await validateWorkspaceMembership(userId, workspaceId)
   if (membershipError) {
     return { channel: null, error: membershipError }
   }

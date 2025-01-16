@@ -1,5 +1,5 @@
 import { db } from '@/db'
-import { users, workspaceMemberships, workspaces } from '@/db/schema'
+import { users, userAuth, workspaces, workspaceMemberships } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { v4 as uuidv4 } from 'uuid'
 import { createTimestamp } from '@/types/timestamp'
@@ -11,13 +11,16 @@ export async function getOrCreateUser(clerkUser: {
   emailAddresses: { emailAddress: string }[]
   imageUrl: string
 }) {
-  // Check if user exists
-  const existingUser = await db.query.users.findFirst({
-    where: eq(users.clerkId, clerkUser.id),
+  // Check if user exists via auth table
+  const existingAuth = await db.query.userAuth.findFirst({
+    where: eq(userAuth.clerkId, clerkUser.id),
+    with: {
+      user: true
+    }
   })
 
-  if (existingUser) {
-    return existingUser
+  if (existingAuth?.user) {
+    return existingAuth.user
   }
 
   // Create new user
@@ -25,14 +28,13 @@ export async function getOrCreateUser(clerkUser: {
   if (!email) throw new Error('User must have an email address')
 
   const now = createTimestamp(new Date())
-  const id = uuidv4()
+  const userId = uuidv4()
   const name = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') || 'Anonymous'
 
   // Insert the new user
   const [dbUser] = await db.insert(users)
     .values({
-      id,
-      clerkId: clerkUser.id,
+      id: userId,
       name,
       email,
       profileImage: clerkUser.imageUrl,
@@ -44,15 +46,30 @@ export async function getOrCreateUser(clerkUser: {
       updatedAt: now,
     })
     .onConflictDoUpdate({
-      target: users.clerkId,
+      target: users.email,
       set: {
         name,
-        email,
         profileImage: clerkUser.imageUrl,
         updatedAt: now,
       },
     })
     .returning()
+
+  // Create auth mapping
+  await db.insert(userAuth)
+    .values({
+      id: uuidv4(),
+      userId: dbUser.id,
+      clerkId: clerkUser.id,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .onConflictDoUpdate({
+      target: userAuth.clerkId,
+      set: {
+        updatedAt: now,
+      },
+    })
 
   // Get the Gauntlet workspace
   let gauntletWorkspace = await db.query.workspaces.findFirst({

@@ -1,14 +1,10 @@
-import { getOrCreateUser } from '@/lib/db/users'
-import type { User } from '@clerk/nextjs/server'
+import type { DBUser } from '@/lib/auth/types'
 
-export async function validateAndGetUser(clerkUser: User) {
-  return await getOrCreateUser({
-    id: clerkUser.id,
-    firstName: clerkUser.firstName,
-    lastName: clerkUser.lastName,
-    emailAddresses: clerkUser.emailAddresses,
-    imageUrl: clerkUser.imageUrl,
-  })
+export function validateAndGetUser(userId: string): DBUser {
+  if (!userId) {
+    throw new Error('User not found')
+  }
+  return { id: userId } as DBUser
 }
 
 export function validateWorkspaceName(name: string): string | null {

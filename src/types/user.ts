@@ -1,8 +1,11 @@
 import { Timestamp } from './timestamp'
+import type { userAuth } from '@/db/schema'
+import type { InferSelectModel } from 'drizzle-orm'
+
+type UserAuth = InferSelectModel<typeof userAuth>
 
 export interface User {
   id: string
-  clerkId: string
   name: string
   email: string
   profileImage: string | null
@@ -13,4 +16,5 @@ export interface User {
   lastHeartbeat: Timestamp | null
   createdAt: Timestamp
   updatedAt: Timestamp
+  userAuth?: UserAuth[]
 } 

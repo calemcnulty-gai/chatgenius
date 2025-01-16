@@ -2,16 +2,13 @@ import { db } from '@/db'
 import { users } from '@/db/schema'
 import { eq } from 'drizzle-orm'
 import { now } from '@/types/timestamp'
-import type { DBUser, UpdateProfileParams, UserProfile } from './types'
+import type { DBUser } from '@/lib/auth/types'
+import type { UpdateProfileParams, UserProfile } from './types'
 
-export async function findUserByClerkId(clerkId: string): Promise<DBUser | undefined> {
-  return await db.query.users.findFirst({
-    where: eq(users.clerkId, clerkId),
+export async function getUserProfile(userId: string): Promise<UserProfile | undefined> {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
   })
-}
-
-export async function getUserProfile(clerkId: string): Promise<UserProfile | undefined> {
-  const user = await findUserByClerkId(clerkId)
   if (!user) return undefined
 
   return {
@@ -33,7 +30,7 @@ export async function updateUserProfile(params: UpdateProfileParams): Promise<DB
       ...(params.profileImage !== undefined && { profileImage: params.profileImage }),
       updatedAt: now(),
     })
-    .where(eq(users.clerkId, params.clerkId))
+    .where(eq(users.id, params.userId))
     .returning()
 
   return user

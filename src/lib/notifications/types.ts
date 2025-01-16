@@ -1,16 +1,15 @@
-import type { User } from '@clerk/nextjs/server'
 import type { notifications } from '@/db/schema'
 import type { InferSelectModel } from 'drizzle-orm'
 
 export type Notification = InferSelectModel<typeof notifications>
 
 export interface GetNotificationsParams {
-  clerkUser: User
+  userId: string
   limit?: number
 }
 
 export interface MarkAsReadParams {
-  clerkUser: User
+  userId: string
   notificationId?: string  // Optional for mark-all
 }
 

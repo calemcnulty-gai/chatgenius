@@ -1,180 +1,104 @@
 import { messageQueue } from '@/workers/messageUpload/queue'
-import { validateAndGetUser, validateAndGetChannel, validateAndGetAIUser } from '../validation'
+import { validateAndGetChannel } from '../validation'
 import { createMessageInDB, updateParentMessageMetadata } from '../queries'
 import { triggerMessageEvents, triggerThreadReplyEvent } from '../events'
 import { parseAICommand, generateAIResponse } from '@/lib/ai/commands'
-import type { User } from '@clerk/nextjs/server'
 import type { channels, directMessageChannels } from '@/db/schema'
 import type { InferSelectModel } from 'drizzle-orm'
+import type { MessageData } from '../types'
+import type { User } from '@/types/user'
+import { db } from '@/db'
+import { users } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 
 type Channel = InferSelectModel<typeof channels>
 type DirectMessageChannel = InferSelectModel<typeof directMessageChannels>
 
 interface CreateMessageParams {
-  clerkUser: User
+  userId: string
   channelId: string
   content: string
   parentMessageId?: string | null
 }
 
-interface HandleAICommandParams {
-  user: {
-    id: string
-    name: string
-    clerkId: string
-    email: string
-    profileImage: string | null
-    displayName: string | null
-    title: string | null
-    timeZone: string | null
-    status: 'offline' | 'active' | 'away'
-    lastHeartbeat: string | null
-    createdAt: string
-    updatedAt: string
-  }
-  channel: Channel | DirectMessageChannel
-  channelType: 'regular' | 'dm'
-  content: string
-  aiCommand: {
-    aiUser: string
-  }
-}
-
 export async function createMessage({
-  clerkUser,
+  userId,
   channelId,
   content,
   parentMessageId
 }: CreateMessageParams) {
-  // Validate user and get DB user
-  const user = await validateAndGetUser(clerkUser)
-
-  // Validate channel
-  const { type: channelType, channel } = await validateAndGetChannel(channelId)
-
-  // Check for AI command
-  const aiCommand = parseAICommand(content)
-  if (aiCommand) {
-    return await handleAICommand({
-      user: {
-        ...user,
-        status: 'active' as const
-      },
-      channel,
-      channelType,
-      content,
-      aiCommand
+  try {
+    // Get user data
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      with: {
+        userAuth: true
+      }
     })
-  }
+    if (!user || !user.userAuth?.[0]) {
+      throw new Error('User not found')
+    }
 
-  // Create regular message
-  const message = await createMessageInDB({
-    channelId,
-    content,
-    parentMessageId,
-    senderId: user.id
-  })
+    // Get channel info
+    const { type: channelType, channel } = await validateAndGetChannel(channelId)
 
-  // Queue for vector embedding
-  await messageQueue.add({
-    id: message.id,
-    content: message.content,
-  })
+    // Create message
+    const dbMessage = await createMessageInDB({
+      content,
+      channelId,
+      senderId: userId,
+      parentMessageId
+    })
 
-  // Update parent message if this is a reply
-  if (parentMessageId) {
-    await updateParentMessageMetadata(parentMessageId)
-  }
+    // Queue for vector embedding
+    await messageQueue.add({
+      id: dbMessage.id,
+      content: dbMessage.content,
+    })
 
-  // Trigger events
-  if (channelType === 'regular') {
-    await triggerMessageEvents({
-      message: {
-        ...message,
-        sender: {
-          ...user,
-          status: 'active' as const
-        },
-        parentId: null,
-        attachments: null
+    // Create MessageData object
+    const message: MessageData = {
+      id: dbMessage.id,
+      content: dbMessage.content,
+      sender: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        profileImage: user.profileImage,
+        displayName: user.displayName,
+        title: user.title,
+        timeZone: user.timeZone,
+        status: user.status as User['status'],
+        lastHeartbeat: user.lastHeartbeat,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
       },
+      createdAt: dbMessage.createdAt,
+      updatedAt: dbMessage.updatedAt,
+      parentId: null,
+      replyCount: dbMessage.replyCount,
+      latestReplyAt: dbMessage.latestReplyAt,
+      parentMessageId: dbMessage.parentMessageId,
+      channelId: dbMessage.channelId,
+      dmChannelId: dbMessage.dmChannelId,
+    }
+
+    // Trigger events
+    await triggerMessageEvents({
+      message,
       workspaceId: channel.workspaceId,
       channelSlug: channelType === 'regular' ? (channel as Channel).slug : (channel as DirectMessageChannel).id,
       isThreadReply: !!parentMessageId
     })
 
     if (parentMessageId) {
-      await triggerThreadReplyEvent({
-        ...message,
-        sender: {
-          ...user,
-          status: 'active' as const
-        },
-        parentId: null,
-        attachments: null
-      })
+      await updateParentMessageMetadata(parentMessageId)
+      await triggerThreadReplyEvent(message)
     }
+
+    return message
+  } catch (error) {
+    console.error('Error creating message:', error)
+    throw error
   }
-
-  return message
-}
-
-async function handleAICommand({ user, channel, channelType, content, aiCommand }: HandleAICommandParams) {
-  // Create human message first
-  const humanMessage = await createMessageInDB({
-    channelId: channel.id,
-    content: content.slice(content.indexOf(' ', 4) + 1), // Remove '/ai @username '
-    senderId: user.id,
-    parentMessageId: null
-  })
-
-  // Queue human message for vector embedding
-  await messageQueue.add({
-    id: humanMessage.id,
-    content: humanMessage.content,
-  })
-
-  // Get AI user
-  const aiUser = await validateAndGetAIUser(aiCommand.aiUser)
-
-  // Generate AI response
-  const aiResponse = await generateAIResponse({
-    aiUser: aiCommand.aiUser,
-    query: humanMessage.content,
-    messageId: humanMessage.id
-  })
-
-  // Create AI message
-  const aiMessage = await createMessageInDB({
-    channelId: channel.id,
-    content: aiResponse,
-    senderId: aiUser.id,
-    parentMessageId: null
-  })
-
-  // Queue AI message for vector embedding
-  await messageQueue.add({
-    id: aiMessage.id,
-    content: aiMessage.content,
-  })
-
-  // Trigger events for AI message
-  if (channelType === 'regular') {
-    await triggerMessageEvents({
-      message: {
-        ...aiMessage,
-        sender: {
-          ...aiUser,
-          status: 'active' as const
-        },
-        parentId: null,
-        attachments: null
-      },
-      workspaceId: channel.workspaceId,
-      channelSlug: channelType === 'regular' ? (channel as Channel).slug : (channel as DirectMessageChannel).id,
-      isThreadReply: false
-    })
-  }
-
-  return aiMessage
 } 

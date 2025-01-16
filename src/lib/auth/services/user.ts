@@ -1,13 +1,17 @@
-import { User } from '@clerk/nextjs/server'
-import { findUserByClerkId } from '@/lib/users/queries'
+import { db } from '@/db'
+import { userAuth } from '@/db/schema'
+import { eq } from 'drizzle-orm'
 import type { AuthError } from '../types'
 
 export async function getInternalUserId(
-  clerkUser: User
+  clerkId: string
 ): Promise<{ userId: string | null; error?: AuthError }> {
   try {
-    const user = await findUserByClerkId(clerkUser.id)
-    if (!user) {
+    const authRecord = await db.query.userAuth.findFirst({
+      where: eq(userAuth.clerkId, clerkId),
+    })
+
+    if (!authRecord) {
       return {
         userId: null,
         error: {
@@ -17,7 +21,7 @@ export async function getInternalUserId(
       }
     }
 
-    return { userId: user.id }
+    return { userId: authRecord.userId }
   } catch (error) {
     console.error('Error getting internal user ID:', error)
     return {
