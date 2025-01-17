@@ -239,7 +239,8 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                         lastHeartbeat: null,
                         createdAt: now(),
                         updatedAt: now(),
-                        status: otherUser.status || 'offline' as const
+                        status: otherUser.status || 'offline' as const,
+                        isAi: false,
                       }}
                       size="sm"
                     />
@@ -262,7 +263,8 @@ export function DirectMessageList({ workspaceId, channels: initialChannels, user
                       lastHeartbeat: null,
                       createdAt: now(),
                       updatedAt: now(),
-                      status: otherUser.status || 'offline' as const
+                      status: otherUser.status || 'offline' as const,
+                      isAi: false,
                     }}
                     className={`truncate text-sm ${hasUnread ? 'font-semibold' : ''}`}
                   />

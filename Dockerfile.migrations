@@ -28,9 +28,7 @@ CMD sh -c "\
         sleep 2; \
     done && \
     echo 'Database is up - executing migrations' && \
-    echo 'Running db:migrate...' && \
+    echo 'Running migrations...' && \
     npm run db:migrate && \
-    echo 'Running db:generate...' && \
-    npm run db:generate && \
     echo 'All migrations completed successfully!' && \
     exit 0" 

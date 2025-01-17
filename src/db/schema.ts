@@ -18,12 +18,13 @@ import { timestampString } from './timestamp'
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
   profileImage: text('profile_image'),
   displayName: text('display_name'),
   title: text('title'),
   timeZone: text('time_zone').default('UTC'),
   status: text('status').default('offline'),
+  isAi: boolean('is_ai').notNull().default(false),
   lastHeartbeat: timestampString('last_heartbeat').default(sql`CURRENT_TIMESTAMP`),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
@@ -64,7 +65,9 @@ export const channels = pgTable('channels', {
     .references(() => workspaces.id),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
-})
+}, (table) => ({
+  workspaceSlugUnique: uniqueIndex('channels_workspace_id_slug_key').on(table.workspaceId, table.slug),
+}))
 
 export const directMessageChannels = pgTable('direct_message_channels', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -142,7 +145,9 @@ export const workspaceMemberships = pgTable('workspace_memberships', {
   role: text('role').notNull().default('member'),
   createdAt: timestampString('created_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
   updatedAt: timestampString('updated_at').default(sql`CURRENT_TIMESTAMP`).notNull(),
-})
+}, (table) => ({
+  workspaceUserUnique: uniqueIndex('workspace_memberships_workspace_id_user_id_key').on(table.workspaceId, table.userId),
+}))
 
 export const directMessageMembers = pgTable('direct_message_members', {
   id: uuid('id').primaryKey().defaultRandom(),

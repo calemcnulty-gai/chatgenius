@@ -33,6 +33,7 @@ export function DMChannelHeader({ channel }: DMChannelHeaderProps) {
             lastHeartbeat: null,
             createdAt: channel.createdAt,
             updatedAt: channel.updatedAt,
+            isAi: false,
           }}
           size="md"
         />
@@ -60,6 +61,7 @@ export function DMChannelHeader({ channel }: DMChannelHeaderProps) {
             lastHeartbeat: null,
             createdAt: channel.createdAt,
             updatedAt: channel.updatedAt,
+            isAi: false,
           }}
           className="text-lg font-medium text-white"
         />

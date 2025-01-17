@@ -141,6 +141,7 @@ export function MessageList({ channelId, variant = 'channel' }: MessageListProps
             title: data.senderTitle,
             timeZone: data.senderTimeZone,
             status: 'active',
+            isAi: false,
             lastHeartbeat: null,
             createdAt: data.senderCreatedAt,
             updatedAt: data.senderUpdatedAt,

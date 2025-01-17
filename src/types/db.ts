@@ -3,7 +3,17 @@ import * as schema from '@/db/schema'
 import { Timestamp } from './timestamp'
 
 // Base types from schema
-export type User = Omit<InferModel<typeof schema.users>, 'createdAt' | 'updatedAt'> & {
+export type User = {
+  id: string
+  name: string
+  email: string
+  profileImage: string | null
+  displayName: string | null
+  title: string | null
+  timeZone: string
+  status: string
+  isAi: boolean
+  lastHeartbeat: Timestamp | null
   createdAt: Timestamp
   updatedAt: Timestamp
 }

@@ -27,7 +27,15 @@ COMMAND=${1:-"up"}  # Default to "up" if no command provided
 case "$COMMAND" in
     "up")
         echo "Starting containers in $NEXT_PUBLIC_ENVIRONMENT mode..."
-        docker-compose -f $COMPOSE_FILE up --build
+        # Start the database first
+        docker-compose -f $COMPOSE_FILE up -d db
+        
+        # Wait for database and run migrations
+        echo "Running migrations..."
+        ./scripts/migrate.sh
+        
+        # Start the web container
+        docker-compose -f $COMPOSE_FILE up web
         ;;
     "down")
         echo "Stopping containers..."
@@ -35,13 +43,15 @@ case "$COMMAND" in
         ;;
     "build")
         echo "Running build process in $NEXT_PUBLIC_ENVIRONMENT mode..."
-        # First run migrations
-        echo "Running migrations..."
+        # Start the database
         docker-compose -f $COMPOSE_FILE up -d db
         sleep 5  # Give DB time to start
-        docker-compose -f $COMPOSE_FILE up --exit-code-from migrations migrations
         
-        # Then build the Next.js application
+        # Run migrations locally
+        echo "Running migrations..."
+        ./scripts/migrate.sh
+        
+        # Build the Next.js application
         echo "Building Next.js application..."
         if [ "$NEXT_PUBLIC_ENVIRONMENT" = "development" ]; then
             docker-compose -f $COMPOSE_FILE run --rm web npm run build

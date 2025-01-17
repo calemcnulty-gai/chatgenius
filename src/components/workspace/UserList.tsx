@@ -66,6 +66,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
           title: null,
           timeZone: null,
           status: 'offline',
+          isAi: false, // New users from invites are never AI
           lastHeartbeat: null,
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -162,7 +163,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
               />
               <div
                 className={`absolute bottom-0 right-0 h-2 w-2 rounded-full border border-gray-900 ${
-                  user.status === 'active'
+                  user.isAi || user.status === 'active'
                     ? 'bg-green-500'
                     : user.status === 'away'
                     ? 'bg-yellow-500'

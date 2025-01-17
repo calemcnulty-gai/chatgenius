@@ -44,7 +44,8 @@ export default async function WorkspaceLayout({
     displayName: dbUser.displayName,
     title: dbUser.title,
     timeZone: dbUser.timeZone,
-    status: (dbUser.status || 'offline') as 'offline' | 'active' | 'away',
+    status: dbUser.isAi ? 'active' : (dbUser.status || 'offline') as 'offline' | 'active' | 'away',
+    isAi: dbUser.isAi,
     lastHeartbeat: dbUser.lastHeartbeat,
     createdAt: dbUser.createdAt,
     updatedAt: dbUser.updatedAt,
@@ -138,7 +139,7 @@ export default async function WorkspaceLayout({
           id: otherMember.user.id,
           name: otherMember.user.name ?? '',
           profileImage: otherMember.user.profileImage,
-          status: (otherMember.user.status as 'active' | 'away' | 'offline') || 'offline'
+          status: otherMember.user.isAi ? 'active' : ((otherMember.user.status as 'active' | 'away' | 'offline') || 'offline')
         },
         unreadCount: unreadMessage?.unreadCount ?? 0,
         hasMention: unreadMessage?.hasMention ?? false,

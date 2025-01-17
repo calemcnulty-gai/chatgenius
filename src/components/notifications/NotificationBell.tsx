@@ -140,6 +140,7 @@ export function NotificationBell() {
                           lastHeartbeat: null,
                           createdAt: now(),
                           updatedAt: now(),
+                          isAi: false,
                         }}
                       />
                       {' '}

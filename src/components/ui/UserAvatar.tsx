@@ -79,7 +79,7 @@ export function UserAvatar({ user, size = 'md', onClick, className, showMenu = f
 
     return (
       <div className="w-full h-full flex items-center justify-center bg-blue-100 text-blue-600 font-medium">
-        {(user.displayName || user.name).charAt(0).toUpperCase()}
+        {((user?.displayName || user?.name || '?').charAt(0) || '?').toUpperCase()}
       </div>
     )
   }

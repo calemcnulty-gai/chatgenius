@@ -1,6 +1,10 @@
 import { createOrUpdateUser, addUserToGauntlet } from '../queries'
 import type { SyncUserParams, DBUser, AuthError } from '../types'
 
+function getNameFromEmail(email: string): string {
+  return email.split('@')[0]
+}
+
 export async function syncUser({ 
   clerkUser 
 }: SyncUserParams): Promise<{ user: DBUser | null; error?: AuthError }> {
@@ -16,9 +20,12 @@ export async function syncUser({
       }
     }
 
-    const name = [clerkUser.firstName, clerkUser.lastName]
-      .filter(Boolean)
-      .join(' ') || 'Anonymous'
+    // Get name from firstName/lastName if available, otherwise use email prefix
+    const firstName = clerkUser.firstName?.trim() || ''
+    const lastName = clerkUser.lastName?.trim() || ''
+    const name = firstName || lastName 
+      ? [firstName, lastName].filter(n => n).join(' ')
+      : getNameFromEmail(email)
 
     // Create or update user in our database
     const user = await createOrUpdateUser({

@@ -1,12 +1,12 @@
 import { db } from '@/db'
 import { workspaces, directMessageChannels, directMessageMembers, users, unreadMessages } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
-import { auth, currentUser } from '@clerk/nextjs'
 import { redirect } from 'next/navigation'
 import { MessageList } from '@/components/chat/MessageList'
 import { UserAvatar } from '@/components/ui/UserAvatar'
-import { getOrCreateUser } from '@/lib/db/users'
+import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { now } from '@/types/timestamp'
+import type { User } from '@/types/user'
 
 type DMChannel = typeof directMessageChannels.$inferSelect & {
   members: (typeof directMessageMembers.$inferSelect & {
@@ -19,25 +19,10 @@ export default async function DMChannelPage({
 }: {
   params: { workspaceSlug: string; channelId: string }
 }) {
-  const { userId: clerkUserId } = auth()
-  if (!clerkUserId) {
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
     redirect('/sign-in')
   }
-
-  // Get the full user data from Clerk
-  const clerkUser = await currentUser()
-  if (!clerkUser) {
-    redirect('/sign-in')
-  }
-
-  // Get or create user to get their database ID
-  const user = await getOrCreateUser({
-    id: clerkUser.id,
-    firstName: clerkUser.firstName,
-    lastName: clerkUser.lastName,
-    emailAddresses: clerkUser.emailAddresses,
-    imageUrl: clerkUser.imageUrl,
-  })
 
   // Get workspace
   const workspace = await db.query.workspaces.findFirst({
@@ -74,18 +59,18 @@ export default async function DMChannelPage({
     })
     .where(
       and(
-        eq(unreadMessages.userId, user.id),
+        eq(unreadMessages.userId, userId),
         eq(unreadMessages.dmChannelId, params.channelId)
       )
     )
 
   // Find the other member
-  const otherMember = channel.members.find(member => member.userId !== user.id)
+  const otherMember = channel.members.find(member => member.userId !== userId)
   if (!otherMember) {
     redirect(`/workspace/${params.workspaceSlug}`)
   }
 
-  const otherUser = {
+  const otherUser: User = {
     id: otherMember.user.id,
     name: otherMember.user.name,
     email: otherMember.user.email,
@@ -93,7 +78,9 @@ export default async function DMChannelPage({
     displayName: otherMember.user.displayName,
     title: otherMember.user.title,
     timeZone: otherMember.user.timeZone,
-    status: otherMember.user.status,
+    status: otherMember.user.status as 'active' | 'away' | 'offline',
+    isAi: otherMember.user.isAi ?? false,
+    lastHeartbeat: otherMember.user.lastHeartbeat,
     createdAt: otherMember.user.createdAt,
     updatedAt: otherMember.user.updatedAt,
   }
@@ -103,20 +90,7 @@ export default async function DMChannelPage({
       {/* Channel header */}
       <div className="flex h-14 shrink-0 items-center gap-2 border-b border-gray-700 bg-gray-800 px-4 py-3">
         <UserAvatar
-          user={{
-            id: otherMember.user.id,
-            clerkId: otherMember.user.clerkId,
-            name: otherMember.user.name,
-            email: otherMember.user.email,
-            profileImage: otherMember.user.profileImage,
-            displayName: otherMember.user.displayName,
-            title: otherMember.user.title,
-            timeZone: otherMember.user.timeZone,
-            status: otherMember.user.status as 'active' | 'away' | 'offline' || 'offline',
-            lastHeartbeat: otherMember.user.lastHeartbeat,
-            createdAt: otherMember.user.createdAt,
-            updatedAt: otherMember.user.updatedAt,
-          }}
+          user={otherUser}
           size="sm"
         />
         <h1 className="text-lg font-medium text-white">

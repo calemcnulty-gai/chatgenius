@@ -72,6 +72,7 @@ export async function createMessage({
         lastHeartbeat: user.lastHeartbeat,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        isAi: user.isAi,
       },
       createdAt: dbMessage.createdAt,
       updatedAt: dbMessage.updatedAt,

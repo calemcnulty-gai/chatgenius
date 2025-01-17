@@ -5,8 +5,29 @@
     {
       "idx": 0,
       "version": "5",
-      "when": 1737003867032,
-      "tag": "0000_redundant_marrow",
+      "when": 1737076077162,
+      "tag": "0000_consolidated_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1737076077163,
+      "tag": "0001_consolidated_seed",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1737076077164,
+      "tag": "0002_add_ai_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1737076077166,
+      "tag": "0003_import_ai_conversations",
       "breakpoints": true
     }
   ]

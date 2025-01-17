@@ -90,7 +90,8 @@ export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps)
               displayName: null,
               title: null,
               timeZone: null,
-              lastHeartbeat: null
+              lastHeartbeat: null,
+              isAi: false,
             }
           }
           return {

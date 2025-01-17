@@ -69,7 +69,7 @@ export function UserDisplay({
         <span 
           className={cn(
             'h-2 w-2 rounded-full',
-            user.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
+            user.isAi || user.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
           )}
         />
       </span>
@@ -104,7 +104,7 @@ export function UserDisplay({
       <span 
         className={cn(
           'h-2 w-2 rounded-full',
-          user.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
+          user.isAi || user.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
         )}
       />
     </div>
