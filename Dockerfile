@@ -1,11 +1,8 @@
 FROM node:20-alpine AS builder
-
 WORKDIR /app
 
-# Set environment variables for build
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV CI=true
+# Install netcat for database connection checking
+RUN apk add --no-cache netcat-openbsd
 
 # Copy package files
 COPY package*.json ./
@@ -13,47 +10,41 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
-# Copy application files
+# Copy entrypoint script first and set permissions
+COPY docker-entrypoint.sh .
+RUN chmod +x docker-entrypoint.sh && \
+    dos2unix docker-entrypoint.sh 2>/dev/null || true
+
+# Copy remaining codebase
 COPY . .
 
-# Copy env file (after main copy to ensure it's not overwritten)
-COPY .env ./
+# Build Next.js (will only be used in production)
+RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
 
-# Generate Drizzle types
-RUN npm run db:generate
-
-# Build the application
-RUN set -ex; \
-    npm run build \
-    2>&1 | tee build.log; \
-    if [ ! -d .next ]; then \
-        echo "Build failed - .next directory not created"; \
-        cat build.log; \
-        exit 1; \
-    fi
-
-# Production image
-FROM node:20-alpine
-
+# Runner stage (only used in production)
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Set production environment
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
+# Install netcat in runner stage too
+RUN apk add --no-cache netcat-openbsd
 
-# Copy standalone files
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+# Copy necessary files from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/docker-entrypoint.sh ./
 
-# Create uploads directory
-RUN mkdir -p public/uploads
+# Default to production, but can be overridden
+ENV NODE_ENV=production
+ENV PORT=3000
 
-# Copy env file
-COPY --from=builder /app/.env ./
-
-# Expose port
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "server.js"] 
+# Use development target in dev mode, production target in prod mode
+FROM builder AS final
+
+ENTRYPOINT ["/bin/sh", "./docker-entrypoint.sh"] 

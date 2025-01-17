@@ -79,7 +79,7 @@ Below is a minimal docker-compose file to coordinate the “db” and “web” 
     services:
       db:
         image: postgres:15
-        container_name: chatgenius_db
+        container_name: db
         env_file:
           - .env
         environment:
@@ -102,7 +102,7 @@ Below is a minimal docker-compose file to coordinate the “db” and “web” 
           dockerfile: Dockerfile
           args:
             BUILD_ENV: ${BUILD_ENV:-production}
-        container_name: chatgenius_web
+        container_name: web
         env_file:
           - .env
         depends_on:
