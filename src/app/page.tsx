@@ -1,7 +1,7 @@
 'use client'
 
 import { SignInButton } from "@clerk/nextjs"
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { useState } from 'react'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import CreateWorkspace from '@/components/workspace/CreateWorkspace'
@@ -11,7 +11,7 @@ import { useWorkspaces } from '@/hooks/useWorkspaces'
 import Link from 'next/link'
 
 export default function Home() {
-  const { user, isLoading } = useUser()
+  const { user, isLoading } = useUserAuth()
   const { workspaces, isLoading: isLoadingWorkspaces } = useWorkspaces()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 

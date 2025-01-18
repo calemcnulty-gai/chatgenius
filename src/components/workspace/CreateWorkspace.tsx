@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 
 type CreateWorkspaceProps = {
   onComplete?: () => void
@@ -13,7 +13,7 @@ export default function CreateWorkspace({ onComplete }: CreateWorkspaceProps) {
   const [description, setDescription] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { user } = useUser()
+  const { user } = useUserAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { InviteModal } from './InviteModal'
 import { PusherEvent } from '@/types/events'
-import { usePusherChannel } from '@/contexts/PusherContext'
+import { useUserChannel } from '@/contexts/pusher/UserChannelContext'
 import { User } from '@/types/user'
 import { now } from '@/types/timestamp'
 
@@ -40,8 +40,8 @@ type UserListProps = {
 export function UserList({ users: initialUsers, workspace }: UserListProps) {
   const router = useRouter()
   const params = useParams()
-  const { user } = useUser()
-  const { userChannel } = usePusherChannel()
+  const { user } = useUserAuth()
+  const { channel: userChannel } = useUserChannel()
   const [isLoading, setIsLoading] = useState(false)
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false)
   const [users, setUsers] = useState(initialUsers)
@@ -52,8 +52,7 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
 
     console.log('[UserList] Setting up event listeners')
     
-    // Listen for new users
-    userChannel.bind('new-user', (data: NewUserEvent) => {
+    const handleNewUser = (data: NewUserEvent) => {
       if (data.workspaceId === workspace.id) {
         const timestamp = now()
         setUsers(currentUsers => [...currentUsers, {
@@ -72,10 +71,9 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
           updatedAt: timestamp,
         }])
       }
-    })
+    }
 
-    // Listen for user status changes
-    userChannel.bind(PusherEvent.USER_STATUS_CHANGED, (data: UserStatusEvent) => {
+    const handleStatusChange = (data: UserStatusEvent) => {
       console.log('[UserList] Received status change:', data)
       setUsers(currentUsers =>
         currentUsers.map(user =>
@@ -84,22 +82,27 @@ export function UserList({ users: initialUsers, workspace }: UserListProps) {
             : user
         )
       )
-    })
+    }
 
-    // Listen for users leaving
-    userChannel.bind('user-left', (data: UserLeftEvent) => {
+    const handleUserLeft = (data: UserLeftEvent) => {
       setUsers(currentUsers =>
         currentUsers.filter(user => user.id !== data.userId)
       )
-    })
-
-    return () => {
-      if (!userChannel) return
-      userChannel.unbind('new-user')
-      userChannel.unbind(PusherEvent.USER_STATUS_CHANGED)
-      userChannel.unbind('user-left')
     }
-  }, [user?.id, workspace.id, userChannel])
+
+    // Bind event handlers
+    userChannel.bind('new-user', handleNewUser)
+    userChannel.bind(PusherEvent.USER_STATUS_CHANGED, handleStatusChange)
+    userChannel.bind('user-left', handleUserLeft)
+
+    // Cleanup function
+    return () => {
+      console.log('[UserList] Cleaning up event listeners')
+      userChannel.unbind('new-user', handleNewUser)
+      userChannel.unbind(PusherEvent.USER_STATUS_CHANGED, handleStatusChange)
+      userChannel.unbind('user-left', handleUserLeft)
+    }
+  }, [user?.id, userChannel, workspace.id])
 
   // Update users when initial data changes
   useEffect(() => {

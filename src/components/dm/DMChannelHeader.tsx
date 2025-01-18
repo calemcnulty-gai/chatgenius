@@ -2,7 +2,7 @@
 
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { UserDisplay } from '@/components/ui/UserDisplay'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import type { DirectMessageChannelWithMembers } from '@/types/db'
 
 interface DMChannelHeaderProps {
@@ -10,7 +10,7 @@ interface DMChannelHeaderProps {
 }
 
 export function DMChannelHeader({ channel }: DMChannelHeaderProps) {
-  const { user } = useUser()
+  const { user } = useUserAuth()
   const otherUser = channel.members.find(member => member.id !== user?.id)
 
   if (!otherUser) {

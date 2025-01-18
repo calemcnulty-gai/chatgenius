@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { User } from '@/types/user'
 import { ProfileModal } from '../profile/ProfileModal'
 import { ProfileEditModal } from '../profile/ProfileEditModal'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
+import { useUserProfile } from '@/contexts/user/UserProfileContext'
 import { cn } from '@/lib/utils'
 
 interface UserAvatarProps {
@@ -24,11 +25,13 @@ const sizeClasses = {
 
 export function UserAvatar({ user, size = 'md', onClick, className, showMenu = false }: UserAvatarProps) {
   const router = useRouter()
-  const { user: currentUser, isLoading } = useUser()
+  const { user: currentUser, isLoading: authLoading } = useUserAuth()
+  const { isUpdating } = useUserProfile()
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
   const isCurrentUser = currentUser?.id === user.id
+  const isLoading = authLoading || isUpdating
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent click from bubbling up

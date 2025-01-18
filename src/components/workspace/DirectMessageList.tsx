@@ -8,8 +8,8 @@ import { UserDisplay } from '@/components/ui/UserDisplay'
 import { PlusIcon } from '@heroicons/react/24/outline'
 import { StartDMModal } from './StartDMModal'
 import { PusherEvent, NewDirectMessageEvent } from '@/types/events'
-import { usePusherChannel } from '@/contexts/PusherContext'
-import { useUser } from '@/contexts/UserContext'
+import { useUserChannel } from '@/contexts/pusher/UserChannelContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { User } from '@/types/user'
 import { now } from '@/types/timestamp'
 
@@ -38,8 +38,8 @@ type DirectMessageListProps = {
 
 export function DirectMessageList({ workspaceId, channels: initialChannels, users }: DirectMessageListProps) {
   const params = useParams()
-  const { user } = useUser()
-  const { userChannel } = usePusherChannel()
+  const { user } = useUserAuth()
+  const { channel: userChannel } = useUserChannel()
   const [isStartDMModalOpen, setIsStartDMModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 

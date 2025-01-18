@@ -3,9 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BellIcon } from '@heroicons/react/24/outline'
-import { pusherClient } from '@/lib/pusher'
 import { PusherEvent, NewChannelMessageEvent, NewDirectMessageEvent, NewMentionEvent } from '@/types/events'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
+import { useUserChannel } from '@/contexts/pusher/UserChannelContext'
 import { UserDisplay } from '@/components/ui/UserDisplay'
 import { Timestamp, now } from '@/types/timestamp'
 
@@ -29,15 +29,14 @@ type Notification = {
 
 export function NotificationBell() {
   const router = useRouter()
-  const { user } = useUser()
+  const { user } = useUserAuth()
+  const { channel: userChannel } = useUserChannel()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [isOpen, setIsOpen] = useState(false)
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!user?.id || !pusherClient) return
-
-    const userChannel = pusherClient.subscribe(`user-${user.id}`)
+    if (!user?.id || !userChannel) return
 
     // Handle new mentions
     userChannel.bind(PusherEvent.NEW_MENTION, (data: NewMentionEvent) => {
@@ -83,11 +82,12 @@ export function NotificationBell() {
     })
 
     return () => {
-      if (!pusherClient) return
-      userChannel.unbind_all()
-      pusherClient.unsubscribe(`user-${user.id}`)
+      if (userChannel) {
+        userChannel.unbind(PusherEvent.NEW_MENTION)
+        userChannel.unbind(PusherEvent.NEW_DIRECT_MESSAGE)
+      }
     }
-  }, [user?.id])
+  }, [user?.id, userChannel])
 
   const unreadCount = notifications?.filter(n => !n.read)?.length || 0
 

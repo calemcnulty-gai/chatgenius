@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 import { User } from "@/types/user";
-import { useUser } from "@/contexts/UserContext";
+import { useUserAuth } from "@/contexts/user/UserAuthContext";
 import { UserAvatar } from "./UserAvatar";
 import { UserDisplay } from "./UserDisplay";
 import { format } from "date-fns";
@@ -41,7 +41,7 @@ export function Message({
   attachments,
   onThreadClick
 }: MessageProps) {
-  const { user } = useUser();
+  const { user } = useUserAuth();
   const isCurrentUser = user?.id === sender.id;
 
   // If this is the current user's message, use the latest user data from context

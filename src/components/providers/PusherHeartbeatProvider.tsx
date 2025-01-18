@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { usePusherHeartbeat } from '@/hooks/usePusherHeartbeat'
 
 export function PusherHeartbeatProvider({
@@ -8,7 +8,7 @@ export function PusherHeartbeatProvider({
 }: {
   children: React.ReactNode
 }) {
-  const { user } = useUser()
+  const { user } = useUserAuth()
 
   // Only use the heartbeat for authenticated users
   if (user) {

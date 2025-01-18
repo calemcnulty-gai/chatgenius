@@ -9,7 +9,7 @@ import { Channel as BaseChannel, DirectMessageChannelWithUnreadCounts } from '@/
 import { User } from '@/types/user'
 import { memo } from 'react'
 import { now } from '@/types/timestamp'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 
 console.log('🔥 WorkspaceSidebar: File loaded')
 
@@ -70,7 +70,7 @@ function transformDMChannel(channel: DirectMessageChannelWithUnreadCounts, curre
 }
 
 function WorkspaceSidebarComponent({ workspace, channels, users, dmChannels }: WorkspaceSidebarProps) {
-  const { user: currentUser } = useUser()
+  const { user: currentUser } = useUserAuth()
 
   if (!currentUser) {
     return null

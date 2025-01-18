@@ -68,12 +68,12 @@ declare module 'next/server' {
 
 // Maintain backward compatibility with existing API routes
 export async function getAuthenticatedUserId() {
-  const { userId } = auth()
-  if (!userId) {
-    return { userId: null, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } }
-  }
-
   try {
+    const { userId } = auth()
+    if (!userId) {
+      return { userId: null, error: { message: 'Unauthorized', code: 'UNAUTHORIZED' } }
+    }
+
     const dbUser = await findUserByClerkId(userId)
     
     if (!dbUser || shouldSync(dbUser.updatedAt)) {

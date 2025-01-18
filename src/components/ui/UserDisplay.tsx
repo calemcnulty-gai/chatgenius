@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { User } from '@/types/user'
 import { cn } from '@/lib/utils'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
+import { useUserProfile } from '@/contexts/user/UserProfileContext'
 
 interface UserDisplayProps {
   user: User
@@ -18,9 +19,11 @@ export function UserDisplay({
   className = '',
   showLoadingState = true
 }: UserDisplayProps) {
-  const { isLoading } = useUser()
+  const { isLoading: authLoading } = useUserAuth()
+  const { isUpdating } = useUserProfile()
   const [imageError, setImageError] = useState(false)
   const displayName = user.displayName || user.name
+  const isLoading = authLoading || isUpdating
 
   const handleImageError = () => {
     setImageError(true)

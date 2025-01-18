@@ -3,15 +3,15 @@ import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { getProfile, updateProfile } from '@/lib/users/services/profile'
 
 export async function GET() {
-  try {
-    const { userId, error: authError } = await getAuthenticatedUserId()
-    if (authError || !userId) {
-      return NextResponse.json(
-        { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
-        { status: 401 }
-      )
-    }
+  const { userId, error: authError } = await getAuthenticatedUserId()
+  if (authError || !userId) {
+    return NextResponse.json(
+      { error: authError || { message: 'Unauthorized', code: 'UNAUTHORIZED' } },
+      { status: 401 }
+    )
+  }
 
+  try {
     const result = await getProfile(userId)
     if (result.error) {
       return NextResponse.json(
@@ -24,7 +24,7 @@ export async function GET() {
   } catch (error) {
     console.error('Error getting profile:', error)
     return NextResponse.json(
-      { error: { message: 'Internal server error', code: 'INVALID_INPUT' } },
+      { error: { message: 'Internal server error', code: 'INTERNAL_ERROR' } },
       { status: 500 }
     )
   }

@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { HashtagIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import CreateChannel from './CreateChannel'
 import { PusherEvent, NewChannelMessageEvent, NewMentionEvent } from '@/types/events'
-import { usePusherChannel } from '@/contexts/PusherContext'
+import { useUserChannel } from '@/contexts/pusher/UserChannelContext'
 
 type Channel = {
   id: string
@@ -27,8 +27,8 @@ type ChannelListProps = {
 
 export default function ChannelList({ channels: initialChannels, workspaceId }: ChannelListProps) {
   const params = useParams()
-  const { user } = useUser()
-  const { userChannel } = usePusherChannel()
+  const { user } = useUserAuth()
+  const { channel: userChannel } = useUserChannel()
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [channels, setChannels] = useState(initialChannels)
 
@@ -56,67 +56,61 @@ export default function ChannelList({ channels: initialChannels, workspaceId }: 
   useEffect(() => {
     if (!user?.id || !userChannel) return
 
-    console.log('[ChannelList] Setting up channel event listeners')
-    
-    // Listen for new channel messages
+    console.log('[ChannelList] Setting up event listeners')
+
     const handleNewMessage = (data: NewChannelMessageEvent) => {
-      if (data.senderId !== user.id) {
-        console.log(`[ChannelList] Received channel message:`, data)
-        setChannels(currentChannels => {
-          // Don't mark as unread if we're currently viewing this channel
-          const isActiveChannel = params.channelSlug === data.channelName
-          if (isActiveChannel) {
-            console.log(`[ChannelList] Ignoring unread for active channel ${data.channelName}`)
-            return currentChannels
-          }
+      console.log('[ChannelList] Message handler triggered:', {
+        data,
+        currentChannels: channels,
+        userId: user.id,
+        channelRef: userChannel.name,
+        eventType: PusherEvent.NEW_CHANNEL_MESSAGE,
+        timestamp: new Date().toISOString()
+      })
 
-          return currentChannels.map(channel => {
-            if (channel.slug === data.channelName) {
-              return {
-                ...channel,
-                hasUnread: true
-              }
-            }
-            return channel
-          })
-        })
-      }
-    }
-
-    // Listen for new mentions
-    const handleNewMention = (data: NewMentionEvent) => {
-      console.log(`[ChannelList] Received mention:`, data)
       setChannels(currentChannels => {
-        // Don't increment if we're currently viewing this channel
-        const isActiveChannel = params.channelSlug === data.channelSlug
-        if (isActiveChannel) {
-          console.log(`[ChannelList] Ignoring mention for active channel ${data.channelSlug}`)
-          return currentChannels
-        }
-
-        return currentChannels.map(channel => {
-          if (channel.id === data.channelId) {
-            return {
-              ...channel,
-              mentionCount: (channel.mentionCount || 0) + 1,
-              hasMention: true,
-              hasUnread: true
-            }
-          }
-          return channel
+        console.log('[ChannelList] Updating channels:', {
+          before: currentChannels,
+          messageChannelId: data.channelId,
+          timestamp: new Date().toISOString()
         })
+        
+        const updated = currentChannels.map(channel =>
+          channel.id === data.channelId
+            ? { ...channel, hasUnread: true }
+            : channel
+        )
+        
+        console.log('[ChannelList] Channels updated:', {
+          after: updated,
+          timestamp: new Date().toISOString()
+        })
+        
+        return updated
       })
     }
 
+    const handleNewMention = (data: NewMentionEvent) => {
+      setChannels(currentChannels =>
+        currentChannels.map(channel =>
+          channel.id === data.channelId
+            ? { ...channel, hasMention: true }
+            : channel
+        )
+      )
+    }
+
+    // Bind event handlers
     userChannel.bind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
     userChannel.bind(PusherEvent.NEW_MENTION, handleNewMention)
 
-    // Clean up event listeners
+    // Cleanup function
     return () => {
+      console.log('[ChannelList] Cleaning up event listeners')
       userChannel.unbind(PusherEvent.NEW_CHANNEL_MESSAGE, handleNewMessage)
       userChannel.unbind(PusherEvent.NEW_MENTION, handleNewMention)
     }
-  }, [user?.id, userChannel, params.channelSlug])
+  }, [user?.id, userChannel])
 
   // Clear mention count when entering a channel
   useEffect(() => {

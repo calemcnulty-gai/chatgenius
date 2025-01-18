@@ -4,6 +4,8 @@ import type { InferSelectModel } from 'drizzle-orm'
 
 type UserAuth = InferSelectModel<typeof userAuth>
 
+export type UserStatus = 'active' | 'away' | 'offline'
+
 export interface User {
   id: string
   name: string
@@ -12,7 +14,7 @@ export interface User {
   displayName: string | null
   title: string | null
   timeZone: string | null
-  status: 'active' | 'away' | 'offline'
+  status: UserStatus
   isAi: boolean
   lastHeartbeat: Timestamp | null
   createdAt: Timestamp

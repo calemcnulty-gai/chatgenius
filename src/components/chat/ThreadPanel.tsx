@@ -7,7 +7,7 @@ import type { Timestamp } from '@/types/timestamp'
 import { Message } from '@/components/ui/Message'
 import { MessageInput } from '../ui/MessageInput'
 import { PusherEvent, NewThreadReplyEvent } from '@/types/events'
-import { usePusherChannel } from '@/contexts/PusherContext'
+import { useUserChannel } from '@/contexts/pusher/UserChannelContext'
 
 type ThreadPanelProps = {
   messageId: string
@@ -45,7 +45,7 @@ type ThreadReply = {
 export function ThreadPanel({ messageId, channelId, onClose }: ThreadPanelProps) {
   const [thread, setThread] = useState<ThreadData | null>(null)
   const [loading, setLoading] = useState(true)
-  const { userChannel } = usePusherChannel()
+  const { channel: userChannel } = useUserChannel()
 
   // Fetch thread data
   useEffect(() => {

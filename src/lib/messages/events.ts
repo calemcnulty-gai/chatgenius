@@ -35,7 +35,7 @@ export async function triggerMessageEvents({
       recipientId: member.userId
     })
     
-    await pusher.trigger(`private-user_${member.userId}`, PusherEvent.NEW_CHANNEL_MESSAGE, {
+    await pusher.trigger(`user-${member.userId}`, PusherEvent.NEW_CHANNEL_MESSAGE, {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,
@@ -70,7 +70,7 @@ export async function triggerThreadReplyEvent(message: MessageData) {
   })
 
   for (const member of workspaceMembers) {
-    await pusher.trigger(`private-user_${member.userId}`, PusherEvent.NEW_THREAD_REPLY, {
+    await pusher.trigger(`user-${member.userId}`, PusherEvent.NEW_THREAD_REPLY, {
       id: message.id,
       content: message.content,
       createdAt: message.createdAt,

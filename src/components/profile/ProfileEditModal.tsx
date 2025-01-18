@@ -5,7 +5,8 @@ import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { User } from '@/types/user'
 import { timezones } from '@/lib/timezones'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
+import { useUserProfile } from '@/contexts/user/UserProfileContext'
 
 interface ProfileEditModalProps {
   isOpen: boolean
@@ -13,7 +14,8 @@ interface ProfileEditModalProps {
 }
 
 export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
-  const { user, updateUser, isLoading, error, clearError } = useUser()
+  const { user } = useUserAuth()
+  const { updateProfile, isUpdating, error, clearError } = useUserProfile()
   
   const [fullName, setFullName] = useState('')
   const [displayName, setDisplayName] = useState('')
@@ -45,7 +47,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
     if (!user) return
 
     try {
-      await updateUser({
+      await updateProfile({
         name: fullName,
         displayName,
         title,
@@ -127,7 +129,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                           value={fullName}
                           onChange={(e) => setFullName(e.target.value)}
                           className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
-                          disabled={isLoading}
+                          disabled={isUpdating}
                         />
                       </div>
 
@@ -141,7 +143,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                           value={displayName}
                           onChange={(e) => setDisplayName(e.target.value)}
                           className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
-                          disabled={isLoading}
+                          disabled={isUpdating}
                         />
                         <p className="mt-1 text-sm text-gray-500">
                           This could be your first name, or a nickname — however you'd like people to refer to you.
@@ -167,7 +169,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                           type="button"
                           onClick={() => document.getElementById('photo-upload')?.click()}
                           className="mt-2 text-sm text-blue-500 hover:text-blue-400"
-                          disabled={isLoading}
+                          disabled={isUpdating}
                         >
                           Upload Photo
                         </button>
@@ -177,14 +179,14 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                           className="hidden"
                           accept="image/*"
                           onChange={handleImageUpload}
-                          disabled={isLoading}
+                          disabled={isUpdating}
                         />
                         {profileImage && (
                           <button
                             type="button"
                             onClick={() => setProfileImage(null)}
                             className="mt-1 text-sm text-gray-500 hover:text-gray-400"
-                            disabled={isLoading}
+                            disabled={isUpdating}
                           >
                             Remove Photo
                           </button>
@@ -204,7 +206,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                       onChange={(e) => setTitle(e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
                       placeholder="Title"
-                      disabled={isLoading}
+                      disabled={isUpdating}
                     />
                     <p className="mt-1 text-sm text-gray-500">
                       Let people know what you do at ChatGenius.
@@ -220,7 +222,7 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                       value={timeZone}
                       onChange={(e) => setTimeZone(e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-700 bg-gray-800 text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm px-3 py-2"
-                      disabled={isLoading}
+                      disabled={isUpdating}
                     >
                       <option value="">Select a timezone</option>
                       {timezones.map((tz) => (
@@ -242,16 +244,16 @@ export function ProfileEditModal({ isOpen, onClose }: ProfileEditModalProps) {
                       type="button"
                       onClick={onClose}
                       className="rounded-md bg-gray-700 px-4 py-2 text-sm font-medium text-white hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isLoading}
+                      disabled={isUpdating}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      disabled={isLoading}
+                      disabled={isUpdating}
                       className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
                     >
-                      {isLoading ? 'Saving...' : 'Save Changes'}
+                      {isUpdating ? 'Saving...' : 'Save Changes'}
                     </button>
                   </div>
                 </form>

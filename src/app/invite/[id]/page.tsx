@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { Loader2Icon } from 'lucide-react'
 
 export default function InvitePage({
@@ -11,7 +11,7 @@ export default function InvitePage({
   params: { id: string }
 }) {
   const router = useRouter()
-  const { user, isLoading } = useUser()
+  const { user, isLoading } = useUserAuth()
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [invite, setInvite] = useState<any>(null)

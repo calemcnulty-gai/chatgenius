@@ -1,6 +1,6 @@
 'use client'
 
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 import { NotificationBell } from '@/components/notifications/NotificationBell'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { WorkspaceSidebar } from '@/components/workspace/WorkspaceSidebar'
@@ -23,11 +23,7 @@ export function WorkspaceLayoutClient({
   dmChannels,
   children
 }: WorkspaceLayoutClientProps) {
-  const { user } = useUser()
-
-  if (!user) {
-    return null
-  }
+  const { user } = useUserAuth()
 
   const formattedDMChannels = useMemo(() => dmChannels.map(channel => ({
     ...channel,
@@ -43,6 +39,10 @@ export function WorkspaceLayoutClient({
     ...membership.user,
     status: membership.user.status as 'active' | 'away' | 'offline' || 'offline'
   })), [users])
+
+  if (!user) {
+    return null
+  }
 
   return (
     <div className="flex h-screen overflow-hidden">

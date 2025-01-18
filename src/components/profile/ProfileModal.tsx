@@ -3,7 +3,7 @@
 import { Dialog, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
 import { User } from '@/types/user'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 
 interface ProfileModalProps {
   isOpen: boolean
@@ -12,7 +12,7 @@ interface ProfileModalProps {
 }
 
 export function ProfileModal({ isOpen, onClose, user }: ProfileModalProps) {
-  const { user: currentUser } = useUser()
+  const { user: currentUser } = useUserAuth()
   const isCurrentUser = currentUser?.id === user.id
 
   return (
