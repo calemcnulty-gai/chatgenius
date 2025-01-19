@@ -40,6 +40,13 @@ export function UserChannelProvider({ children }: UserChannelProviderProps) {
   const { client, isConnected } = usePusherConnection()
   const channelState = useUserChannelSubscription(user, client, isConnected)
 
+  console.log('[UserChannelContext] Current state', { 
+    userId: user?.id,
+    isConnected,
+    subscriptionState: channelState.subscriptionState,
+    hasChannel: !!channelState.channel
+  })
+
   return (
     <UserChannelContext.Provider value={channelState}>
       {children}

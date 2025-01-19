@@ -2,7 +2,7 @@ import { db } from '@/db'
 import { workspaces, directMessageChannels, directMessageMembers, users, unreadMessages } from '@/db/schema'
 import { and, eq } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
-import { MessageList } from '@/components/chat/MessageList'
+import { MessageListServer } from '@/server-components/chat/MessageListServer'
 import { UserAvatar } from '@/components/ui/UserAvatar'
 import { getAuthenticatedUserId } from '@/lib/auth/middleware'
 import { now } from '@/types/timestamp'
@@ -100,7 +100,7 @@ export default async function DMChannelPage({
 
       {/* Messages area */}
       <div className="flex-1">
-        <MessageList channelId={channel.id} variant="dm" />
+        <MessageListServer channelId={channel.id} variant="dm" />
       </div>
     </div>
   )

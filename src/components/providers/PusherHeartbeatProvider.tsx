@@ -9,11 +9,7 @@ export function PusherHeartbeatProvider({
   children: React.ReactNode
 }) {
   const { user } = useUserAuth()
-
-  // Only use the heartbeat for authenticated users
-  if (user) {
-    usePusherHeartbeat()
-  }
+  usePusherHeartbeat(!!user)
 
   return <>{children}</>
 } 

@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useUser } from '@/contexts/UserContext'
+import { useUserAuth } from '@/contexts/user/UserAuthContext'
 
 export function useAuthSync() {
-  const { user } = useUser()
+  const { user } = useUserAuth()
 
   useEffect(() => {
     if (user) {

@@ -32,16 +32,16 @@ export function usePusherConnection() {
 interface PusherConnectionProviderProps {
   children: ReactNode
   cluster: string
-  key: string
+  apiKey: string
 }
 
 export function PusherConnectionProvider({ 
   children,
   cluster,
-  key
+  apiKey
 }: PusherConnectionProviderProps) {
   const { user } = useUserAuth()
-  const connectionState = useInitializePusherConnection(user, key, cluster)
+  const connectionState = useInitializePusherConnection(user, apiKey, cluster)
 
   return (
     <PusherConnectionContext.Provider value={connectionState}>

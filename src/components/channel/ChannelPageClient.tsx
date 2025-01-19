@@ -1,6 +1,6 @@
 'use client'
 
-import { MessageList } from '@/components/chat/MessageList'
+import { MessageListClient } from '@/components/chat/MessageListClient'
 import { ThreadPanel } from '@/components/chat/ThreadPanel'
 import { useState, useEffect, useCallback } from 'react'
 
@@ -60,7 +60,7 @@ export function ChannelPageClient({ channel }: Props) {
       {/* Messages area */}
       <div className="flex flex-1 overflow-hidden">
         <div className="flex-1">
-          <MessageList channelId={channel.id} />
+          <MessageListClient channelId={channel.id} initialMessages={[]} />
         </div>
         {activeThread && (
           <ThreadPanel

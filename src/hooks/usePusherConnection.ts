@@ -14,6 +14,8 @@ export function useInitializePusherConnection(
   key: string,
   cluster: string
 ) {
+  console.log('[PusherConnection] Hook called', { userId: user?.id })
+
   const [state, setState] = useState<PusherConnectionState>({
     client: null,
     isConnecting: false,
@@ -29,12 +31,13 @@ export function useInitializePusherConnection(
 
   const disconnect = useCallback(() => {
     if (state.client) {
+      console.log('[PusherConnection] Disconnecting')
       state.client.disconnect()
-      setState(prev => ({ 
+      setState(prev => ({
         ...prev,
         client: null,
-        isConnected: false,
-        isConnecting: false
+        isConnecting: false,
+        isConnected: false
       }))
     }
 
@@ -44,8 +47,15 @@ export function useInitializePusherConnection(
   }, [state.client])
 
   const connect = useCallback(async () => {
-    if (!user || state.isConnecting || state.isConnected) return
+    if (!user?.id || state.isConnecting) {
+      console.log('[PusherConnection] Skipping connection', { 
+        userId: user?.id, 
+        isConnecting: state.isConnecting 
+      })
+      return
+    }
 
+    console.log('[PusherConnection] Starting connection')
     setState(prev => ({ ...prev, isConnecting: true, error: null }))
 
     try {
@@ -54,17 +64,14 @@ export function useInitializePusherConnection(
         authEndpoint: '/api/pusher/auth',
         auth: {
           headers: {
-            'Content-Type': 'application/json',
-          }
-        }
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+        },
       })
 
       client.connection.bind('connected', () => {
-        setState(prev => ({ 
-          ...prev,
-          isConnected: true,
-          isConnecting: false
-        }))
+        console.log('[PusherConnection] Connected')
+        setState(prev => ({ ...prev, isConnected: true }))
 
         // Start heartbeat to keep connection alive
         heartbeatInterval.current = setInterval(() => {
@@ -73,35 +80,38 @@ export function useInitializePusherConnection(
       })
 
       client.connection.bind('disconnected', () => {
-        setState(prev => ({ 
-          ...prev,
-          isConnected: false
-        }))
+        console.log('[PusherConnection] Disconnected')
+        setState(prev => ({ ...prev, isConnected: false }))
       })
 
       client.connection.bind('error', (error: Error) => {
+        console.error('[PusherConnection] Connection error', error)
         setState(prev => ({
           ...prev,
           error: error.message,
-          isConnecting: false
+          isConnecting: false,
+          isConnected: false
         }))
       })
 
       setState(prev => ({ ...prev, client }))
     } catch (error) {
+      console.error('[PusherConnection] Connect error', error)
       setState(prev => ({
         ...prev,
-        error: error instanceof Error ? error.message : 'Failed to initialize Pusher client',
+        error: error instanceof Error ? error.message : 'Failed to connect to Pusher',
         isConnecting: false
       }))
     }
-  }, [user, state.isConnecting, state.isConnected, key, cluster])
+  }, [user?.id, key, cluster, state.isConnecting])
 
   // Auto-connect when user is available
   useEffect(() => {
     if (user) {
+      console.log('[PusherConnection] User available, attempting connect')
       connect()
     } else {
+      console.log('[PusherConnection] No user, disconnecting')
       disconnect()
     }
   }, [user, connect, disconnect])
@@ -109,6 +119,7 @@ export function useInitializePusherConnection(
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('[PusherConnection] Cleaning up connection')
       disconnect()
     }
   }, [disconnect])

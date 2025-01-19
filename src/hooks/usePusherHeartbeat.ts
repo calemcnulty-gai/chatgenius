@@ -5,12 +5,12 @@ import { pusherClient } from '@/lib/pusher'
 
 const HEARTBEAT_INTERVAL = 30000 // 30 seconds
 
-export function usePusherHeartbeat() {
+export function usePusherHeartbeat(enabled: boolean = false) {
   const heartbeatRef = useRef<NodeJS.Timeout>()
 
   useEffect(() => {
-    // Skip if no Pusher client (server-side or not initialized)
-    if (!pusherClient) return
+    // Skip if no Pusher client (server-side or not initialized) or not enabled
+    if (!pusherClient || !enabled) return
 
     // Function to send heartbeat
     const sendHeartbeat = async () => {
@@ -74,5 +74,5 @@ export function usePusherHeartbeat() {
       pusherClient.connection.unbind('connected', handleConnected)
       pusherClient.connection.unbind('disconnected', handleDisconnected)
     }
-  }, [])
+  }, [enabled]) // Add enabled to dependencies
 } 
